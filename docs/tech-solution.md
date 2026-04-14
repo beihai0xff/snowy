@@ -212,7 +212,7 @@ Snowy 采用前后端分离架构，但前端与后端代码放在同一个 git 
 ```mermaid
 graph TB
     subgraph 前端层
-        StudentWeb["学生 Web 端<br/>(React / Next.js)"]
+        SnowyWeb["学生 Web 端<br/>(React / Next.js)"]
     end
 
     subgraph API接入层
@@ -259,7 +259,7 @@ graph TB
         ObjStore[(Object Storage / MinIO)]
     end
 
-    StudentWeb -->|"HTTP / SSE"| Gateway
+    SnowyWeb -->|"HTTP / SSE"| Gateway
     Gateway --> AgentService
     Gateway --> UserSvc
 
@@ -580,7 +580,7 @@ snowy/
     proto/                     # 若后续引入 gRPC
 
   web/
-    student-web/               # 前端项目
+    snowy-web/               # 前端项目
 
   configs/
     config.yaml
@@ -617,7 +617,7 @@ snowy/
 - `internal/modeling/physics`：物理建模实现
 - `internal/modeling/biology`：生物建模实现
 - `api/openapi`：前后端共享 API 契约
-- `web/student-web`：前端独立应用
+- `web/snowy-web`：前端独立应用
 - `deployments/`：容器与 K8s 部署文件
 - `configs/`：多环境配置
 
