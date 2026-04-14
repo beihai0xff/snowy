@@ -5,7 +5,6 @@ import (
 
 	"github.com/beihai0xff/snowy/internal/config"
 	"github.com/beihai0xff/snowy/internal/middleware"
-	redisstore "github.com/beihai0xff/snowy/internal/store/redis"
 )
 
 // Handlers 聚合所有 HTTP Handler。
@@ -19,7 +18,7 @@ type Handlers struct {
 
 // NewRouter 创建 Gin 路由，组装所有路由和中间件。
 // 参考技术方案 §17 API 设计。
-func NewRouter(cfg *config.Config, h *Handlers, limiter *redisstore.RateLimiter) *gin.Engine {
+func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) *gin.Engine {
 	gin.SetMode(cfg.Server.Mode)
 	r := gin.New()
 

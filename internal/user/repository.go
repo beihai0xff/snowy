@@ -7,7 +7,7 @@ import (
 )
 
 // Repository 用户持久化端口（DDD Port）。
-// 由基础设施层（internal/store/mysql）实现。
+// 由基础设施层（internal/repo/mysql）实现。
 type Repository interface {
 	Create(ctx context.Context, u *User) error
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)

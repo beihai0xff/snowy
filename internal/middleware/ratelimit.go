@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -9,12 +10,16 @@ import (
 
 	"github.com/beihai0xff/snowy/internal/common"
 	"github.com/beihai0xff/snowy/internal/config"
-	redisstore "github.com/beihai0xff/snowy/internal/store/redis"
 )
+
+// RateLimiter 限流器接口，由基础设施层（repo/redis）实现。
+type RateLimiter interface {
+	Allow(ctx context.Context, key string, limit int, window time.Duration) (bool, error)
+}
 
 // RateLimit 限流中间件。
 // 参考技术方案 §18A.4 — 已认证 60/min，匿名 10/min。
-func RateLimit(limiter *redisstore.RateLimiter, cfg config.RateLimitConfig) gin.HandlerFunc {
+func RateLimit(limiter RateLimiter, cfg config.RateLimitConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var key string
 		var limit int

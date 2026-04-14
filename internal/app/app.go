@@ -13,8 +13,8 @@ import (
 
 	"github.com/beihai0xff/snowy/internal/config"
 	handler "github.com/beihai0xff/snowy/internal/handler/http"
-	mysqlstore "github.com/beihai0xff/snowy/internal/store/mysql"
-	redisstore "github.com/beihai0xff/snowy/internal/store/redis"
+	mysqlrepo "github.com/beihai0xff/snowy/internal/repo/mysql"
+	redisrepo "github.com/beihai0xff/snowy/internal/repo/redis"
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
@@ -31,14 +31,14 @@ func New(cfg *config.Config) (*App, error) {
 	app := &App{cfg: cfg}
 
 	// ── 1. 基础设施客户端 ──────────────────────────────
-	db, err := mysqlstore.NewDB(cfg.Database)
+	db, err := mysqlrepo.NewDB(cfg.Database)
 	if err != nil {
 		return nil, fmt.Errorf("init mysql: %w", err)
 	}
 	app.db = db
 	slog.Info("mysql connected", "host", cfg.Database.Host, "db", cfg.Database.Name)
 
-	rdb, err := redisstore.NewClient(cfg.Redis)
+	rdb, err := redisrepo.NewClient(cfg.Redis)
 	if err != nil {
 		return nil, fmt.Errorf("init redis: %w", err)
 	}
@@ -46,15 +46,15 @@ func New(cfg *config.Config) (*App, error) {
 	slog.Info("redis connected", "addr", cfg.Redis.Addr)
 
 	// ── 2. Repository 实例化 ───────────────────────────
-	userRepo := mysqlstore.NewUserRepository(db)
-	_ = mysqlstore.NewAgentSessionRepository(db)
-	_ = mysqlstore.NewAgentRunRepository(db)
-	_ = mysqlstore.NewAgentMessageRepository(db)
+	userRepo := mysqlrepo.NewUserRepository(db)
+	_ = mysqlrepo.NewAgentSessionRepository(db)
+	_ = mysqlrepo.NewAgentRunRepository(db)
+	_ = mysqlrepo.NewAgentMessageRepository(db)
 
 	// ── 3. Redis 组件 ──────────────────────────────────
-	rateLimiter := redisstore.NewRateLimiter(rdb)
-	_ = redisstore.NewCacheStore(rdb)
-	_ = redisstore.NewSessionStore(rdb)
+	rateLimiter := redisrepo.NewRateLimiter(rdb)
+	_ = redisrepo.NewCacheStore(rdb)
+	_ = redisrepo.NewSessionStore(rdb)
 
 	// ── 4. Provider 实例化 ─────────────────────────────
 	// TODO: 初始化 LLM / Embedding / OpenSearch / MinIO providers
