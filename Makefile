@@ -6,7 +6,7 @@
 #    make help          — 查看所有可用目标
 #    make build         — 编译全部 Go 二进制
 #    make test          — 运行测试
-#    make docker-up     — 启动基础设施 (PG/Redis/OpenSearch/MinIO/...)
+#    make docker-up     — 启动基础设施 (MySQL/Redis/OpenSearch/MinIO/...)
 #    make docker-build  — 构建应用 Docker 镜像
 #    make run-api       — 本地运行 API 服务
 # ============================================================
@@ -24,7 +24,7 @@ BIN_DIR        := $(ROOT_DIR)/bin
 CMD_DIR        := $(ROOT_DIR)/cmd
 DEPLOY_DIR     := $(ROOT_DIR)/deployments/docker
 CONFIG_DIR     := $(ROOT_DIR)/configs
-MIGRATION_DIR  := $(ROOT_DIR)/internal/store/postgres/migrations
+MIGRATION_DIR  := $(ROOT_DIR)/internal/store/mysql/migrations
 
 # ── Go 参数 ─────────────────────────────────────────────────
 GO             := go
@@ -48,12 +48,11 @@ SQLC           := $(shell command -v sqlc 2>/dev/null)
 
 # ── 数据库 (本地开发默认值) ─────────────────────────────────
 DB_HOST        ?= localhost
-DB_PORT        ?= 5432
+DB_PORT        ?= 3306
 DB_USER        ?= snowy
 DB_PASSWORD    ?= snowy_secret
 DB_NAME        ?= snowy
-DB_SSL         ?= disable
-DATABASE_URL   ?= postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSL)
+DATABASE_URL   ?= mysql://$(DB_USER):$(DB_PASSWORD)@tcp($(DB_HOST):$(DB_PORT))/$(DB_NAME)
 
 # ── 颜色 ────────────────────────────────────────────────────
 GREEN  := \033[0;32m
@@ -146,13 +145,13 @@ vet:
 
 .PHONY: docker-up docker-down docker-ps docker-logs docker-clean
 
-## docker-up: 启动全部基础设施 (PostgreSQL/Redis/OpenSearch/MinIO/Prometheus/Grafana)
+## docker-up: 启动全部基础设施 (MySQL/Redis/OpenSearch/MinIO/Prometheus/Grafana)
 docker-up:
 	@echo "$(CYAN)▸ Starting infrastructure...$(RESET)"
 	$(DOCKER_COMPOSE) up -d
 	@echo "$(CYAN)✓ Infrastructure is up$(RESET)"
 	@echo ""
-	@echo "  PostgreSQL : localhost:5432"
+	@echo "  MySQL      : localhost:3306"
 	@echo "  Redis      : localhost:6379"
 	@echo "  OpenSearch : localhost:9200"
 	@echo "  OS Dashboard: localhost:5601"
@@ -219,7 +218,7 @@ docker-run-api:
 		--name snowy-api \
 		--network $(PROJECT_NAME)_default \
 		-p 8080:8080 \
-		-e DATABASE_URL="postgres://$(DB_USER):$(DB_PASSWORD)@snowy-postgres:5432/$(DB_NAME)?sslmode=$(DB_SSL)" \
+		-e DATABASE_URL="mysql://$(DB_USER):$(DB_PASSWORD)@tcp(snowy-mysql:3306)/$(DB_NAME)" \
 		-e REDIS_ADDR="snowy-redis:6379" \
 		-e OPENSEARCH_URL="http://snowy-opensearch:9200" \
 		-e MINIO_ENDPOINT="snowy-minio:9000" \
@@ -232,7 +231,7 @@ docker-run-worker:
 		--name snowy-worker \
 		--network $(PROJECT_NAME)_default \
 		-p 8081:8081 \
-		-e DATABASE_URL="postgres://$(DB_USER):$(DB_PASSWORD)@snowy-postgres:5432/$(DB_NAME)?sslmode=$(DB_SSL)" \
+		-e DATABASE_URL="mysql://$(DB_USER):$(DB_PASSWORD)@tcp(snowy-mysql:3306)/$(DB_NAME)" \
 		-e REDIS_ADDR="snowy-redis:6379" \
 		-e OPENSEARCH_URL="http://snowy-opensearch:9200" \
 		-e MINIO_ENDPOINT="snowy-minio:9000" \
@@ -283,7 +282,7 @@ dev: docker-up run-api
 migrate-up:
 ifndef MIGRATE
 	@echo "$(YELLOW)▸ Installing golang-migrate...$(RESET)"
-	@go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+	@go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 endif
 	@echo "$(GREEN)▸ Running migrations up...$(RESET)"
 	migrate -path $(MIGRATION_DIR) -database "$(DATABASE_URL)" up
@@ -364,7 +363,7 @@ vendor:
 tools:
 	@echo "$(GREEN)▸ Installing dev tools...$(RESET)"
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+	go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 	go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 	@echo "$(GREEN)✓ All tools installed$(RESET)"
 

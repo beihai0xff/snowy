@@ -1,0 +1,11 @@
+version: "2"
+sql:
+  - engine: "mysql"
+    queries: "internal/store/mysql/query/"
+    schema: "internal/store/mysql/migrations/"
+    gen:
+      go:
+        package: "dbgen"
+        out: "internal/store/mysql/dbgen"
+        emit_json_tags: true
+        emit_empty_slices: true

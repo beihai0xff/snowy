@@ -1,0 +1,87 @@
+# Snowy 默认配置 — 参考技术方案 §6 & §18
+server:
+  host: "0.0.0.0"
+  port: 8080
+  mode: "release"                  # debug / release / test
+  read_timeout: 30s
+  write_timeout: 60s
+  shutdown_timeout: 10s
+
+database:
+  host: "localhost"
+  port: 3306
+  user: "snowy"
+  password: "snowy_secret"
+  name: "snowy"
+  charset: "utf8mb4"
+  parse_time: true
+  loc: "Local"
+  max_open_conns: 25
+  max_idle_conns: 10
+  conn_max_lifetime: 30m
+
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+  pool_size: 20
+
+opensearch:
+  addresses:
+    - "http://localhost:9200"
+  username: "admin"
+  password: "admin"
+  insecure_skip_verify: true
+
+minio:
+  endpoint: "localhost:9000"
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+  bucket: "snowy"
+  use_ssl: false
+
+llm:
+  primary:
+    provider: "openai"
+    model: "gpt5"
+    api_key: ""
+    base_url: "https://api.openai.com/v1"
+    timeout: 30s
+    max_retries: 2
+  fallback:
+    provider: "google"
+    model: "gemini3"
+    api_key: ""
+    base_url: "https://generativelanguage.googleapis.com/v1"
+    timeout: 30s
+    max_retries: 2
+
+embedding:
+  provider: "openai"
+  model: "text-embedding-3-large"
+  api_key: ""
+  base_url: "https://api.openai.com/v1"
+  dimensions: 3072
+
+auth:
+  jwt_secret: "change-me-in-production"
+  access_token_ttl: 30m
+  refresh_token_ttl: 168h           # 7 days
+
+ratelimit:
+  authenticated_rpm: 60              # 已认证用户 60 次/分钟
+  anonymous_rpm: 10                  # 匿名用户 10 次/分钟
+
+token_budget:
+  per_request_input: 4096
+  per_request_output: 4096
+  per_session: 51200
+  per_user_daily: 204800
+
+observability:
+  otel_endpoint: "localhost:4317"
+  prometheus_path: "/metrics"
+  log_level: "info"                  # debug / info / warn / error
+  log_format: "json"                 # json / text
+
+
