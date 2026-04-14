@@ -1,0 +1,45 @@
+# Snowy — Prometheus 配置
+# 参考技术方案 §20 可观测性设计
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Prometheus 自身
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Snowy API 服务 (Go + Gin + Prometheus exporter)
+  - job_name: "snowy-api"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:8080"]
+        labels:
+          service: "snowy-api"
+
+  # Snowy Worker 服务 (Asynq Worker)
+  - job_name: "snowy-worker"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:8081"]
+        labels:
+          service: "snowy-worker"
+
+  # Redis Exporter（如需独立部署可取消注释）
+  # - job_name: "redis"
+  #   static_configs:
+  #     - targets: ["redis-exporter:9121"]
+
+  # PostgreSQL Exporter（如需独立部署可取消注释）
+  # - job_name: "postgres"
+  #   static_configs:
+  #     - targets: ["postgres-exporter:9187"]
+
+  # OpenSearch（通过 REST API 采集）
+  # - job_name: "opensearch"
+  #   metrics_path: /_prometheus/metrics
+  #   static_configs:
+  #     - targets: ["opensearch:9200"]
+
