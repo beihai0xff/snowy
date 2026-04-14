@@ -1,0 +1,191 @@
+# Snowy - Local Development Docker Compose
+# 参考技术方案 §6 技术栈选型 & §18 数据库与存储设计
+#
+# 包含服务:
+#   - PostgreSQL  : 主数据库（用户、会话、Agent 记录、内容元数据等）
+#   - Redis       : 缓存 + Asynq 异步任务队列
+#   - OpenSearch  : 全文 + 向量 + 混合检索
+#   - MinIO       : S3 兼容对象存储（开发环境替代）
+#   - Prometheus  : 指标采集
+#   - Grafana     : 可视化仪表盘
+
+services:
+  # ──────────────────────────────────────────────
+  # PostgreSQL — 主数据库
+  # ──────────────────────────────────────────────
+  postgres:
+    image: postgres:17
+    container_name: snowy-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: snowy
+      POSTGRES_PASSWORD: snowy_secret
+      POSTGRES_DB: snowy
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U snowy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────
+  # Redis — 缓存 / 会话上下文 / 限流计数 / Asynq 队列
+  # ──────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: snowy-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────
+  # OpenSearch — 全文检索 + 向量检索 + 混合检索
+  # ──────────────────────────────────────────────
+  opensearch:
+    image: opensearchproject/opensearch:2.19.1
+    container_name: snowy-opensearch
+    restart: unless-stopped
+    environment:
+      - cluster.name=snowy-cluster
+      - node.name=snowy-node-1
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      # 开发环境关闭安全插件，简化调试
+      - DISABLE_SECURITY_PLUGIN=true
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "9200:9200"   # REST API
+      - "9600:9600"   # Performance Analyzer
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # OpenSearch Dashboards — 可视化管理界面
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.19.1
+    container_name: snowy-opensearch-dashboards
+    restart: unless-stopped
+    environment:
+      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    ports:
+      - "5601:5601"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+  # ──────────────────────────────────────────────
+  # MinIO — S3 兼容对象存储（开发环境）
+  # 用于原始内容文件、图表快照、结构图导出、异步生成产物
+  # ──────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: snowy-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: snowy_admin
+      MINIO_ROOT_PASSWORD: snowy_minio_secret
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web Console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 初始化 MinIO 默认 Bucket
+  minio-init:
+    image: minio/mc:latest
+    container_name: snowy-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set snowy http://minio:9000 snowy_admin snowy_minio_secret &&
+      mc mb --ignore-existing snowy/snowy-content &&
+      mc mb --ignore-existing snowy/snowy-charts &&
+      mc mb --ignore-existing snowy/snowy-exports &&
+      echo 'MinIO buckets initialized.'
+      "
+    restart: "no"
+
+  # ──────────────────────────────────────────────
+  # Prometheus — 指标采集
+  # ──────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: snowy-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  # ──────────────────────────────────────────────
+  # Grafana — 可视化仪表盘
+  # ──────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: snowy-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: snowy_grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  opensearch_data:
+    driver: local
+  minio_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+

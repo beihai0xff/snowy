@@ -1,21 +1,99 @@
-MIT License
+Snowy Non-Commercial License 1.0
 
 Copyright (c) 2026 beihai
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This license applies to the Snowy source code and all associated files in this
+repository, unless a different license is explicitly stated in a specific file
+or directory.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. Definitions
+
+"Software" means the source code, configuration, scripts, documentation, and
+other materials contained in this repository.
+
+"Non-Commercial Use" means use for personal learning, teaching, academic
+research, open technical evaluation, internal non-production verification, or
+other activities that do not provide direct or indirect commercial advantage,
+revenue, paid service capability, or business benefit.
+
+"Commercial Use" includes, but is not limited to:
+
+- selling, licensing, sublicensing, or redistributing the Software for a fee;
+- providing the Software, or a modified version of it, as part of a paid or
+  revenue-generating product or service;
+- hosting or operating the Software for customers, clients, or third parties;
+- using the Software internally within a for-profit organization for production,
+  business operations, or commercial service delivery;
+- integrating the Software into commercial SaaS, API, on-premise offerings, or
+  other commercial software or hardware products;
+- offering paid support, consulting, customization, or deployment services
+  primarily based on the Software.
+
+2. License Grant
+
+Subject to the terms of this license, you are granted a limited,
+non-exclusive, non-transferable, revocable license to:
+
+- use, copy, and run the Software for Non-Commercial Use;
+- modify the Software for Non-Commercial Use;
+- share or redistribute the original or modified Software for Non-Commercial
+  Use only.
+
+3. Conditions
+
+If you use, copy, modify, or redistribute the Software, you must:
+
+- retain this license text and all copyright notices;
+- clearly indicate significant modifications you make;
+- not misrepresent modified versions as the original official version;
+- ensure that any redistribution is also limited to Non-Commercial Use.
+
+4. Commercial Use Prohibited
+
+You may not use the Software for Commercial Use without prior written
+permission from the copyright holder.
+
+Without such permission, you may not:
+
+- sell or commercially distribute the Software or derivative works;
+- provide hosted access, managed service, or SaaS access based on the Software;
+- embed the Software into a commercial offering;
+- use the Software in a production environment for commercial gain;
+- remove, alter, or obscure copyright or license notices.
+
+5. Commercial Licensing
+
+If you need Commercial Use rights, you must obtain a separate commercial
+license or explicit written authorization from the copyright holder.
+
+6. Termination
+
+Any use of the Software outside the scope of this license automatically
+terminates your rights under this license.
+
+Upon termination, you must stop using and distributing the Software and delete
+all copies under your control, unless otherwise required by law.
+
+7. No Trademark Rights
+
+This license does not grant any right to use the name "Snowy", the project
+name, logo, branding, or the names of the contributors for endorsement,
+promotion, or marketing without prior written permission.
+
+8. Disclaimer of Warranty
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NONINFRINGEMENT.
+
+9. Limitation of Liability
+
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR
+OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE
+OR OTHER DEALINGS IN THE SOFTWARE.
+
+10. Acceptance
+
+By using, copying, modifying, or distributing the Software, you agree to be
+bound by the terms of this license.
