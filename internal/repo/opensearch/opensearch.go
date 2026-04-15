@@ -15,10 +15,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/beihai0xff/snowy/internal/content"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 	internalsearch "github.com/beihai0xff/snowy/internal/repo/search"
-	"github.com/google/uuid"
 )
 
 // OpenSearchAdapter OpenSearch 搜索适配器。

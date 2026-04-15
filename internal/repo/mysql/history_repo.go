@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/beihai0xff/snowy/internal/user"
 	"github.com/google/uuid"
+
+	"github.com/beihai0xff/snowy/internal/user"
 )
 
 // historyRepo 实现 user.HistoryRepository 接口。

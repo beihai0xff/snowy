@@ -3,11 +3,12 @@ package http
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
 	"github.com/beihai0xff/snowy/internal/user"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // UserHandler 用户 HTTP Handler。

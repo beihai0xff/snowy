@@ -46,7 +46,13 @@ func TestOpenSearchAdapterIntegration(t *testing.T) {
 
 	require.NoError(t, adapter.Index(ctx, chunks))
 
-	results, total, err := adapter.Search(ctx, &internalsearch.ParsedQuery{Original: "牛顿第二定律"}, internalsearch.Filters{Subject: "physics"}, 0, 10)
+	results, total, err := adapter.Search(
+		ctx,
+		&internalsearch.ParsedQuery{Original: "牛顿第二定律"},
+		internalsearch.Filters{Subject: "physics"},
+		0,
+		10,
+	)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(1))
 	assert.NotEmpty(t, results)
@@ -60,7 +66,13 @@ func TestOpenSearchAdapterIntegration(t *testing.T) {
 
 	require.NoError(t, adapter.Delete(ctx, docID.String()))
 
-	results, total, err = adapter.Search(ctx, &internalsearch.ParsedQuery{Original: "牛顿第二定律"}, internalsearch.Filters{Subject: "physics"}, 0, 10)
+	results, total, err = adapter.Search(
+		ctx,
+		&internalsearch.ParsedQuery{Original: "牛顿第二定律"},
+		internalsearch.Filters{Subject: "physics"},
+		0,
+		10,
+	)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), total)
 	assert.Empty(t, results)
@@ -99,7 +111,13 @@ func TestOpenSearchAdapter_FilterByChapterIntegration(t *testing.T) {
 
 	require.NoError(t, adapter.Index(ctx, chunks))
 
-	results, total, err := adapter.Search(ctx, &internalsearch.ParsedQuery{Original: "需要"}, internalsearch.Filters{Subject: "biology", Chapter: "photosynthesis"}, 0, 10)
+	results, total, err := adapter.Search(
+		ctx,
+		&internalsearch.ParsedQuery{Original: "需要"},
+		internalsearch.Filters{Subject: "biology", Chapter: "photosynthesis"},
+		0,
+		10,
+	)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), total)
 	assert.Len(t, results, 1)
@@ -139,7 +157,13 @@ func TestOpenSearchAdapter_VectorRetrievalIntegration(t *testing.T) {
 
 	require.NoError(t, adapter.Index(ctx, chunks))
 
-	results, total, err := adapter.Search(ctx, &internalsearch.ParsedQuery{Embedding: []float64{1, 0, 0, 0}}, internalsearch.Filters{}, 0, 10)
+	results, total, err := adapter.Search(
+		ctx,
+		&internalsearch.ParsedQuery{Embedding: []float64{1, 0, 0, 0}},
+		internalsearch.Filters{},
+		0,
+		10,
+	)
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), total)
 	assert.NotEmpty(t, results)

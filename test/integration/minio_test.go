@@ -53,14 +53,33 @@ func TestMinIOStorageMultipleObjectsIntegration(t *testing.T) {
 		key     string
 		payload string
 	}{
-		{name: "content", bucket: "snowy-content", key: "content/" + uuid.NewString() + ".md", payload: "content-payload"},
-		{name: "charts", bucket: "snowy-charts", key: "charts/" + uuid.NewString() + ".json", payload: `{"chart":true}`},
-		{name: "exports", bucket: "snowy-exports", key: "exports/" + uuid.NewString() + ".txt", payload: "export-payload"},
+		{
+			name:    "content",
+			bucket:  "snowy-content",
+			key:     "content/" + uuid.NewString() + ".md",
+			payload: "content-payload",
+		},
+		{
+			name:    "charts",
+			bucket:  "snowy-charts",
+			key:     "charts/" + uuid.NewString() + ".json",
+			payload: `{"chart":true}`,
+		},
+		{
+			name:    "exports",
+			bucket:  "snowy-exports",
+			key:     "exports/" + uuid.NewString() + ".txt",
+			payload: "export-payload",
+		},
 	}
 
 	for _, tt := range tests {
 		store := storage.NewMinIOStorage(integrationMinIOBucketConfig(tt.bucket))
-		require.NoError(t, store.Upload(ctx, tt.key, strings.NewReader(tt.payload), "application/octet-stream"), tt.name)
+		require.NoError(
+			t,
+			store.Upload(ctx, tt.key, strings.NewReader(tt.payload), "application/octet-stream"),
+			tt.name,
+		)
 		reader, err := store.Download(ctx, tt.key)
 		require.NoError(t, err)
 		body, err := io.ReadAll(reader)

@@ -12,9 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/beihai0xff/snowy/internal/pkg/config"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+
+	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
 // ObjectStorage 对象存储统一接口。

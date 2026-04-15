@@ -3,11 +3,12 @@ package http
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
 	"github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 	physicssvc "github.com/beihai0xff/snowy/internal/modeling/physics/service"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
-	"github.com/gin-gonic/gin"
 )
 
 // PhysicsHandler 物理建模 HTTP Handler。

@@ -211,7 +211,9 @@ func applyMySQLMigrations(ctx context.Context, db *sql.DB) error {
 		return fmt.Errorf("get wd: %w", err)
 	}
 
-	migrationPath := filepath.Clean(filepath.Join(wd, "..", "..", "internal", "repo", "mysql", "migrations", "000001_init_schema.up.sql"))
+	migrationPath := filepath.Clean(
+		filepath.Join(wd, "..", "..", "internal", "repo", "mysql", "migrations", "000001_init_schema.up.sql"),
+	)
 	content, err := os.ReadFile(migrationPath)
 	if err != nil {
 		return fmt.Errorf("read migration file: %w", err)
@@ -357,7 +359,12 @@ func resetOpenSearchOnce(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("marshal opensearch create payload: %w", err)
 	}
-	createReq, err := http.NewRequestWithContext(ctx, http.MethodPut, endpoint+"/"+indexName, strings.NewReader(string(body)))
+	createReq, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPut,
+		endpoint+"/"+indexName,
+		strings.NewReader(string(body)),
+	)
 	if err != nil {
 		return fmt.Errorf("create opensearch create request: %w", err)
 	}
@@ -372,7 +379,11 @@ func resetOpenSearchOnce(ctx context.Context) error {
 	defer createResp.Body.Close()
 	if createResp.StatusCode >= http.StatusBadRequest {
 		respBody, _ := io.ReadAll(createResp.Body)
-		return fmt.Errorf("create opensearch index status %d: %s", createResp.StatusCode, strings.TrimSpace(string(respBody)))
+		return fmt.Errorf(
+			"create opensearch index status %d: %s",
+			createResp.StatusCode,
+			strings.TrimSpace(string(respBody)),
+		)
 	}
 	return nil
 }

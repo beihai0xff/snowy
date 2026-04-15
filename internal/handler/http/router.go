@@ -1,9 +1,10 @@
 package http
 
 import (
+	"github.com/gin-gonic/gin"
+
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 	"github.com/beihai0xff/snowy/internal/pkg/middleware"
-	"github.com/gin-gonic/gin"
 )
 
 // Handlers 聚合所有 HTTP Handler。

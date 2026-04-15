@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	"github.com/beihai0xff/snowy/internal/pkg/common"
 	"github.com/gin-gonic/gin"
+
+	"github.com/beihai0xff/snowy/internal/pkg/common"
 )
 
 // Recovery panic 恢复中间件，返回结构化错误。

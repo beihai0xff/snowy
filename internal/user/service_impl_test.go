@@ -90,7 +90,11 @@ func (m *mockHistRepo) Add(ctx context.Context, item *HistoryItem) error {
 	return nil
 }
 
-func (m *mockHistRepo) ListByUser(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*HistoryItem, int64, error) {
+func (m *mockHistRepo) ListByUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	offset, limit int,
+) ([]*HistoryItem, int64, error) {
 	if m.listByUserFn != nil {
 		return m.listByUserFn(ctx, userID, offset, limit)
 	}

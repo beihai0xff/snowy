@@ -8,13 +8,14 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/gin-gonic/gin"
+	goredis "github.com/redis/go-redis/v9"
+
 	handler "github.com/beihai0xff/snowy/internal/handler/http"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 	mysqlrepo "github.com/beihai0xff/snowy/internal/repo/mysql"
 	redisrepo "github.com/beihai0xff/snowy/internal/repo/redis"
 	"github.com/beihai0xff/snowy/internal/user"
-	"github.com/gin-gonic/gin"
-	goredis "github.com/redis/go-redis/v9"
 )
 
 // App 应用实例，持有所有依赖。

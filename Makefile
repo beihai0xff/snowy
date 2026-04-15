@@ -46,6 +46,9 @@ IMAGE_WORKER   := $(if $(DOCKER_REG),$(DOCKER_REG)/)$(PROJECT_NAME)-worker:$(VER
 GOLANGCI_LINT  := $(shell command -v golangci-lint 2>/dev/null)
 MIGRATE        := $(shell command -v migrate 2>/dev/null)
 SQLC           := $(shell command -v sqlc 2>/dev/null)
+GOLANGCI_CONFIG := $(ROOT_DIR)/.golangci.yml
+GOLANGCI_FMT_CMD := golangci-lint fmt -c $(GOLANGCI_CONFIG)
+GOLANGCI_RUN_CMD := golangci-lint run -c $(GOLANGCI_CONFIG) ./...
 
 # ── 数据库 (本地开发默认值) ─────────────────────────────────
 DB_HOST        ?= localhost
@@ -100,7 +103,7 @@ clean:
 #  Test & Lint
 # ============================================================
 
-.PHONY: test test-unit test-integration test-e2e test-coverage lint fmt vet test-deps-up test-deps-down
+.PHONY: test test-unit test-integration test-e2e test-coverage lint fmt vet test-deps-up test-deps-down ensure-golangci-lint
 
 ## test: 运行单元测试
 test: test-unit
@@ -128,19 +131,22 @@ test-coverage:
 	$(GO) tool cover -html=$(BIN_DIR)/coverage.out -o $(BIN_DIR)/coverage.html
 	@echo "$(GREEN)✓ Coverage report: $(BIN_DIR)/coverage.html$(RESET)"
 
+## ensure-golangci-lint: 确保 golangci-lint 已安装
+ensure-golangci-lint:
+	@if ! command -v golangci-lint >/dev/null 2>&1; then \
+		echo "$(YELLOW)▸ Installing golangci-lint...$(RESET)"; \
+		go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; \
+	fi
+
 ## lint: 运行 golangci-lint
-lint:
-ifndef GOLANGCI_LINT
-	@echo "$(YELLOW)▸ Installing golangci-lint...$(RESET)"
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-endif
+lint: ensure-golangci-lint
 	@echo "$(GREEN)▸ Running linter...$(RESET)"
-	golangci-lint run ./...
+	$(GOLANGCI_RUN_CMD)
 
 ## fmt: 格式化代码
-fmt:
+fmt: ensure-golangci-lint
 	@echo "$(GREEN)▸ Formatting code...$(RESET)"
-	$(GO) fmt ./...
+	$(GOLANGCI_FMT_CMD)
 	@echo "$(GREEN)✓ Formatted$(RESET)"
 
 ## vet: 静态分析

@@ -1,4 +1,3 @@
-//nolint:revive // http is the transport-layer package name for this adapter set.
 package http
 
 import (

@@ -6,10 +6,11 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/beihai0xff/snowy/internal/pkg/common"
-	"github.com/beihai0xff/snowy/internal/pkg/config"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/beihai0xff/snowy/internal/pkg/common"
+	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
 // Auth JWT 鉴权中间件。

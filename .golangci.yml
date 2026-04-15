@@ -162,8 +162,14 @@ formatters:
     - gofumpt
     - golines
   settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/beihai0xff/snowy)
     goimports:
-      local-prefixes: []
+      local-prefixes:
+        - github.com/beihai0xff/snowy
     golines:
       max-len: 120
       tab-len: 4

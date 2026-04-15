@@ -5,11 +5,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+
 	"github.com/beihai0xff/snowy/internal/agent"
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // AgentHandler Agent 会话 HTTP Handler。

@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/beihai0xff/snowy/internal/pkg/common"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
-	"github.com/gin-gonic/gin"
 )
 
 // RateLimiter 限流器接口，由基础设施层（repo/redis）实现。

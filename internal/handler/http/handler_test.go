@@ -38,19 +38,32 @@ type mockUserService struct {
 func (m *mockUserService) Register(ctx context.Context, phone, nickname string) (*user.User, error) {
 	return m.registerFn(ctx, phone, nickname)
 }
+
 func (m *mockUserService) Login(ctx context.Context, phone, code string) (string, string, error) {
 	return m.loginFn(ctx, phone, code)
 }
+
 func (m *mockUserService) GetProfile(ctx context.Context, userID uuid.UUID) (*user.User, error) {
 	return m.getProfileFn(ctx, userID)
 }
-func (m *mockUserService) GetHistory(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*user.HistoryItem, int64, error) {
+
+func (m *mockUserService) GetHistory(
+	ctx context.Context,
+	userID uuid.UUID,
+	offset, limit int,
+) ([]*user.HistoryItem, int64, error) {
 	return m.getHistoryFn(ctx, userID, offset, limit)
 }
+
 func (m *mockUserService) AddFavorite(ctx context.Context, fav *user.Favorite) error {
 	return m.addFavoriteFn(ctx, fav)
 }
-func (m *mockUserService) ListFavorites(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*user.Favorite, int64, error) {
+
+func (m *mockUserService) ListFavorites(
+	ctx context.Context,
+	userID uuid.UUID,
+	offset, limit int,
+) ([]*user.Favorite, int64, error) {
 	return m.listFavoritesFn(ctx, userID, offset, limit)
 }
 
@@ -62,6 +75,7 @@ type mockAgentService struct {
 func (m *mockAgentService) Chat(ctx context.Context, req *agent.ChatRequest) (*agent.ChatResponse, error) {
 	return m.chatFn(ctx, req)
 }
+
 func (m *mockAgentService) ChatStream(ctx context.Context, req *agent.ChatRequest, events chan<- agent.SSEEvent) error {
 	return m.chatStreamFn(ctx, req, events)
 }
@@ -84,13 +98,20 @@ type mockSessionRepo struct {
 func (m *mockSessionRepo) Create(ctx context.Context, s *agent.Session) error {
 	return m.createFn(ctx, s)
 }
+
 func (m *mockSessionRepo) GetByID(ctx context.Context, id uuid.UUID) (*agent.Session, error) {
 	return m.getByIDFn(ctx, id)
 }
+
 func (m *mockSessionRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
 	return m.updateFn(ctx, id, status)
 }
-func (m *mockSessionRepo) ListByUser(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*agent.Session, int64, error) {
+
+func (m *mockSessionRepo) ListByUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	offset, limit int,
+) ([]*agent.Session, int64, error) {
 	return m.listByUserFn(ctx, userID, offset, limit)
 }
 
@@ -102,7 +123,12 @@ type mockMessageRepo struct {
 func (m *mockMessageRepo) Save(ctx context.Context, msg *agent.Message) error {
 	return m.saveFn(ctx, msg)
 }
-func (m *mockMessageRepo) ListBySession(ctx context.Context, sessionID uuid.UUID, offset, limit int) ([]*agent.Message, int64, error) {
+
+func (m *mockMessageRepo) ListBySession(
+	ctx context.Context,
+	sessionID uuid.UUID,
+	offset, limit int,
+) ([]*agent.Message, int64, error) {
 	return m.listBySessionFn(ctx, sessionID, offset, limit)
 }
 

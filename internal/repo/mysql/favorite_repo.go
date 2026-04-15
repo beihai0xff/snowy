@@ -6,8 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/beihai0xff/snowy/internal/user"
 	"github.com/google/uuid"
+
+	"github.com/beihai0xff/snowy/internal/user"
 )
 
 // favoriteRepo 实现 user.FavoriteRepository 接口。

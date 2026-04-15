@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/beihai0xff/snowy/internal/user"
 	"github.com/google/uuid"
+
+	"github.com/beihai0xff/snowy/internal/user"
 )
 
 // userRepo 实现 user.Repository 接口。
