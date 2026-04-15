@@ -35,3 +35,15 @@ func (m *jsonMap) Scan(src any) error {
 	}
 	return json.Unmarshal(b, m)
 }
+
+// jsonValueOf serializes any value to JSON []byte for storage in a JSON column.
+func jsonValueOf(v any) driver.Value {
+	if v == nil {
+		return nil
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil
+	}
+	return b
+}

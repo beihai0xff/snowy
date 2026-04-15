@@ -1,0 +1,31 @@
+# Git
+.git/
+.gitignore
+
+# Build artifacts
+bin/
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Frontend (独立构建)
+web/
+
+# Test & Docs
+test/
+docs/
+*.md
+!README.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+deployments/docker/docker-compose.yml
+deployments/docker/prometheus.yml
+

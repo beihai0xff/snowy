@@ -47,9 +47,11 @@ func New(cfg *config.Config) (*App, error) {
 
 	// ── 2. Repository 实例化 ───────────────────────────
 	userRepo := mysqlrepo.NewUserRepository(db)
-	_ = mysqlrepo.NewAgentSessionRepository(db)
+	favoriteRepo := mysqlrepo.NewFavoriteRepository(db)
+	historyRepo := mysqlrepo.NewHistoryRepository(db)
+	sessionRepo := mysqlrepo.NewAgentSessionRepository(db)
+	messageRepo := mysqlrepo.NewAgentMessageRepository(db)
 	_ = mysqlrepo.NewAgentRunRepository(db)
-	_ = mysqlrepo.NewAgentMessageRepository(db)
 
 	// ── 3. Redis 组件 ──────────────────────────────────
 	rateLimiter := redisrepo.NewRateLimiter(rdb)
@@ -60,17 +62,17 @@ func New(cfg *config.Config) (*App, error) {
 	// TODO: 初始化 LLM / Embedding / OpenSearch / MinIO providers
 
 	// ── 5. Domain Service 实例化 ───────────────────────
-	// User Service — FavoriteRepo/HistoryRepo 暂传 nil，后续补充实现
-	userSvc := user.NewService(userRepo, nil, nil, cfg.Auth)
+	// User Service
+	userSvc := user.NewService(userRepo, favoriteRepo, historyRepo, cfg.Auth)
 
 	// TODO: 初始化 Search / Physics / Biology / Agent Services
 
 	// ── 6. Handler 实例化 ──────────────────────────────
 	handlers := &handler.Handlers{
-		Agent:   handler.NewAgentHandler(nil),   // TODO: 注入 Agent Service
-		Search:  handler.NewSearchHandler(nil),  // TODO: 注入 Search Service
-		Physics: handler.NewPhysicsHandler(nil), // TODO: 注入 Physics Service
-		Biology: handler.NewBiologyHandler(nil), // TODO: 注入 Biology Service
+		Agent:   handler.NewAgentHandler(nil, sessionRepo, messageRepo), // TODO: 注入 Agent Service
+		Search:  handler.NewSearchHandler(nil),                          // TODO: 注入 Search Service
+		Physics: handler.NewPhysicsHandler(nil),                         // TODO: 注入 Physics Service
+		Biology: handler.NewBiologyHandler(nil),                         // TODO: 注入 Biology Service
 		User:    handler.NewUserHandler(userSvc),
 	}
 

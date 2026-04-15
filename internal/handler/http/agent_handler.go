@@ -3,8 +3,10 @@ package http
 import (
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/beihai0xff/snowy/internal/agent"
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
@@ -14,12 +16,18 @@ import (
 // AgentHandler Agent 会话 HTTP Handler。
 // 参考技术方案 §17.1 & §17.6。
 type AgentHandler struct {
-	agentSvc agent.Service
+	agentSvc    agent.Service
+	sessionRepo agent.SessionRepository
+	messageRepo agent.MessageRepository
 }
 
 // NewAgentHandler 创建 AgentHandler。
-func NewAgentHandler(agentSvc agent.Service) *AgentHandler {
-	return &AgentHandler{agentSvc: agentSvc}
+func NewAgentHandler(agentSvc agent.Service, sessionRepo agent.SessionRepository, messageRepo agent.MessageRepository) *AgentHandler {
+	return &AgentHandler{
+		agentSvc:    agentSvc,
+		sessionRepo: sessionRepo,
+		messageRepo: messageRepo,
+	}
 }
 
 // Chat POST /api/v1/agent/chat — 统一会话入口（支持 SSE）。
@@ -90,18 +98,85 @@ func (h *AgentHandler) chatStream(c *gin.Context, req *dto.ChatReq) {
 
 // CreateSession POST /api/v1/agent/sessions — 创建会话。
 func (h *AgentHandler) CreateSession(c *gin.Context) {
-	// TODO: 创建 Agent Session
-	c.JSON(http.StatusOK, common.Success(nil))
+	var req dto.CreateSessionReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+		return
+	}
+
+	userID := common.UserIDFromContext(c.Request.Context())
+	uid, _ := uuid.Parse(userID)
+
+	session := &agent.Session{
+		ID:        uuid.New(),
+		UserID:    uid,
+		Mode:      agent.Mode(req.Mode),
+		Status:    "active",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	if err := h.sessionRepo.Create(c.Request.Context(), session); err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
+		return
+	}
+
+	c.JSON(http.StatusCreated, common.Success(dto.SessionResp{
+		ID:        session.ID,
+		Mode:      string(session.Mode),
+		Status:    session.Status,
+		CreatedAt: session.CreatedAt.Format(time.RFC3339),
+	}))
 }
 
 // GetSession GET /api/v1/agent/sessions/:id — 获取会话详情。
 func (h *AgentHandler) GetSession(c *gin.Context) {
-	// TODO: 获取 Agent Session
-	c.JSON(http.StatusOK, common.Success(nil))
+	idStr := c.Param("id")
+	sessionID, err := uuid.Parse(idStr)
+	if err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage("invalid session id"), reqID))
+		return
+	}
+
+	session, err := h.sessionRepo.GetByID(c.Request.Context(), sessionID)
+	if err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusNotFound, common.Fail(common.ErrInvalidInput.WithMessage("session not found"), reqID))
+		return
+	}
+
+	c.JSON(http.StatusOK, common.Success(dto.SessionResp{
+		ID:        session.ID,
+		Mode:      string(session.Mode),
+		Status:    session.Status,
+		CreatedAt: session.CreatedAt.Format(time.RFC3339),
+	}))
 }
 
 // ListMessages GET /api/v1/agent/sessions/:id/messages — 获取会话消息列表。
 func (h *AgentHandler) ListMessages(c *gin.Context) {
-	// TODO: 列出 Agent Session 消息
-	c.JSON(http.StatusOK, common.Success(nil))
+	idStr := c.Param("id")
+	sessionID, err := uuid.Parse(idStr)
+	if err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage("invalid session id"), reqID))
+		return
+	}
+
+	msgs, total, err := h.messageRepo.ListBySession(c.Request.Context(), sessionID, 0, 50)
+	if err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
+		return
+	}
+
+	c.JSON(http.StatusOK, common.Success(common.PageResponse{
+		Total:    total,
+		Page:     1,
+		PageSize: 50,
+		Items:    msgs,
+	}))
 }

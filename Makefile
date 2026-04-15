@@ -24,7 +24,7 @@ BIN_DIR        := $(ROOT_DIR)/bin
 CMD_DIR        := $(ROOT_DIR)/cmd
 DEPLOY_DIR     := $(ROOT_DIR)/deployments/docker
 CONFIG_DIR     := $(ROOT_DIR)/configs
-MIGRATION_DIR  := $(ROOT_DIR)/internal/store/mysql/migrations
+MIGRATION_DIR  := $(ROOT_DIR)/internal/repo/mysql/migrations
 
 # ── Go 参数 ─────────────────────────────────────────────────
 GO             := go

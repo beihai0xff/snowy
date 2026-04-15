@@ -173,3 +173,48 @@ func (r *agentMessageRepo) ListBySession(ctx context.Context, sessionID uuid.UUI
 	}
 	return msgs, total, nil
 }
+
+// agentToolCallRepo 实现 agent.ToolCallRepository 接口。
+type agentToolCallRepo struct {
+	db *sql.DB
+}
+
+// NewAgentToolCallRepository 创建 Agent ToolCall Repository。
+func NewAgentToolCallRepository(db *sql.DB) agent.ToolCallRepository {
+	return &agentToolCallRepo{db: db}
+}
+
+func (r *agentToolCallRepo) Save(ctx context.Context, tc *agent.RunToolCall) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO agent_tool_calls (id, run_id, tool_name, input, output, latency_ms, status, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		tc.ID, tc.RunID, tc.ToolName, jsonValueOf(tc.Input), jsonValueOf(tc.Output),
+		tc.LatencyMS, tc.Status, tc.CreatedAt,
+	)
+	return err
+}
+
+func (r *agentToolCallRepo) ListByRun(ctx context.Context, runID uuid.UUID) ([]*agent.RunToolCall, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, run_id, tool_name, input, output, latency_ms, status, created_at
+		 FROM agent_tool_calls WHERE run_id = ? ORDER BY created_at ASC`, runID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list agent tool calls: %w", err)
+	}
+	defer rows.Close()
+
+	var calls []*agent.RunToolCall
+	for rows.Next() {
+		tc := &agent.RunToolCall{}
+		var input, output jsonMap
+		if err := rows.Scan(&tc.ID, &tc.RunID, &tc.ToolName, &input, &output,
+			&tc.LatencyMS, &tc.Status, &tc.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan agent tool call: %w", err)
+		}
+		tc.Input = map[string]any(input)
+		tc.Output = map[string]any(output)
+		calls = append(calls, tc)
+	}
+	return calls, nil
+}

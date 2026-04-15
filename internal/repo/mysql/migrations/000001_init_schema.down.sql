@@ -1,5 +1,6 @@
 -- Rollback: 按依赖反序删除
 DROP TABLE IF EXISTS prompt_templates;
+DROP TABLE IF EXISTS history_items;
 DROP TABLE IF EXISTS concept_graph_snapshots;
 DROP TABLE IF EXISTS biology_runs;
 DROP TABLE IF EXISTS physics_runs;

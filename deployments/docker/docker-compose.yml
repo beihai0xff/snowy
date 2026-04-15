@@ -180,6 +180,58 @@ services:
     depends_on:
       - prometheus
 
+  # ──────────────────────────────────────────────
+  # Snowy API — Go HTTP API 服务
+  # ──────────────────────────────────────────────
+  snowy-api:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        TARGET: api
+    image: snowy-api:latest
+    container_name: snowy-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    command: ["--config", "configs/config.docker.yaml"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ──────────────────────────────────────────────
+  # Snowy Worker — 异步任务 Worker 服务
+  # ──────────────────────────────────────────────
+  snowy-worker:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        TARGET: worker
+    image: snowy-worker:latest
+    container_name: snowy-worker
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["--config", "configs/config.docker.yaml"]
+
 volumes:
   mysql_data:
     driver: local

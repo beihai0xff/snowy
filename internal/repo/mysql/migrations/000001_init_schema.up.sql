@@ -168,6 +168,18 @@ CREATE TABLE IF NOT EXISTS concept_graph_snapshots (
     CONSTRAINT fk_concept_graph_biology FOREIGN KEY (biology_run_id) REFERENCES biology_runs(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ── 历史记录 ──────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS history_items (
+    id              CHAR(36)     NOT NULL PRIMARY KEY,
+    user_id         CHAR(36)     NOT NULL,
+    action_type     VARCHAR(32)  NOT NULL,
+    query           TEXT         NOT NULL,
+    session_id      CHAR(36)     DEFAULT NULL,
+    created_at      DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    INDEX idx_history_items_user (user_id, created_at DESC),
+    CONSTRAINT fk_history_items_user FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ── Prompt 版本管理 ─────────────────────────────────────
 CREATE TABLE IF NOT EXISTS prompt_templates (
     id               CHAR(36)     NOT NULL PRIMARY KEY DEFAULT (UUID()),
