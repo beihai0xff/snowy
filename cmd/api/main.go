@@ -24,14 +24,20 @@ var (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	configPath := flag.String("config", "configs/config.yaml", "config file path")
+
 	flag.Parse()
 
 	// 加载配置
 	cfg, err := config.Load(*configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
-		os.Exit(1)
+		_, _ = fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
+
+		return 1
 	}
 
 	// 初始化日志
@@ -46,7 +52,8 @@ func main() {
 	application, err := app.New(cfg)
 	if err != nil {
 		slog.Error("failed to create app", "error", err)
-		os.Exit(1)
+
+		return 1
 	}
 	defer application.Close()
 
@@ -66,6 +73,9 @@ func main() {
 	// 启动 API 服务
 	if err := application.RunAPI(ctx); err != nil {
 		slog.Error("api server error", "error", err)
-		os.Exit(1)
+
+		return 1
 	}
+
+	return 0
 }

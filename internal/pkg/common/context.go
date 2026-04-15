@@ -18,6 +18,7 @@ func WithUserID(ctx context.Context, userID string) context.Context {
 // UserIDFromContext 从 context 中提取 UserID。
 func UserIDFromContext(ctx context.Context) string {
 	v, _ := ctx.Value(ctxKeyUserID).(string)
+
 	return v
 }
 
@@ -29,6 +30,7 @@ func WithRequestID(ctx context.Context, requestID string) context.Context {
 // RequestIDFromContext 从 context 中提取 RequestID。
 func RequestIDFromContext(ctx context.Context) string {
 	v, _ := ctx.Value(ctxKeyRequestID).(string)
+
 	return v
 }
 
@@ -40,5 +42,6 @@ func WithTraceID(ctx context.Context, traceID string) context.Context {
 // TraceIDFromContext 从 context 中提取 TraceID。
 func TraceIDFromContext(ctx context.Context) string {
 	v, _ := ctx.Value(ctxKeyTraceID).(string)
+
 	return v
 }

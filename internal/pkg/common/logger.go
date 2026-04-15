@@ -9,6 +9,7 @@ import (
 // InitLogger 初始化全局 slog 日志，参考技术方案 §6.1.4。
 func InitLogger(level, format string) {
 	var lvl slog.Level
+
 	switch strings.ToLower(level) {
 	case "debug":
 		lvl = slog.LevelDebug

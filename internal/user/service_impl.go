@@ -6,10 +6,9 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/beihai0xff/snowy/internal/pkg/config"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-
-	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
 // serviceImpl 用户域应用服务实现。
@@ -47,13 +46,14 @@ func (s *serviceImpl) Register(ctx context.Context, phone, nickname string) (*Us
 	if err := s.repo.Create(ctx, u); err != nil {
 		return nil, fmt.Errorf("create user: %w", err)
 	}
+
 	slog.InfoContext(ctx, "user registered", "user_id", u.ID, "phone", phone)
+
 	return u, nil
 }
 
-func (s *serviceImpl) Login(ctx context.Context, phone, code string) (string, string, error) {
+func (s *serviceImpl) Login(ctx context.Context, phone, _ string) (string, string, error) {
 	// TODO: 校验验证码
-
 	u, err := s.repo.GetByPhone(ctx, phone)
 	if err != nil {
 		return "", "", fmt.Errorf("get user by phone: %w", err)
@@ -80,17 +80,26 @@ func (s *serviceImpl) GetProfile(ctx context.Context, userID uuid.UUID) (*User, 
 	return s.repo.GetByID(ctx, userID)
 }
 
-func (s *serviceImpl) GetHistory(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*HistoryItem, int64, error) {
+func (s *serviceImpl) GetHistory(
+	ctx context.Context,
+	userID uuid.UUID,
+	offset, limit int,
+) ([]*HistoryItem, int64, error) {
 	return s.histRepo.ListByUser(ctx, userID, offset, limit)
 }
 
 func (s *serviceImpl) AddFavorite(ctx context.Context, fav *Favorite) error {
 	fav.ID = uuid.New()
 	fav.CreatedAt = time.Now()
+
 	return s.favRepo.Add(ctx, fav)
 }
 
-func (s *serviceImpl) ListFavorites(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*Favorite, int64, error) {
+func (s *serviceImpl) ListFavorites(
+	ctx context.Context,
+	userID uuid.UUID,
+	offset, limit int,
+) ([]*Favorite, int64, error) {
 	return s.favRepo.ListByUser(ctx, userID, offset, limit)
 }
 
@@ -102,5 +111,6 @@ func (s *serviceImpl) generateToken(u *User, ttl time.Duration) (string, error) 
 		"iat":     time.Now().Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
 	return token.SignedString([]byte(s.authCfg.JWTSecret))
 }

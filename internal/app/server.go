@@ -19,8 +19,10 @@ func (a *App) RunAPI(ctx context.Context) error {
 
 	// 在独立 goroutine 中启动 HTTP 服务
 	errCh := make(chan error, 1)
+
 	go func() {
 		slog.Info("API server starting", "addr", srv.Addr)
+
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- fmt.Errorf("http listen: %w", err)
 		}
@@ -30,12 +32,16 @@ func (a *App) RunAPI(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		slog.Info("shutting down API server...")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), a.cfg.Server.ShutdownTimeout)
+
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), a.cfg.Server.ShutdownTimeout)
 		defer cancel()
+
 		if err := srv.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("server shutdown: %w", err)
 		}
+
 		slog.Info("API server stopped gracefully")
+
 		return nil
 	case err := <-errCh:
 		return err

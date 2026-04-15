@@ -2,7 +2,7 @@ package embedding
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
@@ -17,9 +17,9 @@ func NewOpenAIEmbedding(cfg config.EmbeddingConfig) Provider {
 	return &openaiEmbedding{cfg: cfg}
 }
 
-func (e *openaiEmbedding) Embed(ctx context.Context, texts []string) ([][]float64, error) {
+func (e *openaiEmbedding) Embed(_ context.Context, _ []string) ([][]float64, error) {
 	// TODO: 通过 Eino Embedding Provider 实现
-	return nil, fmt.Errorf("openai embedding: not implemented")
+	return nil, errors.New("openai embedding: not implemented")
 }
 
 func (e *openaiEmbedding) Dimensions() int {

@@ -1,10 +1,9 @@
 package http
 
 import (
-	"github.com/gin-gonic/gin"
-
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 	"github.com/beihai0xff/snowy/internal/pkg/middleware"
+	"github.com/gin-gonic/gin"
 )
 
 // Handlers 聚合所有 HTTP Handler。
@@ -20,6 +19,7 @@ type Handlers struct {
 // 参考技术方案 §17 API 设计。
 func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) *gin.Engine {
 	gin.SetMode(cfg.Server.Mode)
+
 	r := gin.New()
 
 	// ── 全局中间件 ─────────────────────────────────────

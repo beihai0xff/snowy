@@ -3,12 +3,11 @@ package http
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
 	"github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 	physicssvc "github.com/beihai0xff/snowy/internal/modeling/physics/service"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
+	"github.com/gin-gonic/gin"
 )
 
 // PhysicsHandler 物理建模 HTTP Handler。
@@ -28,6 +27,7 @@ func (h *PhysicsHandler) Analyze(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+
 		return
 	}
 
@@ -35,6 +35,7 @@ func (h *PhysicsHandler) Analyze(c *gin.Context) {
 	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
+
 		return
 	}
 
@@ -47,6 +48,7 @@ func (h *PhysicsHandler) Simulate(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+
 		return
 	}
 
@@ -54,6 +56,7 @@ func (h *PhysicsHandler) Simulate(c *gin.Context) {
 	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
+
 		return
 	}
 

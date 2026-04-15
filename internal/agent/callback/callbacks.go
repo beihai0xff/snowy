@@ -11,16 +11,18 @@ import (
 type AuditLogger struct{}
 
 // OnNodeStart 节点执行前记录审计日志。
-func (a *AuditLogger) OnNodeStart(ctx context.Context, nodeName string, input any) {
+func (a *AuditLogger) OnNodeStart(ctx context.Context, nodeName string, _ any) {
 	slog.InfoContext(ctx, "agent node started", "node", nodeName)
 }
 
 // OnNodeEnd 节点执行后记录审计日志。
-func (a *AuditLogger) OnNodeEnd(ctx context.Context, nodeName string, output any, err error) {
+func (a *AuditLogger) OnNodeEnd(ctx context.Context, nodeName string, _ any, err error) {
 	if err != nil {
 		slog.ErrorContext(ctx, "agent node failed", "node", nodeName, "error", err)
+
 		return
 	}
+
 	slog.InfoContext(ctx, "agent node completed", "node", nodeName)
 }
 
@@ -28,12 +30,12 @@ func (a *AuditLogger) OnNodeEnd(ctx context.Context, nodeName string, output any
 type MetricsCollector struct{}
 
 // OnNodeStart 记录节点开始时间。
-func (m *MetricsCollector) OnNodeStart(ctx context.Context, nodeName string, input any) {
+func (m *MetricsCollector) OnNodeStart(_ context.Context, _ string, _ any) {
 	// TODO: 记录 Prometheus histogram 开始时间
 }
 
 // OnNodeEnd 记录节点耗时和状态。
-func (m *MetricsCollector) OnNodeEnd(ctx context.Context, nodeName string, output any, err error) {
+func (m *MetricsCollector) OnNodeEnd(_ context.Context, _ string, _ any, _ error) {
 	// TODO: 记录 Prometheus histogram 耗时、counter 成功/失败
 }
 
@@ -41,11 +43,11 @@ func (m *MetricsCollector) OnNodeEnd(ctx context.Context, nodeName string, outpu
 type OTelTracer struct{}
 
 // OnNodeStart 创建追踪 Span。
-func (o *OTelTracer) OnNodeStart(ctx context.Context, nodeName string, input any) {
+func (o *OTelTracer) OnNodeStart(_ context.Context, _ string, _ any) {
 	// TODO: 使用 otel.Tracer 创建 Span
 }
 
 // OnNodeEnd 结束追踪 Span。
-func (o *OTelTracer) OnNodeEnd(ctx context.Context, nodeName string, output any, err error) {
+func (o *OTelTracer) OnNodeEnd(_ context.Context, _ string, _ any, _ error) {
 	// TODO: 结束 Span，记录状态
 }

@@ -3,12 +3,11 @@ package http
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
 	"github.com/beihai0xff/snowy/internal/user"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // UserHandler 用户 HTTP Handler。
@@ -28,6 +27,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+
 		return
 	}
 
@@ -35,6 +35,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusUnauthorized, common.Fail(common.ErrUnauthorized.WithMessage("登录失败"), reqID))
+
 		return
 	}
 
@@ -50,6 +51,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+
 		return
 	}
 
@@ -57,6 +59,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
+
 		return
 	}
 
@@ -69,6 +72,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 	if userID == "" {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusUnauthorized, common.Fail(common.ErrUnauthorized, reqID))
+
 		return
 	}
 
@@ -76,6 +80,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput, reqID))
+
 		return
 	}
 
@@ -83,6 +88,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
+
 		return
 	}
 
@@ -98,6 +104,7 @@ func (h *UserHandler) GetHistory(c *gin.Context) {
 	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
+
 		return
 	}
 
@@ -115,6 +122,7 @@ func (h *UserHandler) AddFavorite(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+
 		return
 	}
 
@@ -131,6 +139,7 @@ func (h *UserHandler) AddFavorite(c *gin.Context) {
 	if err := h.userSvc.AddFavorite(c.Request.Context(), fav); err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
+
 		return
 	}
 

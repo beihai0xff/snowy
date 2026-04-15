@@ -34,6 +34,7 @@ func (c *CacheStore) Get(ctx context.Context, key string, dest any) error {
 	if err != nil {
 		return fmt.Errorf("cache get %s: %w", key, err)
 	}
+
 	return json.Unmarshal([]byte(val), dest)
 }
 
@@ -43,6 +44,7 @@ func (c *CacheStore) Set(ctx context.Context, key string, value any, ttl time.Du
 	if err != nil {
 		return fmt.Errorf("cache marshal: %w", err)
 	}
+
 	return c.client.Set(ctx, key, data, ttl).Err()
 }
 
@@ -54,5 +56,6 @@ func (c *CacheStore) Delete(ctx context.Context, key string) error {
 // Exists 检查缓存是否存在。
 func (c *CacheStore) Exists(ctx context.Context, key string) (bool, error) {
 	n, err := c.client.Exists(ctx, key).Result()
+
 	return n > 0, err
 }

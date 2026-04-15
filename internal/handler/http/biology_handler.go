@@ -3,11 +3,10 @@ package http
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
 	biologysvc "github.com/beihai0xff/snowy/internal/modeling/biology/service"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
+	"github.com/gin-gonic/gin"
 )
 
 // BiologyHandler 生物建模 HTTP Handler。
@@ -27,6 +26,7 @@ func (h *BiologyHandler) Analyze(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+
 		return
 	}
 
@@ -34,6 +34,7 @@ func (h *BiologyHandler) Analyze(c *gin.Context) {
 	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
+
 		return
 	}
 

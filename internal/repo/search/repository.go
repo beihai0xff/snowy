@@ -14,11 +14,11 @@ type Repository interface {
 // LogRepository 检索日志持久化端口。
 type LogRepository interface {
 	// SaveLog 保存检索日志。
-	SaveLog(ctx context.Context, log *SearchLog) error
+	SaveLog(ctx context.Context, log *Log) error
 }
 
-// SearchLog 检索行为日志。
-type SearchLog struct {
+// Log 检索行为日志。
+type Log struct {
 	QueryText   string  `json:"query_text"`
 	UserID      string  `json:"user_id"`
 	ResultCount int     `json:"result_count"`

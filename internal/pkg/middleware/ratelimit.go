@@ -6,10 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/beihai0xff/snowy/internal/pkg/common"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
+	"github.com/gin-gonic/gin"
 )
 
 // RateLimiter 限流器接口，由基础设施层（repo/redis）实现。
@@ -21,8 +20,10 @@ type RateLimiter interface {
 // 参考技术方案 §18A.4 — 已认证 60/min，匿名 10/min。
 func RateLimit(limiter RateLimiter, cfg config.RateLimitConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var key string
-		var limit int
+		var (
+			key   string
+			limit int
+		)
 
 		anonymous, _ := c.Get("anonymous")
 		if anonymous == true {
@@ -37,6 +38,7 @@ func RateLimit(limiter RateLimiter, cfg config.RateLimitConfig) gin.HandlerFunc 
 		allowed, err := limiter.Allow(c.Request.Context(), key, limit, time.Minute)
 		if err != nil {
 			c.Next() // 限流器故障时放行
+
 			return
 		}
 
@@ -45,6 +47,7 @@ func RateLimit(limiter RateLimiter, cfg config.RateLimitConfig) gin.HandlerFunc 
 			c.AbortWithStatusJSON(http.StatusTooManyRequests,
 				common.Fail(common.ErrRateLimited, fmt.Sprintf("%v", requestID)),
 			)
+
 			return
 		}
 

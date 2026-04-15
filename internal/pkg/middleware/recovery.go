@@ -5,9 +5,8 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/beihai0xff/snowy/internal/pkg/common"
+	"github.com/gin-gonic/gin"
 )
 
 // Recovery panic 恢复中间件，返回结构化错误。
@@ -20,12 +19,13 @@ func Recovery() gin.HandlerFunc {
 					"stack", string(debug.Stack()),
 				)
 
-				reqID, _ := c.Get("request_id")
+				reqID := common.RequestIDFromContext(c.Request.Context())
 				c.AbortWithStatusJSON(http.StatusInternalServerError,
-					common.Fail(common.ErrInternal, reqID.(string)),
+					common.Fail(common.ErrInternal, reqID),
 				)
 			}
 		}()
+
 		c.Next()
 	}
 }

@@ -33,13 +33,10 @@ func NewSessionStore(client *goredis.Client) *SessionStore {
 	}
 }
 
-func (s *SessionStore) key(sessionID string) string {
-	return fmt.Sprintf("session:%s:ctx", sessionID)
-}
-
 // Get 获取会话上下文，并续期 TTL。
 func (s *SessionStore) Get(ctx context.Context, sessionID string) (map[string]any, error) {
 	k := s.key(sessionID)
+
 	val, err := s.client.Get(ctx, k).Result()
 	if err != nil {
 		return nil, fmt.Errorf("session get: %w", err)
@@ -52,6 +49,7 @@ func (s *SessionStore) Get(ctx context.Context, sessionID string) (map[string]an
 	if err := json.Unmarshal([]byte(val), &data); err != nil {
 		return nil, fmt.Errorf("session unmarshal: %w", err)
 	}
+
 	return data, nil
 }
 
@@ -61,10 +59,15 @@ func (s *SessionStore) Set(ctx context.Context, sessionID string, data map[strin
 	if err != nil {
 		return fmt.Errorf("session marshal: %w", err)
 	}
+
 	return s.client.Set(ctx, s.key(sessionID), b, s.defaultTTL).Err()
 }
 
 // Delete 删除会话上下文。
 func (s *SessionStore) Delete(ctx context.Context, sessionID string) error {
 	return s.client.Del(ctx, s.key(sessionID)).Err()
+}
+
+func (s *SessionStore) key(sessionID string) string {
+	return fmt.Sprintf("session:%s:ctx", sessionID)
 }

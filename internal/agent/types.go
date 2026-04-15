@@ -22,7 +22,7 @@ const (
 // ChatRequest Agent 会话请求，参考技术方案 §17.1。
 type ChatRequest struct {
 	SessionID uuid.UUID `json:"session_id,omitempty"`
-	Message   string    `json:"message" binding:"required"`
+	Message   string    `json:"message"              binding:"required"`
 	Mode      Mode      `json:"mode"`
 	Filters   Filters   `json:"filters,omitempty"`
 }

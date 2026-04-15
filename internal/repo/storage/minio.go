@@ -12,10 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/beihai0xff/snowy/internal/pkg/config"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-
-	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
 // ObjectStorage 对象存储统一接口。
@@ -44,6 +43,7 @@ func (s *minioStorage) Upload(ctx context.Context, key string, reader io.Reader,
 	if err != nil {
 		return err
 	}
+
 	if err := s.ensureBucket(ctx, client); err != nil {
 		return err
 	}
@@ -59,6 +59,7 @@ func (s *minioStorage) Upload(ctx context.Context, key string, reader io.Reader,
 	if err != nil {
 		return fmt.Errorf("minio upload %s: %w", key, err)
 	}
+
 	return nil
 }
 
@@ -67,14 +68,18 @@ func (s *minioStorage) Download(ctx context.Context, key string) (io.ReadCloser,
 	if err != nil {
 		return nil, err
 	}
+
 	obj, err := client.GetObject(ctx, s.bucketName(), key, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("minio get object %s: %w", key, err)
 	}
+
 	if _, err := obj.Stat(); err != nil {
 		_ = obj.Close()
+
 		return nil, fmt.Errorf("minio stat object %s: %w", key, err)
 	}
+
 	return obj, nil
 }
 
@@ -83,9 +88,11 @@ func (s *minioStorage) Delete(ctx context.Context, key string) error {
 	if err != nil {
 		return err
 	}
+
 	if err := client.RemoveObject(ctx, s.bucketName(), key, minio.RemoveObjectOptions{}); err != nil {
 		return fmt.Errorf("minio delete %s: %w", key, err)
 	}
+
 	return nil
 }
 
@@ -94,10 +101,12 @@ func (s *minioStorage) GetURL(ctx context.Context, key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	urlValue, err := client.PresignedGetObject(ctx, s.bucketName(), key, 15*time.Minute, url.Values{})
 	if err != nil {
 		return "", fmt.Errorf("minio presign %s: %w", key, err)
 	}
+
 	return urlValue.String(), nil
 }
 
@@ -108,24 +117,30 @@ func (s *minioStorage) getClient() (*minio.Client, error) {
 			Secure: s.cfg.UseSSL,
 		})
 	})
+
 	if s.initErr != nil {
 		return nil, fmt.Errorf("init minio client: %w", s.initErr)
 	}
+
 	return s.client, nil
 }
 
 func (s *minioStorage) ensureBucket(ctx context.Context, client *minio.Client) error {
 	bucket := s.bucketName()
+
 	exists, err := client.BucketExists(ctx, bucket)
 	if err != nil {
 		return fmt.Errorf("check bucket %s: %w", bucket, err)
 	}
+
 	if exists {
 		return nil
 	}
+
 	if err := client.MakeBucket(ctx, bucket, minio.MakeBucketOptions{}); err != nil {
 		return fmt.Errorf("create bucket %s: %w", bucket, err)
 	}
+
 	return nil
 }
 
@@ -134,5 +149,6 @@ func (s *minioStorage) bucketName() string {
 	if bucket == "" {
 		return "snowy"
 	}
+
 	return bucket
 }

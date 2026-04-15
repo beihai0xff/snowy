@@ -6,11 +6,10 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
-
 	"github.com/beihai0xff/snowy/internal/pkg/common"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // Auth JWT 鉴权中间件。
@@ -22,12 +21,14 @@ func Auth(cfg config.AuthConfig) gin.HandlerFunc {
 			// 匿名用户 — 允许通过但不设置 UserID
 			c.Set("anonymous", true)
 			c.Next()
+
 			return
 		}
 
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 		if tokenStr == authHeader {
 			abortWithError(c, common.ErrUnauthorized)
+
 			return
 		}
 
@@ -35,16 +36,19 @@ func Auth(cfg config.AuthConfig) gin.HandlerFunc {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, jwt.ErrSignatureInvalid
 			}
+
 			return []byte(cfg.JWTSecret), nil
 		})
 		if err != nil || !token.Valid {
 			abortWithError(c, common.ErrUnauthorized)
+
 			return
 		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
 			abortWithError(c, common.ErrUnauthorized)
+
 			return
 		}
 
@@ -69,13 +73,15 @@ func RequireAuth() gin.HandlerFunc {
 		anonymous, _ := c.Get("anonymous")
 		if anonymous == true {
 			abortWithError(c, common.ErrUnauthorized)
+
 			return
 		}
+
 		c.Next()
 	}
 }
 
-func abortWithError(c *gin.Context, err *common.ErrorCode) {
-	requestID, _ := c.Get("request_id")
-	c.AbortWithStatusJSON(err.HTTPStatus, common.Fail(err, requestID.(string)))
+func abortWithError(c *gin.Context, err *common.AppError) {
+	requestID := common.RequestIDFromContext(c.Request.Context())
+	c.AbortWithStatusJSON(err.HTTPStatus, common.Fail(err, requestID))
 }

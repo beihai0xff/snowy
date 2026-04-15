@@ -21,12 +21,13 @@ func NewBuilder(opts ...Option) *Builder {
 	for _, opt := range opts {
 		opt(b)
 	}
+
 	return b
 }
 
 // Build 构建并返回可运行的 Agent 编排图。
 // TODO: 集成 Eino compose.Graph 实现完整编排拓扑。
-func (b *Builder) Build(ctx context.Context) error {
+func (b *Builder) Build(_ context.Context) error {
 	// 1. 创建 Eino Graph
 	// 2. 注册节点：Input, Session, PrePolicy, Intent
 	// 3. 注册分支：search / physics / biology

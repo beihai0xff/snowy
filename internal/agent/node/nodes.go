@@ -14,7 +14,7 @@ type Node interface {
 type InputNode struct{}
 
 func (n *InputNode) Name() string { return "InputNode" }
-func (n *InputNode) Run(ctx context.Context, input any) (any, error) {
+func (n *InputNode) Run(_ context.Context, input any) (any, error) {
 	// TODO: 解析原始请求为内部结构
 	return input, nil
 }
@@ -23,7 +23,7 @@ func (n *InputNode) Run(ctx context.Context, input any) (any, error) {
 type SessionNode struct{}
 
 func (n *SessionNode) Name() string { return "SessionNode" }
-func (n *SessionNode) Run(ctx context.Context, input any) (any, error) {
+func (n *SessionNode) Run(_ context.Context, input any) (any, error) {
 	// TODO: 从 Session Manager 加载上下文
 	return input, nil
 }
@@ -32,7 +32,7 @@ func (n *SessionNode) Run(ctx context.Context, input any) (any, error) {
 type IntentNode struct{}
 
 func (n *IntentNode) Name() string { return "IntentNode" }
-func (n *IntentNode) Run(ctx context.Context, input any) (any, error) {
+func (n *IntentNode) Run(_ context.Context, input any) (any, error) {
 	// TODO: 调用 ChatModel 进行意图识别
 	return input, nil
 }
@@ -41,7 +41,7 @@ func (n *IntentNode) Run(ctx context.Context, input any) (any, error) {
 type ValidateNode struct{}
 
 func (n *ValidateNode) Name() string { return "ValidateNode" }
-func (n *ValidateNode) Run(ctx context.Context, input any) (any, error) {
+func (n *ValidateNode) Run(_ context.Context, input any) (any, error) {
 	// TODO: 校验模型输出的结构化数据
 	return input, nil
 }
@@ -50,7 +50,7 @@ func (n *ValidateNode) Run(ctx context.Context, input any) (any, error) {
 type FallbackNode struct{}
 
 func (n *FallbackNode) Name() string { return "FallbackNode" }
-func (n *FallbackNode) Run(ctx context.Context, input any) (any, error) {
+func (n *FallbackNode) Run(_ context.Context, input any) (any, error) {
 	// TODO: 切换备选模型重试
 	return input, nil
 }
@@ -59,7 +59,7 @@ func (n *FallbackNode) Run(ctx context.Context, input any) (any, error) {
 type AssembleNode struct{}
 
 func (n *AssembleNode) Name() string { return "AssembleNode" }
-func (n *AssembleNode) Run(ctx context.Context, input any) (any, error) {
+func (n *AssembleNode) Run(_ context.Context, input any) (any, error) {
 	// TODO: 组装最终响应
 	return input, nil
 }
@@ -68,7 +68,7 @@ func (n *AssembleNode) Run(ctx context.Context, input any) (any, error) {
 type OutputNode struct{}
 
 func (n *OutputNode) Name() string { return "OutputNode" }
-func (n *OutputNode) Run(ctx context.Context, input any) (any, error) {
+func (n *OutputNode) Run(_ context.Context, input any) (any, error) {
 	// TODO: 桥接到 Gin SSE/JSON 输出
 	return input, nil
 }

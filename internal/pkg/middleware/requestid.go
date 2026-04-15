@@ -1,10 +1,9 @@
 package middleware
 
 import (
+	"github.com/beihai0xff/snowy/internal/pkg/common"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-
-	"github.com/beihai0xff/snowy/internal/pkg/common"
 )
 
 // RequestID 为每个请求生成唯一 RequestID。

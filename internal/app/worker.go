@@ -29,5 +29,6 @@ func (a *App) RunWorker(ctx context.Context) error {
 	// TODO: srv.Shutdown()
 
 	slog.Info("worker stopped gracefully")
+
 	return nil
 }

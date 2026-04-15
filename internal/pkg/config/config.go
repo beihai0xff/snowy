@@ -61,10 +61,12 @@ func (d DatabaseConfig) DSN() string {
 	if charset == "" {
 		charset = "utf8mb4"
 	}
+
 	loc := d.Loc
 	if loc == "" {
 		loc = "Local"
 	}
+
 	return fmt.Sprintf(
 		"%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=%t&loc=%s",
 		d.User, d.Password, d.Host, d.Port, d.Name, charset, d.ParseTime, loc,

@@ -3,11 +3,11 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
-
 	"github.com/beihai0xff/snowy/internal/user"
+	"github.com/google/uuid"
 )
 
 // favoriteRepo 实现 user.FavoriteRepository 接口。
@@ -29,6 +29,7 @@ func (r *favoriteRepo) Add(ctx context.Context, fav *user.Favorite) error {
 	if err != nil {
 		return fmt.Errorf("insert favorite: %w", err)
 	}
+
 	return nil
 }
 
@@ -39,39 +40,32 @@ func (r *favoriteRepo) Remove(ctx context.Context, id uuid.UUID, userID uuid.UUI
 	if err != nil {
 		return fmt.Errorf("delete favorite: %w", err)
 	}
+
 	n, _ := result.RowsAffected()
 	if n == 0 {
-		return fmt.Errorf("favorite not found")
+		return errors.New("favorite not found")
 	}
+
 	return nil
 }
 
-func (r *favoriteRepo) ListByUser(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*user.Favorite, int64, error) {
-	var total int64
-	err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM favorites WHERE user_id = ?`, userID,
-	).Scan(&total)
-	if err != nil {
-		return nil, 0, fmt.Errorf("count favorites: %w", err)
-	}
-
-	rows, err := r.db.QueryContext(ctx,
+func (r *favoriteRepo) ListByUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	offset, limit int,
+) ([]*user.Favorite, int64, error) {
+	return listByUserRows(ctx, r.db, userID, offset, limit,
+		`SELECT COUNT(*) FROM favorites WHERE user_id = ?`,
 		`SELECT id, user_id, target_type, target_id, title, created_at
 		 FROM favorites WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-		userID, limit, offset,
-	)
-	if err != nil {
-		return nil, 0, fmt.Errorf("list favorites: %w", err)
-	}
-	defer rows.Close()
+		"favorites", "favorites",
+		func(rows *sql.Rows) (*user.Favorite, error) {
+			f := &user.Favorite{}
+			if err := rows.Scan(&f.ID, &f.UserID, &f.TargetType, &f.TargetID, &f.Title, &f.CreatedAt); err != nil {
+				return nil, fmt.Errorf("scan favorite: %w", err)
+			}
 
-	var favorites []*user.Favorite
-	for rows.Next() {
-		f := &user.Favorite{}
-		if err := rows.Scan(&f.ID, &f.UserID, &f.TargetType, &f.TargetID, &f.Title, &f.CreatedAt); err != nil {
-			return nil, 0, fmt.Errorf("scan favorite: %w", err)
-		}
-		favorites = append(favorites, f)
-	}
-	return favorites, total, nil
+			return f, nil
+		},
+	)
 }

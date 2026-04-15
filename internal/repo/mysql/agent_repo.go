@@ -5,9 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/google/uuid"
-
 	"github.com/beihai0xff/snowy/internal/agent"
+	"github.com/google/uuid"
 )
 
 // agentSessionRepo 实现 agent.SessionRepository 接口。
@@ -24,17 +23,20 @@ func (r *agentSessionRepo) Create(ctx context.Context, s *agent.Session) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO agent_sessions (id, user_id, mode, status, metadata, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		s.ID, s.UserID, s.Mode, s.Status, jsonMap(s.Metadata), s.CreatedAt, s.UpdatedAt,
+		s.ID, s.UserID, s.Mode, s.Status, newJSONMap(s.Metadata), s.CreatedAt, s.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("insert agent session: %w", err)
 	}
+
 	return nil
 }
 
 func (r *agentSessionRepo) GetByID(ctx context.Context, id uuid.UUID) (*agent.Session, error) {
 	s := &agent.Session{}
+
 	var meta jsonMap
+
 	err := r.db.QueryRowContext(ctx,
 		`SELECT id, user_id, mode, status, metadata, created_at, updated_at
 		 FROM agent_sessions WHERE id = ?`, id,
@@ -42,7 +44,9 @@ func (r *agentSessionRepo) GetByID(ctx context.Context, id uuid.UUID) (*agent.Se
 	if err != nil {
 		return nil, fmt.Errorf("get agent session: %w", err)
 	}
+
 	s.Metadata = map[string]any(meta)
+
 	return s, nil
 }
 
@@ -50,11 +54,17 @@ func (r *agentSessionRepo) UpdateStatus(ctx context.Context, id uuid.UUID, statu
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE agent_sessions SET status = ?, updated_at = NOW() WHERE id = ?`, status, id,
 	)
+
 	return err
 }
 
-func (r *agentSessionRepo) ListByUser(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*agent.Session, int64, error) {
+func (r *agentSessionRepo) ListByUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	offset, limit int,
+) ([]*agent.Session, int64, error) {
 	var total int64
+
 	err := r.db.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM agent_sessions WHERE user_id = ?`, userID,
 	).Scan(&total)
@@ -73,15 +83,23 @@ func (r *agentSessionRepo) ListByUser(ctx context.Context, userID uuid.UUID, off
 	defer rows.Close()
 
 	var sessions []*agent.Session
+
 	for rows.Next() {
 		s := &agent.Session{}
+
 		var meta jsonMap
 		if err := rows.Scan(&s.ID, &s.UserID, &s.Mode, &s.Status, &meta, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan agent session: %w", err)
 		}
+
 		s.Metadata = map[string]any(meta)
 		sessions = append(sessions, s)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("iterate agent sessions: %w", err)
+	}
+
 	return sessions, total, nil
 }
 
@@ -105,11 +123,13 @@ func (r *agentRunRepo) Save(ctx context.Context, run *agent.Run) error {
 		run.InputTokens, run.OutputTokens, run.EstimatedCost, run.LatencyMS, run.Confidence,
 		run.FallbackReason, run.Status, run.ErrorCode, run.CreatedAt,
 	)
+
 	return err
 }
 
 func (r *agentRunRepo) GetByID(ctx context.Context, id uuid.UUID) (*agent.Run, error) {
 	run := &agent.Run{}
+
 	err := r.db.QueryRowContext(ctx,
 		`SELECT id, session_id, message_id, mode, model_name, prompt_version,
 		 input_tokens, output_tokens, estimated_cost, latency_ms, confidence,
@@ -122,6 +142,7 @@ func (r *agentRunRepo) GetByID(ctx context.Context, id uuid.UUID) (*agent.Run, e
 	if err != nil {
 		return nil, fmt.Errorf("get agent run: %w", err)
 	}
+
 	return run, nil
 }
 
@@ -141,11 +162,17 @@ func (r *agentMessageRepo) Save(ctx context.Context, msg *agent.Message) error {
 		 VALUES (?, ?, ?, ?, ?)`,
 		msg.ID, msg.SessionID, msg.Role, msg.Content, msg.CreatedAt,
 	)
+
 	return err
 }
 
-func (r *agentMessageRepo) ListBySession(ctx context.Context, sessionID uuid.UUID, offset, limit int) ([]*agent.Message, int64, error) {
+func (r *agentMessageRepo) ListBySession(
+	ctx context.Context,
+	sessionID uuid.UUID,
+	offset, limit int,
+) ([]*agent.Message, int64, error) {
 	var total int64
+
 	err := r.db.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM agent_messages WHERE session_id = ?`, sessionID,
 	).Scan(&total)
@@ -164,13 +191,20 @@ func (r *agentMessageRepo) ListBySession(ctx context.Context, sessionID uuid.UUI
 	defer rows.Close()
 
 	var msgs []*agent.Message
+
 	for rows.Next() {
 		m := &agent.Message{}
 		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.CreatedAt); err != nil {
 			return nil, 0, err
 		}
+
 		msgs = append(msgs, m)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("iterate agent messages: %w", err)
+	}
+
 	return msgs, total, nil
 }
 
@@ -191,6 +225,7 @@ func (r *agentToolCallRepo) Save(ctx context.Context, tc *agent.RunToolCall) err
 		tc.ID, tc.RunID, tc.ToolName, jsonValueOf(tc.Input), jsonValueOf(tc.Output),
 		tc.LatencyMS, tc.Status, tc.CreatedAt,
 	)
+
 	return err
 }
 
@@ -205,16 +240,24 @@ func (r *agentToolCallRepo) ListByRun(ctx context.Context, runID uuid.UUID) ([]*
 	defer rows.Close()
 
 	var calls []*agent.RunToolCall
+
 	for rows.Next() {
 		tc := &agent.RunToolCall{}
+
 		var input, output jsonMap
 		if err := rows.Scan(&tc.ID, &tc.RunID, &tc.ToolName, &input, &output,
 			&tc.LatencyMS, &tc.Status, &tc.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan agent tool call: %w", err)
 		}
+
 		tc.Input = map[string]any(input)
 		tc.Output = map[string]any(output)
 		calls = append(calls, tc)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate agent tool calls: %w", err)
+	}
+
 	return calls, nil
 }

@@ -2,7 +2,10 @@
 // 参考技术方案 §14.3 — 所有模型调用通过统一 Provider Adapter。
 package llm
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // Request LLM 调用请求。
 type Request struct {
@@ -54,4 +57,28 @@ type Provider interface {
 	EstimateCost(ctx context.Context, req *Request) (*Cost, error)
 	// Name 返回供应商名称。
 	Name() string
+}
+
+type unsupportedProvider struct {
+	name string
+}
+
+func (p unsupportedProvider) Name() string {
+	return p.name
+}
+
+func (p unsupportedProvider) Generate(_ context.Context, _ *Request) (*Response, error) {
+	return nil, fmt.Errorf("%s provider: not implemented", p.name)
+}
+
+func (p unsupportedProvider) GenerateStream(_ context.Context, _ *Request, _ chan<- StreamChunk) error {
+	return fmt.Errorf("%s provider stream: not implemented", p.name)
+}
+
+func (p unsupportedProvider) HealthCheck(_ context.Context) error {
+	return nil
+}
+
+func (p unsupportedProvider) EstimateCost(_ context.Context, _ *Request) (*Cost, error) {
+	return &Cost{}, nil
 }

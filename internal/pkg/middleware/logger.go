@@ -29,21 +29,25 @@ func Logger() gin.HandlerFunc {
 		if query != "" {
 			attrs = append(attrs, "query", query)
 		}
+
 		if reqID, exists := c.Get("request_id"); exists {
 			attrs = append(attrs, "request_id", reqID)
 		}
+
 		if userID, exists := c.Get("user_id"); exists {
 			attrs = append(attrs, "user_id", userID)
 		}
+
 		if len(c.Errors) > 0 {
 			attrs = append(attrs, "errors", c.Errors.String())
 		}
 
-		if status >= 500 {
+		switch {
+		case status >= 500:
 			slog.ErrorContext(c.Request.Context(), "request completed", attrs...)
-		} else if status >= 400 {
+		case status >= 400:
 			slog.WarnContext(c.Request.Context(), "request completed", attrs...)
-		} else {
+		default:
 			slog.InfoContext(c.Request.Context(), "request completed", attrs...)
 		}
 	}

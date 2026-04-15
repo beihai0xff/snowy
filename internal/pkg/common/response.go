@@ -28,7 +28,7 @@ func SuccessWithRequestID(data any, requestID string) *APIResponse {
 }
 
 // Fail 返回错误响应。
-func Fail(err *ErrorCode, requestID string) *APIResponse {
+func Fail(err *AppError, requestID string) *APIResponse {
 	return &APIResponse{
 		Code:      err.Code,
 		Message:   err.Message,
@@ -38,8 +38,8 @@ func Fail(err *ErrorCode, requestID string) *APIResponse {
 
 // PageRequest 分页请求参数。
 type PageRequest struct {
-	Page     int `json:"page" form:"page" binding:"min=1"`
-	PageSize int `json:"page_size" form:"page_size" binding:"min=1,max=100"`
+	Page     int `binding:"min=1"         form:"page"      json:"page"`
+	PageSize int `binding:"min=1,max=100" form:"page_size" json:"page_size"`
 }
 
 // Offset 返回数据库偏移量。

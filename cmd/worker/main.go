@@ -23,13 +23,19 @@ var (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	configPath := flag.String("config", "configs/config.yaml", "config file path")
+
 	flag.Parse()
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
-		os.Exit(1)
+		_, _ = fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
+
+		return 1
 	}
 
 	common.InitLogger(cfg.Observability.LogLevel, cfg.Observability.LogFormat)
@@ -42,7 +48,8 @@ func main() {
 	application, err := app.New(cfg)
 	if err != nil {
 		slog.Error("failed to create app", "error", err)
-		os.Exit(1)
+
+		return 1
 	}
 	defer application.Close()
 
@@ -60,6 +67,9 @@ func main() {
 
 	if err := application.RunWorker(ctx); err != nil {
 		slog.Error("worker error", "error", err)
-		os.Exit(1)
+
+		return 1
 	}
+
+	return 0
 }

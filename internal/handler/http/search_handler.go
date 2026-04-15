@@ -1,3 +1,4 @@
+//nolint:revive // http is the transport-layer package name for this adapter set.
 package http
 
 import (
@@ -27,6 +28,7 @@ func (h *SearchHandler) Query(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+
 		return
 	}
 
@@ -44,6 +46,7 @@ func (h *SearchHandler) Query(c *gin.Context) {
 	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
+
 		return
 	}
 

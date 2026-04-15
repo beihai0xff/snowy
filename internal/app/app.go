@@ -8,14 +8,13 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/gin-gonic/gin"
-	goredis "github.com/redis/go-redis/v9"
-
 	handler "github.com/beihai0xff/snowy/internal/handler/http"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 	mysqlrepo "github.com/beihai0xff/snowy/internal/repo/mysql"
 	redisrepo "github.com/beihai0xff/snowy/internal/repo/redis"
 	"github.com/beihai0xff/snowy/internal/user"
+	"github.com/gin-gonic/gin"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 // App 应用实例，持有所有依赖。
@@ -35,14 +34,18 @@ func New(cfg *config.Config) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("init mysql: %w", err)
 	}
+
 	app.db = db
+
 	slog.Info("mysql connected", "host", cfg.Database.Host, "db", cfg.Database.Name)
 
 	rdb, err := redisrepo.NewClient(cfg.Redis)
 	if err != nil {
 		return nil, fmt.Errorf("init redis: %w", err)
 	}
+
 	app.rdb = rdb
+
 	slog.Info("redis connected", "addr", cfg.Redis.Addr)
 
 	// ── 2. Repository 实例化 ───────────────────────────
@@ -80,6 +83,7 @@ func New(cfg *config.Config) (*App, error) {
 	app.router = handler.NewRouter(cfg, handlers, rateLimiter)
 
 	slog.Info("app initialized", "mode", cfg.Server.Mode)
+
 	return app, nil
 }
 
@@ -93,8 +97,10 @@ func (a *App) Close() {
 	if a.db != nil {
 		_ = a.db.Close()
 	}
+
 	if a.rdb != nil {
 		_ = a.rdb.Close()
 	}
+
 	slog.Info("app resources released")
 }

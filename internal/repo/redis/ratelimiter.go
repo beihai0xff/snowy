@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
@@ -31,7 +32,7 @@ func (r *RateLimiter) Allow(ctx context.Context, key string, limit int, window t
 	pipe := r.client.Pipeline()
 
 	// 移除窗口外的旧记录
-	pipe.ZRemRangeByScore(ctx, key, "0", fmt.Sprintf("%d", windowStart))
+	pipe.ZRemRangeByScore(ctx, key, "0", strconv.FormatInt(windowStart, 10))
 	// 添加当前请求
 	pipe.ZAdd(ctx, key, goredis.Z{Score: float64(now), Member: member})
 	// 计算窗口内请求数
@@ -44,5 +45,6 @@ func (r *RateLimiter) Allow(ctx context.Context, key string, limit int, window t
 	}
 
 	count := countCmd.Val()
+
 	return count <= int64(limit), nil
 }

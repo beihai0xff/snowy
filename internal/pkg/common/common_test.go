@@ -8,12 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// ── ErrorCode Tests ──────────────────────────────────────
+// ── AppError Tests ───────────────────────────────────────
 
-func TestErrorCode_Error(t *testing.T) {
+func TestAppError_Error(t *testing.T) {
 	tests := []struct {
 		name string
-		err  *ErrorCode
+		err  *AppError
 		want string
 	}{
 		{"OK", ErrOK, "[OK] 成功"},
@@ -27,7 +27,7 @@ func TestErrorCode_Error(t *testing.T) {
 	}
 }
 
-func TestErrorCode_WithMessage(t *testing.T) {
+func TestAppError_WithMessage(t *testing.T) {
 	original := ErrInvalidInput
 	custom := original.WithMessage("手机号格式错误")
 
