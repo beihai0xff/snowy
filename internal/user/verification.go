@@ -2,7 +2,7 @@ package user
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 )
 
@@ -20,10 +20,12 @@ func NewNoopVerificationCodeChecker() VerificationCodeChecker {
 
 func (noopVerificationCodeChecker) Verify(_ context.Context, phone, code string) error {
 	if strings.TrimSpace(phone) == "" {
-		return fmt.Errorf("phone is empty")
+		return errors.New("phone is empty")
 	}
+
 	if strings.TrimSpace(code) == "" {
-		return fmt.Errorf("verification code is empty")
+		return errors.New("verification code is empty")
 	}
+
 	return nil
 }

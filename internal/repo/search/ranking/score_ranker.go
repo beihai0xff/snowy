@@ -16,9 +16,14 @@ func NewScoreRanker() Ranker {
 	return &scoreRanker{}
 }
 
-func (r *scoreRanker) Rank(_ context.Context, results []internalsearch.Result, query *internalsearch.ParsedQuery) []internalsearch.Result {
+func (r *scoreRanker) Rank(
+	_ context.Context,
+	results []internalsearch.Result,
+	query *internalsearch.ParsedQuery,
+) []internalsearch.Result {
 	ranked := append([]internalsearch.Result(nil), results...)
 	keywords := map[string]struct{}{}
+
 	if query != nil {
 		for _, keyword := range query.Keywords {
 			keywords[strings.ToLower(keyword)] = struct{}{}
@@ -29,10 +34,12 @@ func (r *scoreRanker) Rank(_ context.Context, results []internalsearch.Result, q
 		left := ranked[i]
 		right := ranked[j]
 		leftBoost := keywordBoost(left, keywords)
+
 		rightBoost := keywordBoost(right, keywords)
 		if left.Score+leftBoost == right.Score+rightBoost {
 			return left.DocID < right.DocID
 		}
+
 		return left.Score+leftBoost > right.Score+rightBoost
 	})
 
@@ -52,6 +59,7 @@ func keywordBoost(result internalsearch.Result, keywords map[string]struct{}) fl
 	}, " "))
 
 	boost := 0.0
+
 	for keyword := range keywords {
 		if strings.Contains(corpus, keyword) {
 			boost += 0.05

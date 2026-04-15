@@ -4,6 +4,7 @@ package graph
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -56,24 +57,31 @@ func WithPolicyEngine(engine policy.Engine) Option { return func(b *Builder) { b
 func WithAssembler(assembler assembler.Assembler) Option {
 	return func(b *Builder) { b.assembler = assembler }
 }
+
 func WithMessageRepository(repo nodepkg.MessageRepository) Option {
 	return func(b *Builder) { b.messageRepo = repo }
 }
+
 func WithSearchTool(searchTool *tool.SearchTool) Option {
 	return func(b *Builder) { b.searchTool = searchTool }
 }
+
 func WithPhysicsAnalyzeTool(physicsTool *tool.PhysicsAnalyzeTool) Option {
 	return func(b *Builder) { b.physicsAnalyzeTool = physicsTool }
 }
+
 func WithBiologyAnalyzeTool(biologyTool *tool.BiologyAnalyzeTool) Option {
 	return func(b *Builder) { b.biologyAnalyzeTool = biologyTool }
 }
+
 func WithCitationTool(citationTool *tool.CitationTool) Option {
 	return func(b *Builder) { b.citationTool = citationTool }
 }
+
 func WithCallbacks(callbacks ...callback.NodeCallback) Option {
 	return func(b *Builder) { b.callbacks = append(b.callbacks, callbacks...) }
 }
+
 func WithLLMProviders(primary, fallback llm.Provider) Option {
 	return func(b *Builder) {
 		b.primaryLLM = primary
@@ -95,9 +103,10 @@ func NewBuilder(opts ...Option) *Builder {
 func (b *Builder) Build(_ context.Context) error {
 	b.buildOnce.Do(func() {
 		if b.assembler == nil {
-			b.buildErr = fmt.Errorf("assembler is nil")
+			b.buildErr = errors.New("assembler is nil")
 		}
 	})
+
 	return b.buildErr
 }
 
@@ -106,7 +115,9 @@ func (b *Builder) Chat(ctx context.Context, req *agent.ChatRequest) (*agent.Chat
 	if err := b.Build(ctx); err != nil {
 		return nil, err
 	}
+
 	ctx = ensureRequestID(ctx)
+
 	return b.run(ctx, &nodepkg.InputPayload{Request: req})
 }
 
@@ -115,8 +126,10 @@ func (b *Builder) ChatStream(ctx context.Context, req *agent.ChatRequest, events
 	if err := b.Build(ctx); err != nil {
 		return err
 	}
+
 	ctx = ensureRequestID(ctx)
 	_, err := b.run(ctx, &nodepkg.InputPayload{Request: req, Stream: true, Events: events})
+
 	return err
 }
 
@@ -125,6 +138,7 @@ func (b *Builder) Execute(ctx context.Context, input *nodepkg.InputPayload) (*ag
 	if err := b.Build(ctx); err != nil {
 		return nil, err
 	}
+
 	return b.run(ctx, input)
 }
 
@@ -133,7 +147,9 @@ func (b *Builder) ExecuteStream(ctx context.Context, input *nodepkg.InputPayload
 	if err := b.Build(ctx); err != nil {
 		return err
 	}
+
 	_, err := b.run(ctx, input)
+
 	return err
 }
 
@@ -147,6 +163,7 @@ func (b *Builder) run(ctx context.Context, input *nodepkg.InputPayload) (*agent.
 	if err != nil {
 		return nil, err
 	}
+
 	if err := b.preCheck(ctx, state); err != nil {
 		return nil, err
 	}
@@ -155,6 +172,7 @@ func (b *Builder) run(ctx context.Context, input *nodepkg.InputPayload) (*agent.
 	if err != nil {
 		return nil, err
 	}
+
 	if err := b.postCheck(ctx, state); err != nil {
 		state, err = b.runFallbackWithReason(ctx, state, err)
 		if err != nil {
@@ -176,8 +194,11 @@ func (b *Builder) run(ctx context.Context, input *nodepkg.InputPayload) (*agent.
 }
 
 func (b *Builder) runInitialNodes(ctx context.Context, input *nodepkg.InputPayload) (any, error) {
-	var err error
-	var current any = input
+	var (
+		err     error
+		current any = input
+	)
+
 	for _, node := range []nodepkg.Node{
 		&nodepkg.InputNode{},
 		nodepkg.NewSessionNode(b.messageRepo),
@@ -196,11 +217,13 @@ func (b *Builder) runNode(ctx context.Context, node nodepkg.Node, input any) (ou
 	for _, cb := range b.callbacks {
 		cb.OnNodeStart(ctx, node.Name(), input)
 	}
+
 	defer func() {
 		for _, cb := range b.callbacks {
 			cb.OnNodeEnd(ctx, node.Name(), output, err)
 		}
 	}()
+
 	return node.Run(ctx, input)
 }
 
@@ -222,18 +245,22 @@ func (b *Builder) runFallback(ctx context.Context, state *nodepkg.State) (*nodep
 	if err != nil {
 		return nil, err
 	}
+
 	fallbackState, ok := current.(*nodepkg.State)
 	if !ok {
 		return nil, fmt.Errorf("unexpected fallback state %T", current)
 	}
+
 	current, err = b.runNode(ctx, nodepkg.NewAssembleNode(b.assembler), fallbackState)
 	if err != nil {
 		return nil, err
 	}
+
 	assembledState, ok := current.(*nodepkg.State)
 	if !ok {
 		return nil, fmt.Errorf("unexpected assembled state %T", current)
 	}
+
 	return assembledState, nil
 }
 
@@ -241,13 +268,16 @@ func (b *Builder) preCheck(ctx context.Context, state *nodepkg.State) error {
 	if b.policy == nil {
 		return nil
 	}
+
 	result, err := b.policy.PreCheck(ctx, state.Request.Message)
 	if err != nil {
 		return err
 	}
+
 	if !result.Passed {
 		return fmt.Errorf("pre policy check failed: %s", result.Reason)
 	}
+
 	return nil
 }
 
@@ -255,13 +285,16 @@ func (b *Builder) postCheck(ctx context.Context, state *nodepkg.State) error {
 	if b.policy == nil {
 		return nil
 	}
+
 	result, err := b.policy.PostCheck(ctx, state.Response)
 	if err != nil {
 		return err
 	}
+
 	if !result.Passed {
 		return fmt.Errorf("post policy check failed: %s", result.Reason)
 	}
+
 	return nil
 }
 
@@ -269,16 +302,21 @@ func joinHistory(messages []*agent.Message) string {
 	if len(messages) == 0 {
 		return ""
 	}
+
 	result := ""
+
 	for _, message := range messages {
 		if message == nil || message.Content == "" {
 			continue
 		}
+
 		if result != "" {
 			result += "\n"
 		}
+
 		result += message.Content
 	}
+
 	return result
 }
 
@@ -286,6 +324,7 @@ func ensureRequestID(ctx context.Context) context.Context {
 	if common.RequestIDFromContext(ctx) != "" {
 		return ctx
 	}
+
 	return common.WithRequestID(ctx, uuid.NewString())
 }
 
@@ -312,14 +351,19 @@ func (b *Builder) runPrimaryFlow(ctx context.Context, state *nodepkg.State) (*no
 	return graphState(current, "validated state")
 }
 
-func (b *Builder) runFallbackWithReason(ctx context.Context, state *nodepkg.State, fallbackErr error) (*nodepkg.State, error) {
+func (b *Builder) runFallbackWithReason(
+	ctx context.Context,
+	state *nodepkg.State,
+	fallbackErr error,
+) (*nodepkg.State, error) {
 	state.FallbackReason = fallbackErr.Error()
+
 	return b.runFallback(ctx, state)
 }
 
 func (b *Builder) runPhysicsTool(ctx context.Context, state *nodepkg.State) error {
 	if b.physicsAnalyzeTool == nil {
-		return fmt.Errorf("physics tool is nil")
+		return errors.New("physics tool is nil")
 	}
 
 	output, err := b.runToolCall(
@@ -344,7 +388,7 @@ func (b *Builder) runPhysicsTool(ctx context.Context, state *nodepkg.State) erro
 
 func (b *Builder) runBiologyTool(ctx context.Context, state *nodepkg.State) error {
 	if b.biologyAnalyzeTool == nil {
-		return fmt.Errorf("biology tool is nil")
+		return errors.New("biology tool is nil")
 	}
 
 	output, err := b.runToolCall(
@@ -369,7 +413,7 @@ func (b *Builder) runBiologyTool(ctx context.Context, state *nodepkg.State) erro
 
 func (b *Builder) runSearchTool(ctx context.Context, state *nodepkg.State) error {
 	if b.searchTool == nil {
-		return fmt.Errorf("search tool is nil")
+		return errors.New("search tool is nil")
 	}
 
 	output, err := b.runToolCall(
@@ -412,6 +456,7 @@ func (b *Builder) runToolCall(
 	output, err := run(ctx)
 	if err != nil {
 		state.ToolCalls[len(state.ToolCalls)-1].Status = toolStatusFailed
+
 		return nil, err
 	}
 

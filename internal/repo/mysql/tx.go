@@ -2,7 +2,7 @@ package mysql
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"gorm.io/gorm"
 
@@ -59,7 +59,7 @@ func Transaction(ctx context.Context, db *gorm.DB, fn func(ctx context.Context) 
 	}
 
 	if db == nil {
-		return fmt.Errorf("transaction db is nil")
+		return errors.New("transaction db is nil")
 	}
 
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

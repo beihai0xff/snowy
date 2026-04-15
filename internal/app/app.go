@@ -95,9 +95,18 @@ func New(cfg *config.Config) (*App, error) {
 	// ── 5. Domain Service 实例化 ───────────────────────
 	userSvc := user.NewService(userRepo, favoriteRepo, historyRepo, transactor, cfg.Auth)
 	agentWriteSvc := agent.NewWriteService(transactor, sessionRepo, messageRepo, runRepo, toolCallRepo)
-	searchSvc := searchservice.NewService(openSearchAdapter, searchquery.NewSimpleParser(), searchranking.NewScoreRanker(), embeddingProvider, nil)
+	searchSvc := searchservice.NewService(
+		openSearchAdapter,
+		searchquery.NewSimpleParser(),
+		searchranking.NewScoreRanker(),
+		embeddingProvider,
+		nil,
+	)
 	physicsSvc := physicsservice.NewService(physicscalculator.NewSimpleCalculator())
-	biologySvc := biologyservice.NewService(biologyexperiment.NewSimpleAnalyzer(), biologygraph.NewSimpleDiagramBuilder())
+	biologySvc := biologyservice.NewService(
+		biologyexperiment.NewSimpleAnalyzer(),
+		biologygraph.NewSimpleDiagramBuilder(),
+	)
 
 	modelRouter := agentrouter.NewStaticRouter(cfg.LLM)
 	policyEngine := agentpolicy.NewDefaultEngine()
@@ -120,6 +129,7 @@ func New(cfg *config.Config) (*App, error) {
 		agentgraph.WithCallbacks(callbacks...),
 		agentgraph.WithLLMProviders(primaryLLM, fallbackLLM),
 	)
+
 	var agentSvc agent.Service = graphBuilder
 
 	// ── 6. Handler 实例化 ──────────────────────────────

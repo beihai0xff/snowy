@@ -31,6 +31,7 @@ func (r *userRepo) Create(ctx context.Context, u *user.User) error {
 
 func (r *userRepo) GetByID(ctx context.Context, id uuid.UUID) (*user.User, error) {
 	row := &userRow{}
+
 	err := dbFromContext(ctx, r.db).Where("id = ?", id).Take(row).Error
 	if err != nil {
 		return nil, fmt.Errorf("get user by id: %w", err)
@@ -41,6 +42,7 @@ func (r *userRepo) GetByID(ctx context.Context, id uuid.UUID) (*user.User, error
 
 func (r *userRepo) GetByPhone(ctx context.Context, phone string) (*user.User, error) {
 	row := &userRow{}
+
 	err := dbFromContext(ctx, r.db).Where("phone = ?", phone).Take(row).Error
 	if err != nil {
 		return nil, fmt.Errorf("get user by phone: %w", err)

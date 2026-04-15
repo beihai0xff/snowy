@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -69,7 +70,7 @@ func NewWriteService(
 
 func (s *writeService) CreateSession(ctx context.Context, input *CreateSessionInput) (*Session, error) {
 	if input == nil {
-		return nil, fmt.Errorf("create session input is nil")
+		return nil, errors.New("create session input is nil")
 	}
 
 	mode := input.Mode
@@ -103,18 +104,22 @@ func (s *writeService) PersistConversation(
 	input *PersistConversationInput,
 ) (*PersistConversationResult, error) {
 	if input == nil {
-		return nil, fmt.Errorf("persist conversation input is nil")
+		return nil, errors.New("persist conversation input is nil")
 	}
+
 	if input.Response == nil {
-		return nil, fmt.Errorf("persist conversation response is nil")
+		return nil, errors.New("persist conversation response is nil")
 	}
+
 	if input.Message == "" {
-		return nil, fmt.Errorf("persist conversation message is empty")
+		return nil, errors.New("persist conversation message is empty")
 	}
 
 	result := &PersistConversationResult{}
+
 	if err := s.withTransaction(ctx, func(txCtx context.Context) error {
 		now := time.Now()
+
 		result.Session = s.buildSession(input, now)
 		if input.SessionID == uuid.Nil {
 			if err := s.sessionRepo.Create(txCtx, result.Session); err != nil {
@@ -171,6 +176,7 @@ func (s *writeService) PersistConversation(
 			if err := s.toolCallRepo.Save(txCtx, tc); err != nil {
 				return fmt.Errorf("save agent tool call: %w", err)
 			}
+
 			result.ToolCalls = append(result.ToolCalls, tc)
 		}
 
@@ -187,9 +193,11 @@ func (s *writeService) buildSession(input *PersistConversationInput, now time.Ti
 	if input.Filters.Subject != "" {
 		metadata["subject"] = input.Filters.Subject
 	}
+
 	if input.Filters.Grade != "" {
 		metadata["grade"] = input.Filters.Grade
 	}
+
 	if len(metadata) == 0 {
 		metadata = nil
 	}
@@ -214,6 +222,7 @@ func (s *writeService) resolveMode(input *PersistConversationInput) Mode {
 	if input.Response != nil && input.Response.Mode != "" {
 		return input.Response.Mode
 	}
+
 	if input.Mode != "" {
 		return input.Mode
 	}

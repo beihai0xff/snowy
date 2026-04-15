@@ -38,17 +38,21 @@ func (p *simpleParser) Parse(raw string) (*internalsearch.ParsedQuery, error) {
 
 func dedupeTokens(tokens []string) []string {
 	seen := make(map[string]struct{}, len(tokens))
+
 	result := make([]string, 0, len(tokens))
 	for _, token := range tokens {
 		token = strings.TrimSpace(token)
 		if token == "" {
 			continue
 		}
+
 		key := strings.ToLower(token)
 		if _, ok := seen[key]; ok {
 			continue
 		}
+
 		seen[key] = struct{}{}
+
 		result = append(result, token)
 	}
 

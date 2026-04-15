@@ -38,9 +38,11 @@ func (a *defaultAssembler) Assemble(
 		if response, err := assembleSearchResponse(agent.ModeSearch, toolOutputs); err == nil {
 			return response, nil
 		}
+
 		if response, err := assemblePhysicsResponse(agent.ModePhysics, toolOutputs); err == nil {
 			return response, nil
 		}
+
 		if response, err := assembleBiologyResponse(agent.ModeBiology, toolOutputs); err == nil {
 			return response, nil
 		}

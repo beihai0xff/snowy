@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -218,7 +219,7 @@ func schemaModels() []any {
 // RunMigrations 使用 GORM 统一初始化 / 演进 MySQL Schema。
 func RunMigrations(ctx context.Context, db *gorm.DB) error {
 	if db == nil {
-		return fmt.Errorf("migration db is nil")
+		return errors.New("migration db is nil")
 	}
 
 	gdb := db.WithContext(ctx)

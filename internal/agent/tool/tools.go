@@ -67,9 +67,11 @@ func (t *SearchTool) Run(ctx context.Context, input any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("%s: invalid input type %T", t.Name(), input)
 	}
+
 	if t.searchService == nil {
 		return nil, fmt.Errorf("%s: search service is nil", t.Name())
 	}
+
 	return t.searchService.Query(ctx, &searchdomain.Query{Text: request.Query, Filters: request.Filters})
 }
 
@@ -90,9 +92,11 @@ func (t *PhysicsAnalyzeTool) Run(ctx context.Context, input any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("%s: invalid input type %T", t.Name(), input)
 	}
+
 	if t.physicsService == nil {
 		return nil, fmt.Errorf("%s: physics service is nil", t.Name())
 	}
+
 	return t.physicsService.Analyze(ctx, request.Question, request.SessionContext)
 }
 
@@ -113,9 +117,11 @@ func (t *PhysicsSimulateTool) Run(ctx context.Context, input any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("%s: invalid input type %T", t.Name(), input)
 	}
+
 	if t.physicsService == nil {
 		return nil, fmt.Errorf("%s: physics service is nil", t.Name())
 	}
+
 	return t.physicsService.Simulate(ctx, request.ModelType, request.Parameters)
 }
 
@@ -139,9 +145,11 @@ func (t *BiologyAnalyzeTool) Run(ctx context.Context, input any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("%s: invalid input type %T", t.Name(), input)
 	}
+
 	if t.biologyService == nil {
 		return nil, fmt.Errorf("%s: biology service is nil", t.Name())
 	}
+
 	return t.biologyService.Analyze(ctx, request.Question, request.SessionContext)
 }
 
@@ -158,14 +166,32 @@ func (t *CitationTool) Run(_ context.Context, input any) (any, error) {
 	case *searchdomain.Response:
 		citations := make([]agent.Citation, 0, len(value.Citations))
 		for _, citation := range value.Citations {
-			citations = append(citations, agent.Citation{DocID: citation.DocID, SourceType: citation.SourceType, Snippet: citation.Snippet, Score: citation.Score})
+			citations = append(
+				citations,
+				agent.Citation{
+					DocID:      citation.DocID,
+					SourceType: citation.SourceType,
+					Snippet:    citation.Snippet,
+					Score:      citation.Score,
+				},
+			)
 		}
+
 		return citations, nil
 	case []searchdomain.Citation:
 		citations := make([]agent.Citation, 0, len(value))
 		for _, citation := range value {
-			citations = append(citations, agent.Citation{DocID: citation.DocID, SourceType: citation.SourceType, Snippet: citation.Snippet, Score: citation.Score})
+			citations = append(
+				citations,
+				agent.Citation{
+					DocID:      citation.DocID,
+					SourceType: citation.SourceType,
+					Snippet:    citation.Snippet,
+					Score:      citation.Score,
+				},
+			)
 		}
+
 		return citations, nil
 	default:
 		return nil, fmt.Errorf("%s: unsupported input type %T", t.Name(), input)
@@ -189,12 +215,15 @@ func (t *HistoryTool) Run(ctx context.Context, input any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("%s: invalid input type %T", t.Name(), input)
 	}
+
 	if t.userService == nil {
 		return nil, fmt.Errorf("%s: user service is nil", t.Name())
 	}
+
 	items, total, err := t.userService.GetHistory(ctx, request.UserID, request.Offset, request.Limit)
 	if err != nil {
 		return nil, err
 	}
+
 	return map[string]any{"items": items, "total": total}, nil
 }

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -22,16 +23,18 @@ func NewService(calc calculator.Calculator) PhysicsService {
 	if calc == nil {
 		calc = calculator.NewSimpleCalculator()
 	}
+
 	return &serviceImpl{calculator: calc}
 }
 
 func (s *serviceImpl) Analyze(_ context.Context, question string, sessionContext string) (*domain.PhysicsModel, error) {
 	question = strings.TrimSpace(question)
 	if question == "" {
-		return nil, fmt.Errorf("question is empty")
+		return nil, errors.New("question is empty")
 	}
 
 	modelType := inferModelType(question + " " + sessionContext)
+
 	conditions, params := extractConditions(question)
 	if len(conditions) == 0 {
 		params = defaultParameters(modelType)
@@ -58,7 +61,11 @@ func (s *serviceImpl) Analyze(_ context.Context, question string, sessionContext
 	}, nil
 }
 
-func (s *serviceImpl) Simulate(_ context.Context, modelType domain.ModelType, params map[string]float64) (*domain.ComputeResult, error) {
+func (s *serviceImpl) Simulate(
+	_ context.Context,
+	modelType domain.ModelType,
+	params map[string]float64,
+) (*domain.ComputeResult, error) {
 	return s.calculator.Compute(modelType, params)
 }
 
@@ -88,19 +95,23 @@ func extractConditions(question string) ([]domain.Condition, map[string]float64)
 	conditions := make([]domain.Condition, 0, len(matches))
 	params := map[string]float64{}
 	keys := []string{"v0", "angle_deg", "t", "a", "m"}
+
 	for i, match := range matches {
 		if len(match) < 2 {
 			continue
 		}
+
 		value, err := strconv.ParseFloat(match[1], 64)
 		if err != nil {
 			continue
 		}
+
 		name := fmt.Sprintf("value_%d", i+1)
 		if i < len(keys) {
 			name = keys[i]
 			params[name] = value
 		}
+
 		conditions = append(conditions, domain.Condition{Name: name, Value: value, Unit: strings.TrimSpace(match[2])})
 	}
 
@@ -201,6 +212,7 @@ func defaultParameters(modelType domain.ModelType) map[string]float64 {
 	for _, item := range parameterSchema(modelType) {
 		params[item.Name] = item.Default
 	}
+
 	return params
 }
 
@@ -208,10 +220,12 @@ func resultSummary(modelType domain.ModelType, values map[string]float64) string
 	if len(values) == 0 {
 		return fmt.Sprintf("已识别为 %s，但缺少足够参数完成数值计算。", modelType)
 	}
+
 	parts := make([]string, 0, len(values))
 	for key, value := range values {
 		parts = append(parts, fmt.Sprintf("%s=%.2f", key, value))
 	}
+
 	return fmt.Sprintf("识别为 %s，计算结果：%s。", modelType, strings.Join(parts, "，"))
 }
 

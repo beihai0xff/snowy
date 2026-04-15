@@ -109,8 +109,11 @@ func (h *AgentHandler) CreateSession(c *gin.Context) {
 
 	uid := parseOptionalUUID(common.UserIDFromContext(c.Request.Context()))
 
-	var session *agent.Session
-	var err error
+	var (
+		session *agent.Session
+		err     error
+	)
+
 	if h.writeSvc != nil {
 		session, err = h.writeSvc.CreateSession(c.Request.Context(), &agent.CreateSessionInput{
 			UserID: uid,
@@ -252,6 +255,7 @@ func (h *AgentHandler) chatStream(c *gin.Context, req *dto.ChatReq) {
 	})
 	if err != nil {
 		slog.WarnContext(c.Request.Context(), "persist streamed conversation failed", "error", err)
+
 		return
 	}
 

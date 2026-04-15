@@ -2,7 +2,7 @@ package router
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 
 	"github.com/beihai0xff/snowy/internal/pkg/config"
@@ -16,24 +16,36 @@ type staticRouter struct {
 // NewStaticRouter 创建基于配置的静态模型路由器。
 func NewStaticRouter(cfg config.LLMConfig) Router {
 	return &staticRouter{
-		primary:  ModelInfo{Provider: normalizeProvider(cfg.Primary.Provider), Model: cfg.Primary.Model, IsPrimary: true},
-		fallback: ModelInfo{Provider: normalizeProvider(cfg.Fallback.Provider), Model: cfg.Fallback.Model, IsPrimary: false},
+		primary: ModelInfo{
+			Provider:  normalizeProvider(cfg.Primary.Provider),
+			Model:     cfg.Primary.Model,
+			IsPrimary: true,
+		},
+		fallback: ModelInfo{
+			Provider:  normalizeProvider(cfg.Fallback.Provider),
+			Model:     cfg.Fallback.Model,
+			IsPrimary: false,
+		},
 	}
 }
 
 func (r *staticRouter) Route(_ context.Context, _ TaskType) (*ModelInfo, error) {
 	if r.primary.Model == "" {
-		return nil, fmt.Errorf("primary model is not configured")
+		return nil, errors.New("primary model is not configured")
 	}
+
 	model := r.primary
+
 	return &model, nil
 }
 
 func (r *staticRouter) Fallback(_ context.Context, _ TaskType) (*ModelInfo, error) {
 	if r.fallback.Model == "" {
-		return nil, fmt.Errorf("fallback model is not configured")
+		return nil, errors.New("fallback model is not configured")
 	}
+
 	model := r.fallback
+
 	return &model, nil
 }
 

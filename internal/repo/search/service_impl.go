@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -47,23 +48,27 @@ func NewService(
 
 func (s *serviceImpl) Query(ctx context.Context, q *Query) (*Response, error) {
 	if q == nil || strings.TrimSpace(q.Text) == "" {
-		return nil, fmt.Errorf("query text is empty")
+		return nil, errors.New("query text is empty")
 	}
+
 	if err := s.validateDependencies(); err != nil {
 		return nil, err
 	}
 
 	start := time.Now()
+
 	parsed, err := s.parser.Parse(q.Text)
 	if err != nil {
 		return nil, fmt.Errorf("parse query: %w", err)
 	}
+
 	s.attachEmbedding(ctx, q, parsed)
 
 	results, total, err := s.repo.Search(ctx, parsed, q.Filters, defaultSearchOffset, defaultSearchLimit)
 	if err != nil {
 		return nil, fmt.Errorf("search repository: %w", err)
 	}
+
 	ranked := s.ranker.Rank(ctx, results, parsed)
 	response := assembleResponse(ranked)
 
@@ -94,6 +99,7 @@ func assembleResponse(results []Result) *Response {
 	tagsSeen := map[string]struct{}{}
 	tags := make([]string, 0, 6)
 	related := make([]RelatedQuestion, 0, minInt(len(results), 3))
+
 	snippets := make([]string, 0, minInt(len(results), 2))
 	for i, result := range results {
 		collectPrimaryResult(i, result, &citations, &related)
@@ -117,19 +123,23 @@ func assembleResponse(results []Result) *Response {
 
 func buildRelatedTitle(result Result) string {
 	parts := make([]string, 0, 3)
+
 	for _, part := range []string{result.Subject, result.Chapter, strings.TrimSpace(result.Snippet)} {
 		if part == "" {
 			continue
 		}
+
 		parts = append(parts, part)
 		if len(parts) == 3 {
 			break
 		}
 	}
+
 	title := strings.Join(parts, " · ")
 	if len([]rune(title)) > maxRelatedTitleRunes {
 		title = string([]rune(title)[:maxRelatedTitleRunes]) + "…"
 	}
+
 	return title
 }
 
@@ -137,9 +147,11 @@ func topScore(results []Result) float64 {
 	if len(results) == 0 {
 		return 0
 	}
+
 	if results[0].Score <= 0 {
 		return 0.35
 	}
+
 	return math.Min(0.99, results[0].Score)
 }
 
@@ -147,6 +159,7 @@ func minInt(a, b int) int {
 	if a < b {
 		return a
 	}
+
 	return b
 }
 
@@ -156,13 +169,15 @@ func (noopLogRepository) SaveLog(context.Context, *Log) error { return nil }
 
 func (s *serviceImpl) validateDependencies() error {
 	if s.repo == nil {
-		return fmt.Errorf("search repository is nil")
+		return errors.New("search repository is nil")
 	}
+
 	if s.parser == nil {
-		return fmt.Errorf("search parser is nil")
+		return errors.New("search parser is nil")
 	}
+
 	if s.ranker == nil {
-		return fmt.Errorf("search ranker is nil")
+		return errors.New("search ranker is nil")
 	}
 
 	return nil
@@ -213,6 +228,7 @@ func collectTags(resultTags []string, tagsSeen map[string]struct{}, tags []strin
 		}
 
 		tagsSeen[tag] = struct{}{}
+
 		tags = append(tags, tag)
 		if len(tags) == 6 {
 			return tags

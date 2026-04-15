@@ -56,13 +56,15 @@ func computeProjectile(params map[string]float64) *domain.ComputeResult {
 	x := v0 * math.Cos(angleRad) * t
 	y := v0*math.Sin(angleRad)*t - 0.5*g*t*t
 	series := make([][]float64, 0, 11)
-	for i := 0; i <= 10; i++ {
+
+	for i := range 11 {
 		pointT := t * float64(i) / 10
 		series = append(series, []float64{
 			v0 * math.Cos(angleRad) * pointT,
 			v0*math.Sin(angleRad)*pointT - 0.5*g*pointT*pointT,
 		})
 	}
+
 	return &domain.ComputeResult{
 		Values: map[string]float64{"x": x, "y": y},
 		Chart: &domain.ChartSpec{
@@ -84,10 +86,12 @@ func computeUniformAcceleration(params map[string]float64) *domain.ComputeResult
 	x := x0 + v0*t + 0.5*a*t*t
 	v := v0 + a*t
 	series := make([][]float64, 0, 11)
-	for i := 0; i <= 10; i++ {
+
+	for i := range 11 {
 		pointT := t * float64(i) / 10
 		series = append(series, []float64{pointT, x0 + v0*pointT + 0.5*a*pointT*pointT})
 	}
+
 	return &domain.ComputeResult{
 		Values: map[string]float64{"x": x, "v": v},
 		Chart: &domain.ChartSpec{
@@ -106,10 +110,12 @@ func computeUniformMotion(params map[string]float64) *domain.ComputeResult {
 	t := valueOrDefault(params, "t", 5)
 	x := x0 + v*t
 	series := make([][]float64, 0, 11)
-	for i := 0; i <= 10; i++ {
+
+	for i := range 11 {
 		pointT := t * float64(i) / 10
 		series = append(series, []float64{pointT, x0 + v*pointT})
 	}
+
 	return &domain.ComputeResult{
 		Values: map[string]float64{"x": x, "v": v},
 		Chart: &domain.ChartSpec{
@@ -125,12 +131,14 @@ func computeUniformMotion(params map[string]float64) *domain.ComputeResult {
 func computeNewtonSecondLaw(params map[string]float64) *domain.ComputeResult {
 	m := valueOrDefault(params, "m", 2)
 	a := valueOrDefault(params, "a", 3)
+
 	return &domain.ComputeResult{Values: map[string]float64{"F": m * a}}
 }
 
 func computeWorkEnergy(params map[string]float64) *domain.ComputeResult {
 	m := valueOrDefault(params, "m", 1)
 	v := valueOrDefault(params, "v", 2)
+
 	return &domain.ComputeResult{Values: map[string]float64{"kinetic_energy": 0.5 * m * v * v}}
 }
 
@@ -165,9 +173,11 @@ func valueOrDefault(params map[string]float64, key string, fallback float64) flo
 	if params == nil {
 		return fallback
 	}
+
 	if value, ok := params[key]; ok {
 		return value
 	}
+
 	return fallback
 }
 
@@ -175,5 +185,6 @@ func collectWarnings(y float64) []string {
 	if y >= 0 {
 		return nil
 	}
+
 	return []string{"当前参数下物体已落回参考平面以下"}
 }

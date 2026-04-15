@@ -4,6 +4,7 @@ package node
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -59,21 +60,30 @@ func (n *InputNode) Run(_ context.Context, input any) (any, error) {
 	switch value := input.(type) {
 	case *InputPayload:
 		if value == nil || value.Request == nil {
-			return nil, fmt.Errorf("input payload is nil")
+			return nil, errors.New("input payload is nil")
 		}
+
 		request := *value.Request
 		if request.Mode == "" {
 			request.Mode = agent.ModeAuto
 		}
-		return &State{Request: &request, Stream: value.Stream, Events: value.Events, ToolOutputs: make(map[string]any)}, nil
+
+		return &State{
+			Request:     &request,
+			Stream:      value.Stream,
+			Events:      value.Events,
+			ToolOutputs: make(map[string]any),
+		}, nil
 	case *agent.ChatRequest:
 		if value == nil {
-			return nil, fmt.Errorf("chat request is nil")
+			return nil, errors.New("chat request is nil")
 		}
+
 		request := *value
 		if request.Mode == "" {
 			request.Mode = agent.ModeAuto
 		}
+
 		return &State{Request: &request, ToolOutputs: make(map[string]any)}, nil
 	default:
 		return nil, fmt.Errorf("unsupported input type %T", input)
@@ -96,14 +106,18 @@ func (n *SessionNode) Run(ctx context.Context, input any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("session node expects *State, got %T", input)
 	}
+
 	if n.messageRepo == nil || state.Request == nil || state.Request.SessionID == uuid.Nil {
 		return state, nil
 	}
+
 	messages, _, err := n.messageRepo.ListBySession(ctx, state.Request.SessionID, 0, 20)
 	if err != nil {
 		return nil, fmt.Errorf("load session messages: %w", err)
 	}
+
 	state.History = messages
+
 	return state, nil
 }
 
@@ -123,22 +137,27 @@ func (n *IntentNode) Run(ctx context.Context, input any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("intent node expects *State, got %T", input)
 	}
+
 	mode := state.Request.Mode
 	if mode == agent.ModeAuto {
 		mode = inferMode(state.Request.Message, state.Request.Filters.Subject)
 	}
+
 	state.ResolvedMode = mode
+
 	state.TaskType = resolveTaskType(mode)
 	if n.router != nil {
 		primary, err := n.router.Route(ctx, state.TaskType)
 		if err == nil {
 			state.PrimaryModel = primary
 		}
+
 		fallback, err := n.router.Fallback(ctx, state.TaskType)
 		if err == nil {
 			state.FallbackModel = fallback
 		}
 	}
+
 	return state, nil
 }
 
@@ -172,11 +191,14 @@ func (n *FallbackNode) Run(_ context.Context, input any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("fallback node expects *State, got %T", input)
 	}
+
 	answer := "当前结果未通过完整校验，已返回降级回答。"
 	if state.Request != nil && strings.TrimSpace(state.Request.Message) != "" {
 		answer = fmt.Sprintf("关于“%s”，当前返回的是降级结果，建议补充题干或稍后重试。", state.Request.Message)
 	}
+
 	state.FallbackReason = "validation_failed"
+
 	state.Response = &agent.ChatResponse{
 		Mode:        state.ResolvedMode,
 		Answer:      answer,
@@ -184,8 +206,12 @@ func (n *FallbackNode) Run(_ context.Context, input any) (any, error) {
 		NextActions: []string{"补充更具体的题干条件", "切换到对应学科模式后再试"},
 	}
 	if state.FallbackModel != nil {
-		state.Response.NextActions = append(state.Response.NextActions, fmt.Sprintf("已切换备选模型 %s/%s", state.FallbackModel.Provider, state.FallbackModel.Model))
+		state.Response.NextActions = append(
+			state.Response.NextActions,
+			fmt.Sprintf("已切换备选模型 %s/%s", state.FallbackModel.Provider, state.FallbackModel.Model),
+		)
 	}
+
 	return state, nil
 }
 
@@ -205,18 +231,23 @@ func (n *AssembleNode) Run(ctx context.Context, input any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("assemble node expects *State, got %T", input)
 	}
+
 	if n.assembler == nil {
-		return nil, fmt.Errorf("assembler is nil")
+		return nil, errors.New("assembler is nil")
 	}
+
 	response, err := n.assembler.Assemble(ctx, state.ResolvedMode, state.ToolOutputs, state.Response)
 	if err != nil {
 		return nil, err
 	}
+
 	response.ToolCalls = append([]agent.ToolCall(nil), state.ToolCalls...)
 	if len(state.ValidationWarnings) > 0 {
 		response.NextActions = append(response.NextActions, state.ValidationWarnings...)
 	}
+
 	state.Response = response
+
 	return state, nil
 }
 
@@ -224,34 +255,53 @@ func (n *AssembleNode) Run(ctx context.Context, input any) (any, error) {
 type OutputNode struct{}
 
 func (n *OutputNode) Name() string { return "OutputNode" }
+
+//nolint:cyclop // Streaming output intentionally branches by event type and resolved mode.
 func (n *OutputNode) Run(_ context.Context, input any) (any, error) {
 	state, ok := input.(*State)
 	if !ok {
 		return nil, fmt.Errorf("output node expects *State, got %T", input)
 	}
+
 	if state.Response == nil {
-		return nil, fmt.Errorf("response is nil")
+		return nil, errors.New("response is nil")
 	}
+
 	if state.Stream && state.Events != nil {
-		sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventThinking, Data: map[string]any{"content": "正在整理回答..."}})
+		sendEvent(
+			state.Events,
+			agent.SSEEvent{Event: agent.SSEEventThinking, Data: map[string]any{"content": "正在整理回答..."}},
+		)
+
 		for _, call := range state.ToolCalls {
 			sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventToolCall, Data: call})
 		}
+
 		if state.Response.Answer != "" {
-			sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventContent, Data: map[string]any{"content": state.Response.Answer}})
+			sendEvent(
+				state.Events,
+				agent.SSEEvent{Event: agent.SSEEventContent, Data: map[string]any{"content": state.Response.Answer}},
+			)
 		}
+
 		for _, citation := range state.Response.Citations {
 			sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventCitation, Data: citation})
 		}
+
 		switch state.ResolvedMode {
 		case agent.ModePhysics:
 			sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventChart, Data: state.Response.StructuredPayload})
 		case agent.ModeBiology:
-			sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventDiagram, Data: state.Response.StructuredPayload})
+			sendEvent(
+				state.Events,
+				agent.SSEEvent{Event: agent.SSEEventDiagram, Data: state.Response.StructuredPayload},
+			)
 		case agent.ModeSearch, agent.ModeAuto:
 		}
+
 		sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventDone, Data: state.Response})
 	}
+
 	return state.Response, nil
 }
 
@@ -289,10 +339,11 @@ func sendEvent(events chan<- agent.SSEEvent, event agent.SSEEvent) {
 
 func validateResponse(response *agent.ChatResponse) error {
 	if response == nil {
-		return fmt.Errorf("response is nil")
+		return errors.New("response is nil")
 	}
+
 	if strings.TrimSpace(response.Answer) == "" && response.StructuredPayload == nil {
-		return fmt.Errorf("response is empty")
+		return errors.New("response is empty")
 	}
 
 	return nil
@@ -318,10 +369,11 @@ func validateResolvedMode(state *State) error {
 func validatePhysicsState(state *State) error {
 	model, ok := state.ToolOutputs["physics"].(*physicsmodel.PhysicsModel)
 	if !ok || model == nil {
-		return fmt.Errorf("physics response is invalid")
+		return errors.New("physics response is invalid")
 	}
+
 	if model.ModelType == "" || strings.TrimSpace(model.ResultSummary) == "" || len(model.Steps) == 0 {
-		return fmt.Errorf("physics response is invalid")
+		return errors.New("physics response is invalid")
 	}
 
 	return nil
@@ -330,7 +382,7 @@ func validatePhysicsState(state *State) error {
 func validateBiologyState(state *State) error {
 	model, ok := state.ToolOutputs["biology"].(*biologymodel.BiologyModel)
 	if !ok || model == nil || len(model.Concepts) == 0 {
-		return fmt.Errorf("biology response is invalid")
+		return errors.New("biology response is invalid")
 	}
 
 	return nil
