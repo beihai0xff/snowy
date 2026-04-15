@@ -26,9 +26,13 @@ func (c *simpleCalculator) Compute(model domain.ModelType, params map[string]flo
 		return computeNewtonSecondLaw(params), nil
 	case domain.ModelWorkEnergy:
 		return computeWorkEnergy(params), nil
-	default:
-		return nil, fmt.Errorf("unsupported physics model: %s", model)
+	case domain.ModelSpringOscillator:
+		return computeSpringOscillator(params), nil
+	case domain.ModelTwoBodyMotion:
+		return computeTwoBodyMotion(params), nil
 	}
+
+	return nil, fmt.Errorf("unsupported physics model: %s", model)
 }
 
 func (c *simpleCalculator) SupportedModels() []domain.ModelType {
@@ -38,6 +42,8 @@ func (c *simpleCalculator) SupportedModels() []domain.ModelType {
 		domain.ModelUniformAcceleration,
 		domain.ModelNewtonSecondLaw,
 		domain.ModelWorkEnergy,
+		domain.ModelSpringOscillator,
+		domain.ModelTwoBodyMotion,
 	}
 }
 
@@ -126,6 +132,33 @@ func computeWorkEnergy(params map[string]float64) *domain.ComputeResult {
 	m := valueOrDefault(params, "m", 1)
 	v := valueOrDefault(params, "v", 2)
 	return &domain.ComputeResult{Values: map[string]float64{"kinetic_energy": 0.5 * m * v * v}}
+}
+
+func computeSpringOscillator(params map[string]float64) *domain.ComputeResult {
+	k := valueOrDefault(params, "k", 20)
+	m := valueOrDefault(params, "m", 1)
+	x := valueOrDefault(params, "x", 0.2)
+
+	return &domain.ComputeResult{
+		Values: map[string]float64{
+			"period":            2 * math.Pi * math.Sqrt(m/k),
+			"elastic_potential": 0.5 * k * x * x,
+		},
+	}
+}
+
+func computeTwoBodyMotion(params map[string]float64) *domain.ComputeResult {
+	const gravitationalConstant = 6.67430e-11
+
+	m1 := valueOrDefault(params, "m1", 5.97e24)
+	m2 := valueOrDefault(params, "m2", 7.35e22)
+	r := valueOrDefault(params, "r", 3.84e8)
+
+	return &domain.ComputeResult{
+		Values: map[string]float64{
+			"force": gravitationalConstant * m1 * m2 / (r * r),
+		},
+	}
 }
 
 func valueOrDefault(params map[string]float64, key string, fallback float64) float64 {

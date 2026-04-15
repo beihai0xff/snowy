@@ -208,15 +208,7 @@ func (h *AgentHandler) chatStream(c *gin.Context, req *dto.ChatReq) {
 	events := make(chan agent.SSEEvent, 32)
 	errCh := make(chan error, 1)
 
-	chatReq := &agent.ChatRequest{
-		SessionID: parseOptionalUUID(req.SessionID),
-		Message:   req.Message,
-		Mode:      agent.Mode(req.Mode),
-		Filters: agent.Filters{
-			Subject: req.Filters.Subject,
-			Grade:   req.Filters.Grade,
-		},
-	}
+	chatReq := buildChatRequest(req)
 
 	go func() {
 		defer close(events)
@@ -242,7 +234,7 @@ func (h *AgentHandler) chatStream(c *gin.Context, req *dto.ChatReq) {
 	})
 
 	streamErr := <-errCh
-	if disconnected || streamErr != nil || !aggregator.Done() || h.writeSvc == nil || c.Request.Context().Err() != nil {
+	if shouldSkipStreamPersistence(disconnected, streamErr, aggregator, h.writeSvc != nil, c.Request.Context().Err()) {
 		if streamErr != nil {
 			slog.WarnContext(c.Request.Context(), "agent stream ended without persistence", "error", streamErr)
 		}
@@ -279,4 +271,26 @@ func parseOptionalUUID(raw string) uuid.UUID {
 	}
 
 	return id
+}
+
+func buildChatRequest(req *dto.ChatReq) *agent.ChatRequest {
+	return &agent.ChatRequest{
+		SessionID: parseOptionalUUID(req.SessionID),
+		Message:   req.Message,
+		Mode:      agent.Mode(req.Mode),
+		Filters: agent.Filters{
+			Subject: req.Filters.Subject,
+			Grade:   req.Filters.Grade,
+		},
+	}
+}
+
+func shouldSkipStreamPersistence(
+	disconnected bool,
+	streamErr error,
+	aggregator *agent.StreamResponseAggregator,
+	hasWriteService bool,
+	requestErr error,
+) bool {
+	return disconnected || streamErr != nil || !aggregator.Done() || !hasWriteService || requestErr != nil
 }

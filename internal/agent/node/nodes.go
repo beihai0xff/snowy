@@ -151,28 +151,15 @@ func (n *ValidateNode) Run(_ context.Context, input any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("validate node expects *State, got %T", input)
 	}
-	if state.Response == nil {
-		return nil, fmt.Errorf("response is nil")
+
+	if err := validateResponse(state.Response); err != nil {
+		return nil, err
 	}
-	if strings.TrimSpace(state.Response.Answer) == "" && state.Response.StructuredPayload == nil {
-		return nil, fmt.Errorf("response is empty")
+
+	if err := validateResolvedMode(state); err != nil {
+		return nil, err
 	}
-	switch state.ResolvedMode {
-	case agent.ModePhysics:
-		model, ok := state.ToolOutputs["physics"].(*physicsmodel.PhysicsModel)
-		if !ok || model == nil || model.ModelType == "" || strings.TrimSpace(model.ResultSummary) == "" || len(model.Steps) == 0 {
-			return nil, fmt.Errorf("physics response is invalid")
-		}
-	case agent.ModeBiology:
-		model, ok := state.ToolOutputs["biology"].(*biologymodel.BiologyModel)
-		if !ok || model == nil || len(model.Concepts) == 0 {
-			return nil, fmt.Errorf("biology response is invalid")
-		}
-	case agent.ModeSearch:
-		if len(state.Response.Citations) == 0 {
-			state.ValidationWarnings = append(state.ValidationWarnings, "检索结果缺少引用，已降级为摘要回答")
-		}
-	}
+
 	return state, nil
 }
 
@@ -261,6 +248,7 @@ func (n *OutputNode) Run(_ context.Context, input any) (any, error) {
 			sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventChart, Data: state.Response.StructuredPayload})
 		case agent.ModeBiology:
 			sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventDiagram, Data: state.Response.StructuredPayload})
+		case agent.ModeSearch, agent.ModeAuto:
 		}
 		sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventDone, Data: state.Response})
 	}
@@ -281,13 +269,15 @@ func inferMode(message, subject string) agent.Mode {
 
 func resolveTaskType(mode agent.Mode) agentrouter.TaskType {
 	switch mode {
+	case agent.ModeSearch, agent.ModeAuto:
+		return agentrouter.TaskSearchAnswer
 	case agent.ModePhysics:
 		return agentrouter.TaskPhysicsDerivation
 	case agent.ModeBiology:
 		return agentrouter.TaskBiologyModeling
-	default:
-		return agentrouter.TaskSearchAnswer
 	}
+
+	return agentrouter.TaskSearchAnswer
 }
 
 func sendEvent(events chan<- agent.SSEEvent, event agent.SSEEvent) {
@@ -295,4 +285,53 @@ func sendEvent(events chan<- agent.SSEEvent, event agent.SSEEvent) {
 	case events <- event:
 	default:
 	}
+}
+
+func validateResponse(response *agent.ChatResponse) error {
+	if response == nil {
+		return fmt.Errorf("response is nil")
+	}
+	if strings.TrimSpace(response.Answer) == "" && response.StructuredPayload == nil {
+		return fmt.Errorf("response is empty")
+	}
+
+	return nil
+}
+
+func validateResolvedMode(state *State) error {
+	switch state.ResolvedMode {
+	case agent.ModePhysics:
+		return validatePhysicsState(state)
+	case agent.ModeBiology:
+		return validateBiologyState(state)
+	case agent.ModeSearch:
+		if len(state.Response.Citations) == 0 {
+			state.ValidationWarnings = append(state.ValidationWarnings, "检索结果缺少引用，已降级为摘要回答")
+		}
+	case agent.ModeAuto:
+		return nil
+	}
+
+	return nil
+}
+
+func validatePhysicsState(state *State) error {
+	model, ok := state.ToolOutputs["physics"].(*physicsmodel.PhysicsModel)
+	if !ok || model == nil {
+		return fmt.Errorf("physics response is invalid")
+	}
+	if model.ModelType == "" || strings.TrimSpace(model.ResultSummary) == "" || len(model.Steps) == 0 {
+		return fmt.Errorf("physics response is invalid")
+	}
+
+	return nil
+}
+
+func validateBiologyState(state *State) error {
+	model, ok := state.ToolOutputs["biology"].(*biologymodel.BiologyModel)
+	if !ok || model == nil || len(model.Concepts) == 0 {
+		return fmt.Errorf("biology response is invalid")
+	}
+
+	return nil
 }

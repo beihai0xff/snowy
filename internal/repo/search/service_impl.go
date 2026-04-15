@@ -49,14 +49,8 @@ func (s *serviceImpl) Query(ctx context.Context, q *Query) (*Response, error) {
 	if q == nil || strings.TrimSpace(q.Text) == "" {
 		return nil, fmt.Errorf("query text is empty")
 	}
-	if s.repo == nil {
-		return nil, fmt.Errorf("search repository is nil")
-	}
-	if s.parser == nil {
-		return nil, fmt.Errorf("search parser is nil")
-	}
-	if s.ranker == nil {
-		return nil, fmt.Errorf("search ranker is nil")
+	if err := s.validateDependencies(); err != nil {
+		return nil, err
 	}
 
 	start := time.Now()
@@ -64,11 +58,7 @@ func (s *serviceImpl) Query(ctx context.Context, q *Query) (*Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse query: %w", err)
 	}
-	if s.embedding != nil {
-		if vectors, embedErr := s.embedding.Embed(ctx, []string{q.Text}); embedErr == nil && len(vectors) > 0 {
-			parsed.Embedding = vectors[0]
-		}
-	}
+	s.attachEmbedding(ctx, q, parsed)
 
 	results, total, err := s.repo.Search(ctx, parsed, q.Filters, defaultSearchOffset, defaultSearchLimit)
 	if err != nil {
@@ -100,37 +90,15 @@ func assembleResponse(results []Result) *Response {
 		}
 	}
 
-	citations := make([]Citation, 0, min(len(results), 3))
+	citations := make([]Citation, 0, minInt(len(results), 3))
 	tagsSeen := map[string]struct{}{}
 	tags := make([]string, 0, 6)
-	related := make([]RelatedQuestion, 0, min(len(results), 3))
-	snippets := make([]string, 0, min(len(results), 2))
+	related := make([]RelatedQuestion, 0, minInt(len(results), 3))
+	snippets := make([]string, 0, minInt(len(results), 2))
 	for i, result := range results {
-		if i < 3 {
-			citations = append(citations, Citation{
-				DocID:      result.DocID,
-				SourceType: result.SourceType,
-				Snippet:    result.Snippet,
-				Score:      result.Score,
-			})
-			related = append(related, RelatedQuestion{
-				ID:    result.DocID,
-				Title: buildRelatedTitle(result),
-			})
-		}
-		if i < 2 && strings.TrimSpace(result.Snippet) != "" {
-			snippets = append(snippets, strings.TrimSpace(result.Snippet))
-		}
-		for _, tag := range result.Tags {
-			if _, ok := tagsSeen[tag]; ok || strings.TrimSpace(tag) == "" {
-				continue
-			}
-			tagsSeen[tag] = struct{}{}
-			tags = append(tags, tag)
-			if len(tags) == 6 {
-				break
-			}
-		}
+		collectPrimaryResult(i, result, &citations, &related)
+		collectSnippet(i, result, &snippets)
+		tags = collectTags(result.Tags, tagsSeen, tags)
 	}
 
 	answer := strings.Join(snippets, "\n")
@@ -175,7 +143,7 @@ func topScore(results []Result) float64 {
 	return math.Min(0.99, results[0].Score)
 }
 
-func min(a, b int) int {
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}
@@ -185,3 +153,71 @@ func min(a, b int) int {
 type noopLogRepository struct{}
 
 func (noopLogRepository) SaveLog(context.Context, *Log) error { return nil }
+
+func (s *serviceImpl) validateDependencies() error {
+	if s.repo == nil {
+		return fmt.Errorf("search repository is nil")
+	}
+	if s.parser == nil {
+		return fmt.Errorf("search parser is nil")
+	}
+	if s.ranker == nil {
+		return fmt.Errorf("search ranker is nil")
+	}
+
+	return nil
+}
+
+func (s *serviceImpl) attachEmbedding(ctx context.Context, q *Query, parsed *ParsedQuery) {
+	if s.embedding == nil {
+		return
+	}
+
+	vectors, err := s.embedding.Embed(ctx, []string{q.Text})
+	if err != nil || len(vectors) == 0 {
+		return
+	}
+
+	parsed.Embedding = vectors[0]
+}
+
+func collectPrimaryResult(index int, result Result, citations *[]Citation, related *[]RelatedQuestion) {
+	if index >= 3 {
+		return
+	}
+
+	*citations = append(*citations, Citation{
+		DocID:      result.DocID,
+		SourceType: result.SourceType,
+		Snippet:    result.Snippet,
+		Score:      result.Score,
+	})
+	*related = append(*related, RelatedQuestion{
+		ID:    result.DocID,
+		Title: buildRelatedTitle(result),
+	})
+}
+
+func collectSnippet(index int, result Result, snippets *[]string) {
+	if index >= 2 || strings.TrimSpace(result.Snippet) == "" {
+		return
+	}
+
+	*snippets = append(*snippets, strings.TrimSpace(result.Snippet))
+}
+
+func collectTags(resultTags []string, tagsSeen map[string]struct{}, tags []string) []string {
+	for _, tag := range resultTags {
+		if _, ok := tagsSeen[tag]; ok || strings.TrimSpace(tag) == "" {
+			continue
+		}
+
+		tagsSeen[tag] = struct{}{}
+		tags = append(tags, tag)
+		if len(tags) == 6 {
+			return tags
+		}
+	}
+
+	return tags
+}

@@ -97,6 +97,7 @@ func (s *writeService) CreateSession(ctx context.Context, input *CreateSessionIn
 	return session, nil
 }
 
+//nolint:cyclop // The transaction persists the full conversation atomically in one place.
 func (s *writeService) PersistConversation(
 	ctx context.Context,
 	input *PersistConversationInput,

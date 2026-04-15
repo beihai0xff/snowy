@@ -31,6 +31,7 @@ func NewOpenAIEmbedding(cfg config.EmbeddingConfig) Provider {
 	}
 }
 
+//nolint:cyclop // The embedding flow has distinct request construction, fallback, and decoding branches.
 func (e *openaiEmbedding) Embed(ctx context.Context, texts []string) ([][]float64, error) {
 	if len(texts) == 0 {
 		return nil, nil

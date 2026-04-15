@@ -102,7 +102,7 @@ func inferConcepts(text string) []domain.Concept {
 }
 
 func inferRelations(concepts []domain.Concept) []domain.Relation {
-	relations := make([]domain.Relation, 0, max(len(concepts)-1, 0))
+	relations := make([]domain.Relation, 0, maxInt(len(concepts)-1, 0))
 	for i := 0; i < len(concepts)-1; i++ {
 		relations = append(relations, domain.Relation{Source: concepts[i].Name, Target: concepts[i+1].Name, Type: "influences"})
 	}
@@ -129,7 +129,7 @@ func processSteps(topic string) []domain.ProcessStep {
 	}
 }
 
-func max(a, b int) int {
+func maxInt(a, b int) int {
 	if a > b {
 		return a
 	}

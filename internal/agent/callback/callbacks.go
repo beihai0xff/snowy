@@ -116,13 +116,13 @@ func (o *OTelTracer) OnNodeEnd(ctx context.Context, nodeName string, _ any, err 
 	if !ok {
 		return
 	}
+	defer span.End()
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 	} else {
 		span.SetStatus(codes.Ok, "completed")
 	}
-	span.End()
 }
 
 func metricKey(ctx context.Context, nodeName string) string {

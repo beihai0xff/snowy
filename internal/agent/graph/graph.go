@@ -21,6 +21,12 @@ import (
 	searchdomain "github.com/beihai0xff/snowy/internal/repo/search"
 )
 
+const (
+	toolStatusRunning = "running"
+	toolStatusFailed  = "failed"
+	toolStatusSuccess = "success"
+)
+
 // Builder 构建 Agent 编排图。
 // 基于 Eino Graph 编排：InputNode → SessionNode → PrePolicyNode → IntentNode
 // → [SearchToolNode / PhysicsToolNode / BioToolNode] → ValidateNode
@@ -132,6 +138,44 @@ func (b *Builder) ExecuteStream(ctx context.Context, input *nodepkg.InputPayload
 }
 
 func (b *Builder) run(ctx context.Context, input *nodepkg.InputPayload) (*agent.ChatResponse, error) {
+	current, err := b.runInitialNodes(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	state, err := graphState(current, "graph state")
+	if err != nil {
+		return nil, err
+	}
+	if err := b.preCheck(ctx, state); err != nil {
+		return nil, err
+	}
+
+	state, err = b.runPrimaryFlow(ctx, state)
+	if err != nil {
+		return nil, err
+	}
+	if err := b.postCheck(ctx, state); err != nil {
+		state, err = b.runFallbackWithReason(ctx, state, err)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	current, err = b.runNode(ctx, &nodepkg.OutputNode{}, state)
+	if err != nil {
+		return nil, err
+	}
+
+	response, ok := current.(*agent.ChatResponse)
+	if !ok {
+		return nil, fmt.Errorf("unexpected graph output %T", current)
+	}
+
+	return response, nil
+}
+
+func (b *Builder) runInitialNodes(ctx context.Context, input *nodepkg.InputPayload) (any, error) {
 	var err error
 	var current any = input
 	for _, node := range []nodepkg.Node{
@@ -145,57 +189,7 @@ func (b *Builder) run(ctx context.Context, input *nodepkg.InputPayload) (*agent.
 		}
 	}
 
-	state, ok := current.(*nodepkg.State)
-	if !ok {
-		return nil, fmt.Errorf("unexpected graph state %T", current)
-	}
-	if err := b.preCheck(ctx, state); err != nil {
-		return nil, err
-	}
-	if err := b.executeTool(ctx, state); err != nil {
-		state.FallbackReason = err.Error()
-		state, err = b.runFallback(ctx, state)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		current, err = b.runNode(ctx, nodepkg.NewAssembleNode(b.assembler), state)
-		if err != nil {
-			state.FallbackReason = err.Error()
-			state, err = b.runFallback(ctx, state)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			state = current.(*nodepkg.State)
-			current, err = b.runNode(ctx, &nodepkg.ValidateNode{}, state)
-			if err != nil {
-				state.FallbackReason = err.Error()
-				state, err = b.runFallback(ctx, state)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				state = current.(*nodepkg.State)
-			}
-		}
-	}
-	if err := b.postCheck(ctx, state); err != nil {
-		state.FallbackReason = err.Error()
-		state, err = b.runFallback(ctx, state)
-		if err != nil {
-			return nil, err
-		}
-	}
-	current, err = b.runNode(ctx, &nodepkg.OutputNode{}, state)
-	if err != nil {
-		return nil, err
-	}
-	response, ok := current.(*agent.ChatResponse)
-	if !ok {
-		return nil, fmt.Errorf("unexpected graph output %T", current)
-	}
-	return response, nil
+	return current, nil
 }
 
 func (b *Builder) runNode(ctx context.Context, node nodepkg.Node, input any) (output any, err error) {
@@ -213,49 +207,14 @@ func (b *Builder) runNode(ctx context.Context, node nodepkg.Node, input any) (ou
 func (b *Builder) executeTool(ctx context.Context, state *nodepkg.State) error {
 	switch state.ResolvedMode {
 	case agent.ModePhysics:
-		if b.physicsAnalyzeTool == nil {
-			return fmt.Errorf("physics tool is nil")
-		}
-		state.ToolCalls = append(state.ToolCalls, agent.ToolCall{Tool: b.physicsAnalyzeTool.Name(), Status: "running"})
-		output, err := b.physicsAnalyzeTool.Run(ctx, tool.PhysicsAnalyzeInput{Question: state.Request.Message, SessionContext: joinHistory(state.History)})
-		if err != nil {
-			state.ToolCalls[len(state.ToolCalls)-1].Status = "failed"
-			return err
-		}
-		state.ToolCalls[len(state.ToolCalls)-1].Status = "success"
-		state.ToolOutputs["physics"] = output
+		return b.runPhysicsTool(ctx, state)
 	case agent.ModeBiology:
-		if b.biologyAnalyzeTool == nil {
-			return fmt.Errorf("biology tool is nil")
-		}
-		state.ToolCalls = append(state.ToolCalls, agent.ToolCall{Tool: b.biologyAnalyzeTool.Name(), Status: "running"})
-		output, err := b.biologyAnalyzeTool.Run(ctx, tool.BiologyAnalyzeInput{Question: state.Request.Message, SessionContext: joinHistory(state.History)})
-		if err != nil {
-			state.ToolCalls[len(state.ToolCalls)-1].Status = "failed"
-			return err
-		}
-		state.ToolCalls[len(state.ToolCalls)-1].Status = "success"
-		state.ToolOutputs["biology"] = output
-	default:
-		if b.searchTool == nil {
-			return fmt.Errorf("search tool is nil")
-		}
-		state.ToolCalls = append(state.ToolCalls, agent.ToolCall{Tool: b.searchTool.Name(), Status: "running"})
-		output, err := b.searchTool.Run(ctx, tool.SearchInput{Query: state.Request.Message, Filters: searchdomain.Filters{Subject: state.Request.Filters.Subject, Grade: state.Request.Filters.Grade}})
-		if err != nil {
-			state.ToolCalls[len(state.ToolCalls)-1].Status = "failed"
-			return err
-		}
-		state.ToolCalls[len(state.ToolCalls)-1].Status = "success"
-		state.ToolOutputs["search"] = output
-		if b.citationTool != nil {
-			citations, err := b.citationTool.Run(ctx, output)
-			if err == nil {
-				state.ToolOutputs["citations"] = citations
-			}
-		}
+		return b.runBiologyTool(ctx, state)
+	case agent.ModeSearch, agent.ModeAuto:
+		return b.runSearchTool(ctx, state)
 	}
-	return nil
+
+	return fmt.Errorf("unsupported mode %s", state.ResolvedMode)
 }
 
 func (b *Builder) runFallback(ctx context.Context, state *nodepkg.State) (*nodepkg.State, error) {
@@ -328,4 +287,144 @@ func ensureRequestID(ctx context.Context) context.Context {
 		return ctx
 	}
 	return common.WithRequestID(ctx, uuid.NewString())
+}
+
+func (b *Builder) runPrimaryFlow(ctx context.Context, state *nodepkg.State) (*nodepkg.State, error) {
+	if err := b.executeTool(ctx, state); err != nil {
+		return b.runFallbackWithReason(ctx, state, err)
+	}
+
+	current, err := b.runNode(ctx, nodepkg.NewAssembleNode(b.assembler), state)
+	if err != nil {
+		return b.runFallbackWithReason(ctx, state, err)
+	}
+
+	state, err = graphState(current, "assembled state")
+	if err != nil {
+		return nil, err
+	}
+
+	current, err = b.runNode(ctx, &nodepkg.ValidateNode{}, state)
+	if err != nil {
+		return b.runFallbackWithReason(ctx, state, err)
+	}
+
+	return graphState(current, "validated state")
+}
+
+func (b *Builder) runFallbackWithReason(ctx context.Context, state *nodepkg.State, fallbackErr error) (*nodepkg.State, error) {
+	state.FallbackReason = fallbackErr.Error()
+	return b.runFallback(ctx, state)
+}
+
+func (b *Builder) runPhysicsTool(ctx context.Context, state *nodepkg.State) error {
+	if b.physicsAnalyzeTool == nil {
+		return fmt.Errorf("physics tool is nil")
+	}
+
+	output, err := b.runToolCall(
+		ctx,
+		state,
+		b.physicsAnalyzeTool.Name(),
+		func(runCtx context.Context) (any, error) {
+			return b.physicsAnalyzeTool.Run(runCtx, tool.PhysicsAnalyzeInput{
+				Question:       state.Request.Message,
+				SessionContext: joinHistory(state.History),
+			})
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	state.ToolOutputs["physics"] = output
+
+	return nil
+}
+
+func (b *Builder) runBiologyTool(ctx context.Context, state *nodepkg.State) error {
+	if b.biologyAnalyzeTool == nil {
+		return fmt.Errorf("biology tool is nil")
+	}
+
+	output, err := b.runToolCall(
+		ctx,
+		state,
+		b.biologyAnalyzeTool.Name(),
+		func(runCtx context.Context) (any, error) {
+			return b.biologyAnalyzeTool.Run(runCtx, tool.BiologyAnalyzeInput{
+				Question:       state.Request.Message,
+				SessionContext: joinHistory(state.History),
+			})
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	state.ToolOutputs["biology"] = output
+
+	return nil
+}
+
+func (b *Builder) runSearchTool(ctx context.Context, state *nodepkg.State) error {
+	if b.searchTool == nil {
+		return fmt.Errorf("search tool is nil")
+	}
+
+	output, err := b.runToolCall(
+		ctx,
+		state,
+		b.searchTool.Name(),
+		func(runCtx context.Context) (any, error) {
+			return b.searchTool.Run(runCtx, tool.SearchInput{
+				Query: state.Request.Message,
+				Filters: searchdomain.Filters{
+					Subject: state.Request.Filters.Subject,
+					Grade:   state.Request.Filters.Grade,
+				},
+			})
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	state.ToolOutputs["search"] = output
+	if b.citationTool != nil {
+		citations, citationErr := b.citationTool.Run(ctx, output)
+		if citationErr == nil {
+			state.ToolOutputs["citations"] = citations
+		}
+	}
+
+	return nil
+}
+
+func (b *Builder) runToolCall(
+	ctx context.Context,
+	state *nodepkg.State,
+	toolName string,
+	run func(context.Context) (any, error),
+) (any, error) {
+	state.ToolCalls = append(state.ToolCalls, agent.ToolCall{Tool: toolName, Status: toolStatusRunning})
+
+	output, err := run(ctx)
+	if err != nil {
+		state.ToolCalls[len(state.ToolCalls)-1].Status = toolStatusFailed
+		return nil, err
+	}
+
+	state.ToolCalls[len(state.ToolCalls)-1].Status = toolStatusSuccess
+
+	return output, nil
+}
+
+func graphState(current any, label string) (*nodepkg.State, error) {
+	state, ok := current.(*nodepkg.State)
+	if !ok {
+		return nil, fmt.Errorf("unexpected %s %T", label, current)
+	}
+
+	return state, nil
 }
