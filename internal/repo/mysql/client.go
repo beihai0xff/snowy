@@ -7,7 +7,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 
-	"github.com/beihai0xff/snowy/internal/config"
+	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
 // NewDB 创建 MySQL 连接池。

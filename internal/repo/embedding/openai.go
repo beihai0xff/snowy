@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/beihai0xff/snowy/internal/config"
+	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
 // openaiEmbedding 基于 OpenAI text-embedding-3-large 的实现。

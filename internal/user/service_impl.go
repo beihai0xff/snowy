@@ -9,7 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 
-	"github.com/beihai0xff/snowy/internal/config"
+	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
 // serviceImpl 用户域应用服务实现。

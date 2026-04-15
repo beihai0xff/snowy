@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/beihai0xff/snowy/internal/config"
+	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
 // geminiProvider 基于 Google Gemini API 的 LLM Provider。

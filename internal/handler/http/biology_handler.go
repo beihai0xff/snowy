@@ -5,9 +5,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/beihai0xff/snowy/internal/common"
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
 	biologysvc "github.com/beihai0xff/snowy/internal/modeling/biology/service"
+	"github.com/beihai0xff/snowy/internal/pkg/common"
 )
 
 // BiologyHandler 生物建模 HTTP Handler。

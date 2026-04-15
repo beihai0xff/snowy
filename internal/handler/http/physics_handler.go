@@ -5,10 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/beihai0xff/snowy/internal/common"
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
 	"github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 	physicssvc "github.com/beihai0xff/snowy/internal/modeling/physics/service"
+	"github.com/beihai0xff/snowy/internal/pkg/common"
 )
 
 // PhysicsHandler 物理建模 HTTP Handler。

@@ -12,8 +12,8 @@ import (
 	"syscall"
 
 	"github.com/beihai0xff/snowy/internal/app"
-	"github.com/beihai0xff/snowy/internal/common"
-	"github.com/beihai0xff/snowy/internal/config"
+	"github.com/beihai0xff/snowy/internal/pkg/common"
+	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
 // 编译注入的版本信息。

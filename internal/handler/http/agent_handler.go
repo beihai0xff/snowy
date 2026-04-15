@@ -7,8 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/beihai0xff/snowy/internal/agent"
-	"github.com/beihai0xff/snowy/internal/common"
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
+	"github.com/beihai0xff/snowy/internal/pkg/common"
 )
 
 // AgentHandler Agent 会话 HTTP Handler。

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/beihai0xff/snowy/internal/config"
+	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
 // openaiProvider 基于 OpenAI API 的 LLM Provider。

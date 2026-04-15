@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/beihai0xff/snowy/internal/config"
+	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
 // ObjectStorage 对象存储统一接口。

@@ -6,9 +6,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/beihai0xff/snowy/internal/config"
+	internalsearch "github.com/beihai0xff/snowy/internal/repo/search"
+
 	"github.com/beihai0xff/snowy/internal/content"
-	internalsearch "github.com/beihai0xff/snowy/internal/search"
+	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
 // OpenSearchAdapter OpenSearch 搜索适配器。

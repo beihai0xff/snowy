@@ -25,7 +25,7 @@
 | **后端语言** | Go 1.24+ |
 | **HTTP 框架** | Gin |
 | **Agent 编排** | [Eino](https://github.com/cloudwego/eino) (CloudWeGo) |
-| **数据库** | PostgreSQL 17 (pgx + sqlc) |
+| **数据库** | MySQL 8.0+ (go-sql-driver/mysql + sqlc) |
 | **缓存 & 队列** | Redis 7 + Asynq |
 | **搜索引擎** | OpenSearch（全文 + 向量 + 混合检索） |
 | **对象存储** | MinIO (S3 兼容，开发环境) |
@@ -43,14 +43,14 @@ snowy/
     worker/               # Asynq 异步任务 Worker 入口
   internal/
     agent/                # Agent 编排域（Eino Graph）
-    search/               # 知识检索域
+    user/                 # 用户服务
+    content/              # 内容入库域
     modeling/
       physics/            # 物理建模域
       biology/            # 生物建模域
-    user/                 # 用户服务
-    content/              # 内容入库域
-    provider/             # LLM / Embedding / Storage 适配层
-    store/                # PostgreSQL / Redis 底层访问
+    handler/http/         # HTTP Handler 层
+    repo/                 # 基础设施层（MySQL / Redis / LLM / Embedding / OpenSearch / Storage）
+    pkg/                  # 公共基础包（common / config / middleware）
   api/openapi/            # OpenAPI 契约
   web/snowy-web/          # 前端项目
   configs/                # 多环境配置
@@ -81,7 +81,7 @@ make docker-up
 
 | 服务 | 地址 |
 |---|---|
-| PostgreSQL | `localhost:5432` |
+| MySQL | `localhost:3306` |
 | Redis | `localhost:6379` |
 | OpenSearch | `localhost:9200` |
 | OpenSearch Dashboards | `localhost:5601` |

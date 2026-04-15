@@ -24,7 +24,7 @@ func (r *agentSessionRepo) Create(ctx context.Context, s *agent.Session) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO agent_sessions (id, user_id, mode, status, metadata, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		s.ID, s.UserID, s.Mode, s.Status, s.Metadata, s.CreatedAt, s.UpdatedAt,
+		s.ID, s.UserID, s.Mode, s.Status, jsonMap(s.Metadata), s.CreatedAt, s.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("insert agent session: %w", err)
@@ -34,13 +34,15 @@ func (r *agentSessionRepo) Create(ctx context.Context, s *agent.Session) error {
 
 func (r *agentSessionRepo) GetByID(ctx context.Context, id uuid.UUID) (*agent.Session, error) {
 	s := &agent.Session{}
+	var meta jsonMap
 	err := r.db.QueryRowContext(ctx,
 		`SELECT id, user_id, mode, status, metadata, created_at, updated_at
 		 FROM agent_sessions WHERE id = ?`, id,
-	).Scan(&s.ID, &s.UserID, &s.Mode, &s.Status, &s.Metadata, &s.CreatedAt, &s.UpdatedAt)
+	).Scan(&s.ID, &s.UserID, &s.Mode, &s.Status, &meta, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("get agent session: %w", err)
 	}
+	s.Metadata = map[string]any(meta)
 	return s, nil
 }
 
@@ -73,9 +75,11 @@ func (r *agentSessionRepo) ListByUser(ctx context.Context, userID uuid.UUID, off
 	var sessions []*agent.Session
 	for rows.Next() {
 		s := &agent.Session{}
-		if err := rows.Scan(&s.ID, &s.UserID, &s.Mode, &s.Status, &s.Metadata, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		var meta jsonMap
+		if err := rows.Scan(&s.ID, &s.UserID, &s.Mode, &s.Status, &meta, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan agent session: %w", err)
 		}
+		s.Metadata = map[string]any(meta)
 		sessions = append(sessions, s)
 	}
 	return sessions, total, nil

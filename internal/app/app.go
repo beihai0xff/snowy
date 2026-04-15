@@ -11,8 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 	goredis "github.com/redis/go-redis/v9"
 
-	"github.com/beihai0xff/snowy/internal/config"
 	handler "github.com/beihai0xff/snowy/internal/handler/http"
+	"github.com/beihai0xff/snowy/internal/pkg/config"
 	mysqlrepo "github.com/beihai0xff/snowy/internal/repo/mysql"
 	redisrepo "github.com/beihai0xff/snowy/internal/repo/redis"
 	"github.com/beihai0xff/snowy/internal/user"
