@@ -20,6 +20,7 @@ type serviceImpl struct {
 	histRepo   HistoryRepository
 	transactor irepo.Transactor
 	authCfg    config.AuthConfig
+	verifier   VerificationCodeChecker
 }
 
 // NewService 创建用户域应用服务。
@@ -30,12 +31,28 @@ func NewService(
 	transactor irepo.Transactor,
 	authCfg config.AuthConfig,
 ) Service {
+	return NewServiceWithVerifier(repo, favRepo, histRepo, transactor, authCfg, NewNoopVerificationCodeChecker())
+}
+
+// NewServiceWithVerifier 创建带验证码校验器的用户域应用服务。
+func NewServiceWithVerifier(
+	repo Repository,
+	favRepo FavoriteRepository,
+	histRepo HistoryRepository,
+	transactor irepo.Transactor,
+	authCfg config.AuthConfig,
+	verifier VerificationCodeChecker,
+) Service {
+	if verifier == nil {
+		verifier = NewNoopVerificationCodeChecker()
+	}
 	return &serviceImpl{
 		repo:       repo,
 		favRepo:    favRepo,
 		histRepo:   histRepo,
 		transactor: transactor,
 		authCfg:    authCfg,
+		verifier:   verifier,
 	}
 }
 
@@ -77,8 +94,10 @@ func (s *serviceImpl) Register(ctx context.Context, phone, nickname string) (*Us
 	return u, nil
 }
 
-func (s *serviceImpl) Login(ctx context.Context, phone, _ string) (string, string, error) {
-	// TODO: 校验验证码
+func (s *serviceImpl) Login(ctx context.Context, phone, code string) (string, string, error) {
+	if err := s.verifier.Verify(ctx, phone, code); err != nil {
+		return "", "", fmt.Errorf("verify login code: %w", err)
+	}
 	u, err := s.repo.GetByPhone(ctx, phone)
 	if err != nil {
 		return "", "", fmt.Errorf("get user by phone: %w", err)
