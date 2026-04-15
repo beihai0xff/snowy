@@ -3,7 +3,6 @@
 package storage
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -49,12 +48,7 @@ func (s *minioStorage) Upload(ctx context.Context, key string, reader io.Reader,
 		return err
 	}
 
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return fmt.Errorf("read upload body: %w", err)
-	}
-
-	_, err = client.PutObject(ctx, s.bucketName(), key, bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{
+	_, err = client.PutObject(ctx, s.bucketName(), key, reader, -1, minio.PutObjectOptions{
 		ContentType: contentType,
 	})
 	if err != nil {

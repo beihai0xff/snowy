@@ -112,11 +112,20 @@ func inferRelations(concepts []domain.Concept) []domain.Relation {
 func processSteps(topic string) []domain.ProcessStep {
 	switch topic {
 	case "photosynthesis":
-		return []domain.ProcessStep{{Index: 1, Title: "识别限制因素", Content: "判断光照、二氧化碳等因素是否构成限制条件。"}, {Index: 2, Title: "分析物质变化", Content: "结合光反应和暗反应分析有机物积累变化。"}}
+		return []domain.ProcessStep{
+			{Index: 1, Title: "识别限制因素", Content: "判断光照、二氧化碳等因素是否构成限制条件。"},
+			{Index: 2, Title: "分析物质变化", Content: "结合光反应和暗反应分析有机物积累变化。"},
+		}
 	case "enzyme_activity":
-		return []domain.ProcessStep{{Index: 1, Title: "锁定变量", Content: "先区分自变量、因变量和控制变量。"}, {Index: 2, Title: "分析趋势", Content: "结合酶活性曲线判断促进或抑制作用。"}}
+		return []domain.ProcessStep{
+			{Index: 1, Title: "锁定变量", Content: "先区分自变量、因变量和控制变量。"},
+			{Index: 2, Title: "分析趋势", Content: "结合酶活性曲线判断促进或抑制作用。"},
+		}
 	default:
-		return []domain.ProcessStep{{Index: 1, Title: "提取核心概念", Content: "从题干中识别关键生物概念与过程。"}, {Index: 2, Title: "建立关系", Content: "将概念组织为因果或流程关系。"}}
+		return []domain.ProcessStep{
+			{Index: 1, Title: "提取核心概念", Content: "从题干中识别关键生物概念与过程。"},
+			{Index: 2, Title: "建立关系", Content: "将概念组织为因果或流程关系。"},
+		}
 	}
 }
 

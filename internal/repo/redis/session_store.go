@@ -43,7 +43,9 @@ func (s *SessionStore) Get(ctx context.Context, sessionID string) (map[string]an
 	}
 
 	// 滑动窗口续期
-	s.client.Expire(ctx, k, s.defaultTTL)
+	if err := s.client.Expire(ctx, k, s.defaultTTL).Err(); err != nil {
+		return nil, fmt.Errorf("session expire: %w", err)
+	}
 
 	var data map[string]any
 	if err := json.Unmarshal([]byte(val), &data); err != nil {

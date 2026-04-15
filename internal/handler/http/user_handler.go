@@ -99,7 +99,14 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 // GetHistory GET /api/v1/history — 历史记录。
 func (h *UserHandler) GetHistory(c *gin.Context) {
 	userID := common.UserIDFromContext(c.Request.Context())
-	uid, _ := uuid.Parse(userID)
+
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusUnauthorized, common.Fail(common.ErrUnauthorized, reqID))
+
+		return
+	}
 
 	items, total, err := h.userSvc.GetHistory(c.Request.Context(), uid, 0, 20)
 	if err != nil {
@@ -128,7 +135,14 @@ func (h *UserHandler) AddFavorite(c *gin.Context) {
 	}
 
 	userID := common.UserIDFromContext(c.Request.Context())
-	uid, _ := uuid.Parse(userID)
+
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusUnauthorized, common.Fail(common.ErrUnauthorized, reqID))
+
+		return
+	}
 
 	fav := &user.Favorite{
 		UserID:     uid,
