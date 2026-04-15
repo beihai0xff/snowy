@@ -34,6 +34,7 @@ LDFLAGS        := -s -w \
                   -X main.BuildTime=$(BUILD_TIME) \
                   -X main.Commit=$(COMMIT)
 GOTEST_FLAGS   := -race -count=1 -timeout 120s
+TEST_DEPS_SERVICES := mysql redis opensearch minio
 
 # ── Docker 参数 ─────────────────────────────────────────────
 DOCKER_COMPOSE := docker compose -f $(DEPLOY_DIR)/docker-compose.yml -p $(PROJECT_NAME)
@@ -99,17 +100,25 @@ clean:
 #  Test & Lint
 # ============================================================
 
-.PHONY: test test-integration test-coverage lint fmt vet
+.PHONY: test test-unit test-integration test-e2e test-coverage lint fmt vet test-deps-up test-deps-down
 
 ## test: 运行单元测试
-test:
+test: test-unit
+
+## test-unit: 运行单元测试
+test-unit:
 	@echo "$(GREEN)▸ Running unit tests...$(RESET)"
 	$(GO) test $(GOTEST_FLAGS) ./internal/...
 
-## test-integration: 运行集成测试 (需要基础设施)
+## test-integration: 启动 MySQL/Redis/OpenSearch/MinIO Docker 依赖并运行集成测试
 test-integration:
-	@echo "$(GREEN)▸ Running integration tests...$(RESET)"
-	$(GO) test $(GOTEST_FLAGS) -tags=integration ./test/integration/...
+	@echo "$(GREEN)▸ Running integration tests with Docker dependencies...$(RESET)"
+	@bash ./scripts/test.sh --integration
+
+## test-e2e: 运行端到端测试
+test-e2e:
+	@echo "$(GREEN)▸ Running e2e tests...$(RESET)"
+	$(GO) test $(GOTEST_FLAGS) -tags=e2e ./test/e2e/...
 
 ## test-coverage: 生成测试覆盖率报告
 test-coverage:
@@ -138,6 +147,17 @@ fmt:
 vet:
 	@echo "$(GREEN)▸ Running vet...$(RESET)"
 	$(GO) vet ./...
+
+## test-deps-up: 启动测试所需 Docker 依赖 (MySQL/Redis/OpenSearch/MinIO)
+test-deps-up:
+	@echo "$(CYAN)▸ Starting test dependencies: $(TEST_DEPS_SERVICES)...$(RESET)"
+	$(DOCKER_COMPOSE) up -d $(TEST_DEPS_SERVICES)
+
+## test-deps-down: 停止测试所需 Docker 依赖 (MySQL/Redis/OpenSearch/MinIO)
+test-deps-down:
+	@echo "$(YELLOW)▸ Stopping test dependencies: $(TEST_DEPS_SERVICES)...$(RESET)"
+	-$(DOCKER_COMPOSE) stop $(TEST_DEPS_SERVICES)
+	-$(DOCKER_COMPOSE) rm -f $(TEST_DEPS_SERVICES)
 
 # ============================================================
 #  Docker — 基础设施 (docker-compose)

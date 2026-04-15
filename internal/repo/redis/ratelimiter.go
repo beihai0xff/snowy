@@ -26,13 +26,14 @@ func NewRateLimiter(client *goredis.Client) *RateLimiter {
 func (r *RateLimiter) Allow(ctx context.Context, key string, limit int, window time.Duration) (bool, error) {
 	now := time.Now().UnixMilli()
 	windowStart := now - window.Milliseconds()
+	member := fmt.Sprintf("%d-%d", now, time.Now().UnixNano())
 
 	pipe := r.client.Pipeline()
 
 	// 移除窗口外的旧记录
 	pipe.ZRemRangeByScore(ctx, key, "0", fmt.Sprintf("%d", windowStart))
 	// 添加当前请求
-	pipe.ZAdd(ctx, key, goredis.Z{Score: float64(now), Member: now})
+	pipe.ZAdd(ctx, key, goredis.Z{Score: float64(now), Member: member})
 	// 计算窗口内请求数
 	countCmd := pipe.ZCard(ctx, key)
 	// 设置 key 过期
