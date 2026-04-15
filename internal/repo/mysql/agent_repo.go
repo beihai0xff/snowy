@@ -126,9 +126,10 @@ func (r *agentMessageRepo) ListBySession(
 	}
 
 	rows := make([]agentMessageRow, 0, limit)
+	// 同毫秒时间戳下按 user -> assistant -> system 顺序返回，保证会话回放稳定。
 	err = dbFromContext(ctx, r.db).
 		Where("session_id = ?", sessionID).
-		Order("created_at ASC").
+		Order("created_at ASC, FIELD(role, 'user', 'assistant', 'system') ASC").
 		Limit(limit).
 		Offset(offset).
 		Find(&rows).Error

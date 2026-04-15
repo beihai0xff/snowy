@@ -149,7 +149,7 @@ func TestAgentMessageRepo_ListBySession(t *testing.T) {
 
 	rows := sqlmock.NewRows([]string{"id", "session_id", "role", "content", "created_at"}).
 		AddRow(mid, sid, "user", "hello", now)
-	mock.ExpectQuery("SELECT \\* FROM `agent_messages` WHERE session_id = \\? ORDER BY created_at ASC LIMIT \\?").
+	mock.ExpectQuery("SELECT \\* FROM `agent_messages` WHERE session_id = \\? ORDER BY created_at ASC, FIELD\\(role, 'user', 'assistant', 'system'\\) ASC LIMIT \\?").
 		WithArgs(sid, 20).
 		WillReturnRows(rows)
 

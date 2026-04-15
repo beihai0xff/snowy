@@ -6,16 +6,35 @@ package app
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	goredis "github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"github.com/beihai0xff/snowy/internal/agent"
+	agentassembler "github.com/beihai0xff/snowy/internal/agent/assembler"
+	agentcallback "github.com/beihai0xff/snowy/internal/agent/callback"
+	agentgraph "github.com/beihai0xff/snowy/internal/agent/graph"
+	agentpolicy "github.com/beihai0xff/snowy/internal/agent/policy"
+	agentrouter "github.com/beihai0xff/snowy/internal/agent/router"
+	agenttool "github.com/beihai0xff/snowy/internal/agent/tool"
 	handler "github.com/beihai0xff/snowy/internal/handler/http"
+	biologyexperiment "github.com/beihai0xff/snowy/internal/modeling/biology/experiment"
+	biologygraph "github.com/beihai0xff/snowy/internal/modeling/biology/graph"
+	biologyservice "github.com/beihai0xff/snowy/internal/modeling/biology/service"
+	physicscalculator "github.com/beihai0xff/snowy/internal/modeling/physics/calculator"
+	physicsservice "github.com/beihai0xff/snowy/internal/modeling/physics/service"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
+	"github.com/beihai0xff/snowy/internal/repo/embedding"
+	"github.com/beihai0xff/snowy/internal/repo/llm"
 	mysqlrepo "github.com/beihai0xff/snowy/internal/repo/mysql"
+	"github.com/beihai0xff/snowy/internal/repo/opensearch"
 	redisrepo "github.com/beihai0xff/snowy/internal/repo/redis"
+	searchservice "github.com/beihai0xff/snowy/internal/repo/search"
+	searchquery "github.com/beihai0xff/snowy/internal/repo/search/query"
+	searchranking "github.com/beihai0xff/snowy/internal/repo/search/ranking"
+	"github.com/beihai0xff/snowy/internal/repo/storage"
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
@@ -66,21 +85,49 @@ func New(cfg *config.Config) (*App, error) {
 	_ = redisrepo.NewSessionStore(rdb)
 
 	// ── 4. Provider 实例化 ─────────────────────────────
-	// TODO: 初始化 LLM / Embedding / OpenSearch / MinIO providers
+	primaryLLM := newLLMProvider(cfg.LLM.Primary)
+	fallbackLLM := newLLMProvider(cfg.LLM.Fallback)
+	embeddingProvider := newEmbeddingProvider(cfg.Embedding)
+	openSearchAdapter := opensearch.NewOpenSearchAdapter(cfg.OpenSearch)
+	objectStorage := storage.NewMinIOStorage(cfg.MinIO)
+	_ = objectStorage
 
 	// ── 5. Domain Service 实例化 ───────────────────────
-	// User Service
 	userSvc := user.NewService(userRepo, favoriteRepo, historyRepo, transactor, cfg.Auth)
 	agentWriteSvc := agent.NewWriteService(transactor, sessionRepo, messageRepo, runRepo, toolCallRepo)
+	searchSvc := searchservice.NewService(openSearchAdapter, searchquery.NewSimpleParser(), searchranking.NewScoreRanker(), embeddingProvider, nil)
+	physicsSvc := physicsservice.NewService(physicscalculator.NewSimpleCalculator())
+	biologySvc := biologyservice.NewService(biologyexperiment.NewSimpleAnalyzer(), biologygraph.NewSimpleDiagramBuilder())
 
-	// TODO: 初始化 Search / Physics / Biology / Agent Services
+	modelRouter := agentrouter.NewStaticRouter(cfg.LLM)
+	policyEngine := agentpolicy.NewDefaultEngine()
+	responseAssembler := agentassembler.NewDefaultAssembler()
+	callbacks := []agentcallback.NodeCallback{
+		agentcallback.NewAuditLogger(),
+		agentcallback.NewMetricsCollector(),
+		agentcallback.NewOTelTracer(),
+	}
+
+	graphBuilder := agentgraph.NewBuilder(
+		agentgraph.WithRouter(modelRouter),
+		agentgraph.WithPolicyEngine(policyEngine),
+		agentgraph.WithAssembler(responseAssembler),
+		agentgraph.WithMessageRepository(messageRepo),
+		agentgraph.WithSearchTool(agenttool.NewSearchTool(searchSvc)),
+		agentgraph.WithPhysicsAnalyzeTool(agenttool.NewPhysicsAnalyzeTool(physicsSvc)),
+		agentgraph.WithBiologyAnalyzeTool(agenttool.NewBiologyAnalyzeTool(biologySvc)),
+		agentgraph.WithCitationTool(agenttool.NewCitationTool()),
+		agentgraph.WithCallbacks(callbacks...),
+		agentgraph.WithLLMProviders(primaryLLM, fallbackLLM),
+	)
+	var agentSvc agent.Service = graphBuilder
 
 	// ── 6. Handler 实例化 ──────────────────────────────
 	handlers := &handler.Handlers{
-		Agent:   handler.NewAgentHandler(nil, agentWriteSvc, sessionRepo, messageRepo), // TODO: 注入 Agent Service
-		Search:  handler.NewSearchHandler(nil),                                         // TODO: 注入 Search Service
-		Physics: handler.NewPhysicsHandler(nil),                                        // TODO: 注入 Physics Service
-		Biology: handler.NewBiologyHandler(nil),                                        // TODO: 注入 Biology Service
+		Agent:   handler.NewAgentHandler(agentSvc, agentWriteSvc, sessionRepo, messageRepo),
+		Search:  handler.NewSearchHandler(searchSvc),
+		Physics: handler.NewPhysicsHandler(physicsSvc),
+		Biology: handler.NewBiologyHandler(biologySvc),
 		User:    handler.NewUserHandler(userSvc),
 	}
 
@@ -90,6 +137,26 @@ func New(cfg *config.Config) (*App, error) {
 	slog.Info("app initialized", "mode", cfg.Server.Mode)
 
 	return app, nil
+}
+
+func newLLMProvider(cfg config.ModelProviderConfig) llm.Provider {
+	switch strings.ToLower(strings.TrimSpace(cfg.Provider)) {
+	case "openai":
+		return llm.NewOpenAIProvider(cfg)
+	case "google", "gemini":
+		return llm.NewGeminiProvider(cfg)
+	default:
+		return llm.NewOpenAIProvider(cfg)
+	}
+}
+
+func newEmbeddingProvider(cfg config.EmbeddingConfig) embedding.Provider {
+	switch strings.ToLower(strings.TrimSpace(cfg.Provider)) {
+	case "openai", "":
+		return embedding.NewOpenAIEmbedding(cfg)
+	default:
+		return embedding.NewOpenAIEmbedding(cfg)
+	}
 }
 
 // Router 返回 Gin Engine（供 Server 使用）。
