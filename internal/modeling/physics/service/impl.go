@@ -105,26 +105,53 @@ func extractConditions(question string) ([]domain.Condition, map[string]float64)
 func derivationSteps(modelType domain.ModelType) []domain.DerivationStep {
 	switch modelType {
 	case domain.ModelProjectileMotion:
-		return []domain.DerivationStep{{Index: 1, Title: "分解初速度", Content: "将初速度分解为水平和竖直两个方向。"}, {Index: 2, Title: "列位移方程", Content: "水平做匀速运动，竖直做匀变速运动。"}}
+		return []domain.DerivationStep{
+			{Index: 1, Title: "分解初速度", Content: "将初速度分解为水平和竖直两个方向。"},
+			{Index: 2, Title: "列位移方程", Content: "水平做匀速运动，竖直做匀变速运动。"},
+		}
 	case domain.ModelNewtonSecondLaw:
-		return []domain.DerivationStep{{Index: 1, Title: "识别受力", Content: "明确研究对象和合外力。"}, {Index: 2, Title: "应用牛顿第二定律", Content: "建立 F = ma 的数量关系。"}}
+		return []domain.DerivationStep{
+			{Index: 1, Title: "识别受力", Content: "明确研究对象和合外力。"},
+			{Index: 2, Title: "应用牛顿第二定律", Content: "建立 F = ma 的数量关系。"},
+		}
 	case domain.ModelUniformAcceleration:
-		return []domain.DerivationStep{{Index: 1, Title: "建立速度关系", Content: "使用 v = v0 + at。"}, {Index: 2, Title: "建立位移关系", Content: "使用 x = x0 + v0t + 1/2 at²。"}}
+		return []domain.DerivationStep{
+			{Index: 1, Title: "建立速度关系", Content: "使用 v = v0 + at。"},
+			{Index: 2, Title: "建立位移关系", Content: "使用 x = x0 + v0t + 1/2 at²。"},
+		}
 	default:
-		return []domain.DerivationStep{{Index: 1, Title: "建立运动关系", Content: "使用匀速直线运动公式 x = x0 + vt。"}}
+		return []domain.DerivationStep{
+			{Index: 1, Title: "建立运动关系", Content: "使用匀速直线运动公式 x = x0 + vt。"},
+		}
 	}
 }
 
 func parameterSchema(modelType domain.ModelType) []domain.ParameterSchema {
 	switch modelType {
 	case domain.ModelProjectileMotion:
-		return []domain.ParameterSchema{{Name: "v0", Label: "初速度", Default: 20, Min: 1, Max: 100, Step: 1, Unit: "m/s"}, {Name: "angle_deg", Label: "抛射角", Default: 45, Min: 1, Max: 89, Step: 1, Unit: "°"}, {Name: "t", Label: "时间", Default: 2, Min: 0.1, Max: 10, Step: 0.1, Unit: "s"}}
+		return []domain.ParameterSchema{
+			{Name: "v0", Label: "初速度", Default: 20, Min: 1, Max: 100, Step: 1, Unit: "m/s"},
+			{Name: "angle_deg", Label: "抛射角", Default: 45, Min: 1, Max: 89, Step: 1, Unit: "°"},
+			{Name: "t", Label: "时间", Default: 2, Min: 0.1, Max: 10, Step: 0.1, Unit: "s"},
+		}
 	case domain.ModelNewtonSecondLaw:
-		return []domain.ParameterSchema{{Name: "m", Label: "质量", Default: 2, Min: 0.1, Max: 100, Step: 0.1, Unit: "kg"}, {Name: "a", Label: "加速度", Default: 3, Min: 0.1, Max: 50, Step: 0.1, Unit: "m/s²"}}
+		return []domain.ParameterSchema{
+			{Name: "m", Label: "质量", Default: 2, Min: 0.1, Max: 100, Step: 0.1, Unit: "kg"},
+			{Name: "a", Label: "加速度", Default: 3, Min: 0.1, Max: 50, Step: 0.1, Unit: "m/s²"},
+		}
 	case domain.ModelUniformAcceleration:
-		return []domain.ParameterSchema{{Name: "x0", Label: "初始位移", Default: 0, Min: -100, Max: 100, Step: 1, Unit: "m"}, {Name: "v0", Label: "初速度", Default: 0, Min: -50, Max: 50, Step: 1, Unit: "m/s"}, {Name: "a", Label: "加速度", Default: 2, Min: -20, Max: 20, Step: 0.5, Unit: "m/s²"}, {Name: "t", Label: "时间", Default: 5, Min: 0.1, Max: 20, Step: 0.1, Unit: "s"}}
+		return []domain.ParameterSchema{
+			{Name: "x0", Label: "初始位移", Default: 0, Min: -100, Max: 100, Step: 1, Unit: "m"},
+			{Name: "v0", Label: "初速度", Default: 0, Min: -50, Max: 50, Step: 1, Unit: "m/s"},
+			{Name: "a", Label: "加速度", Default: 2, Min: -20, Max: 20, Step: 0.5, Unit: "m/s²"},
+			{Name: "t", Label: "时间", Default: 5, Min: 0.1, Max: 20, Step: 0.1, Unit: "s"},
+		}
 	default:
-		return []domain.ParameterSchema{{Name: "x0", Label: "初始位移", Default: 0, Min: -100, Max: 100, Step: 1, Unit: "m"}, {Name: "v", Label: "速度", Default: 5, Min: -50, Max: 50, Step: 1, Unit: "m/s"}, {Name: "t", Label: "时间", Default: 5, Min: 0.1, Max: 20, Step: 0.1, Unit: "s"}}
+		return []domain.ParameterSchema{
+			{Name: "x0", Label: "初始位移", Default: 0, Min: -100, Max: 100, Step: 1, Unit: "m"},
+			{Name: "v", Label: "速度", Default: 5, Min: -50, Max: 50, Step: 1, Unit: "m/s"},
+			{Name: "t", Label: "时间", Default: 5, Min: 0.1, Max: 20, Step: 0.1, Unit: "s"},
+		}
 	}
 }
 

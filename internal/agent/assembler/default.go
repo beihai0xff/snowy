@@ -32,17 +32,38 @@ func (a *defaultAssembler) Assemble(
 		if response, ok := toolOutputs["search"].(*searchdomain.Response); ok && response != nil {
 			citations := make([]agent.Citation, 0, len(response.Citations))
 			for _, citation := range response.Citations {
-				citations = append(citations, agent.Citation{DocID: citation.DocID, SourceType: citation.SourceType, Snippet: citation.Snippet, Score: citation.Score})
+				citations = append(citations, agent.Citation{
+					DocID:      citation.DocID,
+					SourceType: citation.SourceType,
+					Snippet:    citation.Snippet,
+					Score:      citation.Score,
+				})
 			}
-			return &agent.ChatResponse{Mode: mode, Answer: response.Answer, Citations: citations, StructuredPayload: response, Confidence: response.Confidence}, nil
+			return &agent.ChatResponse{
+				Mode:              mode,
+				Answer:            response.Answer,
+				Citations:         citations,
+				StructuredPayload: response,
+				Confidence:        response.Confidence,
+			}, nil
 		}
 	case agent.ModePhysics:
 		if response, ok := toolOutputs["physics"].(*physicsmodel.PhysicsModel); ok && response != nil {
-			return &agent.ChatResponse{Mode: mode, Answer: response.ResultSummary, StructuredPayload: response, Confidence: 0.82}, nil
+			return &agent.ChatResponse{
+				Mode:              mode,
+				Answer:            response.ResultSummary,
+				StructuredPayload: response,
+				Confidence:        0.82,
+			}, nil
 		}
 	case agent.ModeBiology:
 		if response, ok := toolOutputs["biology"].(*biologymodel.BiologyModel); ok && response != nil {
-			return &agent.ChatResponse{Mode: mode, Answer: response.ResultSummary, StructuredPayload: response, Confidence: 0.8}, nil
+			return &agent.ChatResponse{
+				Mode:              mode,
+				Answer:            response.ResultSummary,
+				StructuredPayload: response,
+				Confidence:        0.8,
+			}, nil
 		}
 	}
 

@@ -54,6 +54,12 @@ func Auth(cfg config.AuthConfig) gin.HandlerFunc {
 		}
 
 		userID, _ := claims["user_id"].(string)
+		if userID == "" {
+			abortWithError(c, common.ErrUnauthorized)
+
+			return
+		}
+
 		role, _ := claims["role"].(string)
 
 		c.Set("user_id", userID)
