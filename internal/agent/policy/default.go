@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+var defaultUnsafeKeywords = []string{"爆炸", "weapon", "毒品"}
+
 type defaultEngine struct{}
 
 // NewDefaultEngine 创建默认策略引擎。
@@ -18,7 +20,7 @@ func (e *defaultEngine) PreCheck(_ context.Context, input any) (*Result, error) 
 	if text == "" || text == "<nil>" {
 		return &Result{Passed: false, Reason: "empty input"}, nil
 	}
-	for _, keyword := range []string{"爆炸", "weapon", "毒品"} {
+	for _, keyword := range defaultUnsafeKeywords {
 		if strings.Contains(strings.ToLower(text), strings.ToLower(keyword)) {
 			return &Result{Passed: false, Reason: "unsafe content"}, nil
 		}

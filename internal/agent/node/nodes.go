@@ -160,7 +160,7 @@ func (n *ValidateNode) Run(_ context.Context, input any) (any, error) {
 	switch state.ResolvedMode {
 	case agent.ModePhysics:
 		model, ok := state.ToolOutputs["physics"].(*physicsmodel.PhysicsModel)
-		if !ok || model == nil || len(model.Steps) == 0 {
+		if !ok || model == nil || model.ModelType == "" || strings.TrimSpace(model.ResultSummary) == "" || len(model.Steps) == 0 {
 			return nil, fmt.Errorf("physics response is invalid")
 		}
 	case agent.ModeBiology:
@@ -294,6 +294,5 @@ func sendEvent(events chan<- agent.SSEEvent, event agent.SSEEvent) {
 	select {
 	case events <- event:
 	default:
-		events <- event
 	}
 }

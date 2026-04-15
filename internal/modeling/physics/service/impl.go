@@ -11,6 +11,8 @@ import (
 	"github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 )
 
+var numericConditionPattern = regexp.MustCompile(`([0-9]+(?:\.[0-9]+)?)\s*([a-zA-Z°/%μ]*)`)
+
 type serviceImpl struct {
 	calculator calculator.Calculator
 }
@@ -77,8 +79,7 @@ func inferModelType(text string) domain.ModelType {
 }
 
 func extractConditions(question string) ([]domain.Condition, map[string]float64) {
-	re := regexp.MustCompile(`([0-9]+(?:\.[0-9]+)?)\s*([a-zA-Z°/%μ]*)`)
-	matches := re.FindAllStringSubmatch(question, -1)
+	matches := numericConditionPattern.FindAllStringSubmatch(question, -1)
 	conditions := make([]domain.Condition, 0, len(matches))
 	params := map[string]float64{}
 	keys := []string{"v0", "angle_deg", "t", "a", "m"}

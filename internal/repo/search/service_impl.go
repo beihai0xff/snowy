@@ -10,6 +10,12 @@ import (
 	"github.com/beihai0xff/snowy/internal/repo/embedding"
 )
 
+const (
+	defaultSearchOffset  = 0
+	defaultSearchLimit   = 8
+	maxRelatedTitleRunes = 48
+)
+
 type serviceImpl struct {
 	repo      Repository
 	parser    QueryParser
@@ -26,6 +32,10 @@ func NewService(
 	embeddingProvider embedding.Provider,
 	logs LogRepository,
 ) Service {
+	if logs == nil {
+		logs = noopLogRepository{}
+	}
+
 	return &serviceImpl{
 		repo:      repo,
 		parser:    parser,
@@ -60,7 +70,7 @@ func (s *serviceImpl) Query(ctx context.Context, q *Query) (*Response, error) {
 		}
 	}
 
-	results, total, err := s.repo.Search(ctx, parsed, q.Filters, 0, 8)
+	results, total, err := s.repo.Search(ctx, parsed, q.Filters, defaultSearchOffset, defaultSearchLimit)
 	if err != nil {
 		return nil, fmt.Errorf("search repository: %w", err)
 	}
@@ -149,8 +159,8 @@ func buildRelatedTitle(result Result) string {
 		}
 	}
 	title := strings.Join(parts, " · ")
-	if len([]rune(title)) > 48 {
-		title = string([]rune(title)[:48]) + "…"
+	if len([]rune(title)) > maxRelatedTitleRunes {
+		title = string([]rune(title)[:maxRelatedTitleRunes]) + "…"
 	}
 	return title
 }
@@ -171,3 +181,7 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+type noopLogRepository struct{}
+
+func (noopLogRepository) SaveLog(context.Context, *Log) error { return nil }

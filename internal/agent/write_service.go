@@ -132,13 +132,12 @@ func (s *writeService) PersistConversation(
 			return fmt.Errorf("save user message: %w", err)
 		}
 
-		assistantCreatedAt := now.Add(time.Millisecond)
 		result.AssistantMessage = &Message{
 			ID:        uuid.New(),
 			SessionID: result.Session.ID,
 			Role:      "assistant",
 			Content:   input.Response.Answer,
-			CreatedAt: assistantCreatedAt,
+			CreatedAt: now,
 		}
 		if err := s.messageRepo.Save(txCtx, result.AssistantMessage); err != nil {
 			return fmt.Errorf("save assistant message: %w", err)

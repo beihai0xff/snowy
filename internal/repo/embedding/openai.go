@@ -17,6 +17,7 @@ import (
 )
 
 // openaiEmbedding 基于 OpenAI text-embedding-3-large 的实现。
+// 当未配置 API Key 时会退化为本地确定性向量，便于开发和测试环境继续工作。
 type openaiEmbedding struct {
 	cfg        config.EmbeddingConfig
 	httpClient *http.Client
@@ -106,7 +107,12 @@ func (e *openaiEmbedding) localEmbeddings(texts []string) [][]float64 {
 		vector := make([]float64, dimensions)
 		for i := 0; i < dimensions; i++ {
 			start := (i * 4) % len(hash)
-			value := binary.BigEndian.Uint32(hash[start : start+4])
+			value := binary.BigEndian.Uint32([]byte{
+				hash[start%len(hash)],
+				hash[(start+1)%len(hash)],
+				hash[(start+2)%len(hash)],
+				hash[(start+3)%len(hash)],
+			})
 			vector[i] = float64(value%1000)/1000 - 0.5
 		}
 		normalize(vector)
