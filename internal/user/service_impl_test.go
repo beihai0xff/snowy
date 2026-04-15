@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/beihai0xff/snowy/internal/pkg/config"
+	irepo "github.com/beihai0xff/snowy/internal/repo"
 )
 
 // ── Mock Repositories ────────────────────────────────────
@@ -83,6 +84,18 @@ type mockHistRepo struct {
 	listByUserFn func(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*HistoryItem, int64, error)
 }
 
+type mockTransactor struct {
+	transactionFn func(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
+func (m *mockTransactor) Transaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	if m.transactionFn != nil {
+		return m.transactionFn(ctx, fn)
+	}
+
+	return fn(ctx)
+}
+
 func (m *mockHistRepo) Add(ctx context.Context, item *HistoryItem) error {
 	if m.addFn != nil {
 		return m.addFn(ctx, item)
@@ -109,21 +122,34 @@ var testAuthCfg = config.AuthConfig{
 	RefreshTokenTTL: 7 * 24 * time.Hour,
 }
 
-func newTestService(repo *mockRepo, favRepo *mockFavRepo, histRepo *mockHistRepo) Service {
-	return NewService(repo, favRepo, histRepo, testAuthCfg)
+func newTestService(repo *mockRepo, favRepo *mockFavRepo, histRepo *mockHistRepo, transactor irepo.Transactor) Service {
+	return NewService(repo, favRepo, histRepo, transactor, testAuthCfg)
 }
 
 // ── Register Tests ───────────────────────────────────────
 
 func TestRegister_Success(t *testing.T) {
 	var savedUser *User
+	var savedHistory *HistoryItem
 	repo := &mockRepo{
 		createFn: func(_ context.Context, u *User) error {
 			savedUser = u
 			return nil
 		},
 	}
-	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{})
+	histRepo := &mockHistRepo{
+		addFn: func(_ context.Context, item *HistoryItem) error {
+			savedHistory = item
+			return nil
+		},
+	}
+	transactorCalled := false
+	svc := newTestService(repo, &mockFavRepo{}, histRepo, &mockTransactor{
+		transactionFn: func(ctx context.Context, fn func(ctx context.Context) error) error {
+			transactorCalled = true
+			return fn(ctx)
+		},
+	})
 
 	u, err := svc.Register(context.Background(), "13800138000", "Alice")
 
@@ -133,6 +159,11 @@ func TestRegister_Success(t *testing.T) {
 	assert.Equal(t, RoleStudent, u.Role)
 	assert.NotEqual(t, uuid.Nil, u.ID)
 	assert.Equal(t, savedUser, u)
+	assert.True(t, transactorCalled)
+	require.NotNil(t, savedHistory)
+	assert.Equal(t, u.ID, savedHistory.UserID)
+	assert.Equal(t, "register", savedHistory.ActionType)
+	assert.Equal(t, "用户注册", savedHistory.Query)
 }
 
 func TestRegister_RepoError(t *testing.T) {
@@ -141,12 +172,27 @@ func TestRegister_RepoError(t *testing.T) {
 			return errors.New("duplicate phone")
 		},
 	}
-	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{})
+	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{}, &mockTransactor{})
 
 	u, err := svc.Register(context.Background(), "13800138000", "Alice")
 
 	assert.Nil(t, u)
 	assert.ErrorContains(t, err, "duplicate phone")
+}
+
+func TestRegister_HistoryError(t *testing.T) {
+	repo := &mockRepo{}
+	histRepo := &mockHistRepo{
+		addFn: func(_ context.Context, _ *HistoryItem) error {
+			return errors.New("history unavailable")
+		},
+	}
+	svc := newTestService(repo, &mockFavRepo{}, histRepo, &mockTransactor{})
+
+	u, err := svc.Register(context.Background(), "13800138000", "Alice")
+
+	assert.Nil(t, u)
+	assert.ErrorContains(t, err, "add register history")
 }
 
 // ── Login Tests ──────────────────────────────────────────
@@ -163,7 +209,7 @@ func TestLogin_Success(t *testing.T) {
 			return testUser, nil
 		},
 	}
-	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{})
+	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{}, nil)
 
 	access, refresh, err := svc.Login(context.Background(), "13800138000", "1234")
 
@@ -187,7 +233,7 @@ func TestLogin_UserNotFound(t *testing.T) {
 			return nil, errors.New("not found")
 		},
 	}
-	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{})
+	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{}, nil)
 
 	_, _, err := svc.Login(context.Background(), "13800138000", "1234")
 
@@ -205,7 +251,7 @@ func TestLogin_UpdateLastLoginError_NonFatal(t *testing.T) {
 			return errors.New("db timeout")
 		},
 	}
-	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{})
+	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{}, nil)
 
 	access, refresh, err := svc.Login(context.Background(), "13800138000", "1234")
 
@@ -226,7 +272,7 @@ func TestGetProfile_Success(t *testing.T) {
 			return expected, nil
 		},
 	}
-	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{})
+	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{}, nil)
 
 	u, err := svc.GetProfile(context.Background(), uid)
 
@@ -244,7 +290,7 @@ func TestAddFavorite_SetsIDAndTimestamp(t *testing.T) {
 			return nil
 		},
 	}
-	svc := newTestService(&mockRepo{}, favRepo, &mockHistRepo{})
+	svc := newTestService(&mockRepo{}, favRepo, &mockHistRepo{}, nil)
 
 	fav := &Favorite{
 		UserID:     uuid.New(),
@@ -270,7 +316,7 @@ func TestGetHistory_Success(t *testing.T) {
 			return items, 1, nil
 		},
 	}
-	svc := newTestService(&mockRepo{}, &mockFavRepo{}, histRepo)
+	svc := newTestService(&mockRepo{}, &mockFavRepo{}, histRepo, nil)
 
 	result, total, err := svc.GetHistory(context.Background(), uid, 0, 20)
 
@@ -289,7 +335,7 @@ func TestListFavorites_Success(t *testing.T) {
 			return favs, 1, nil
 		},
 	}
-	svc := newTestService(&mockRepo{}, favRepo, &mockHistRepo{})
+	svc := newTestService(&mockRepo{}, favRepo, &mockHistRepo{}, nil)
 
 	result, total, err := svc.ListFavorites(context.Background(), uid, 0, 10)
 

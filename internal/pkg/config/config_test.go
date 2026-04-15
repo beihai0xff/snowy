@@ -36,14 +36,6 @@ func TestDatabaseConfig_DSN(t *testing.T) {
 	}
 }
 
-func TestDatabaseConfig_MigrateDSN(t *testing.T) {
-	cfg := DatabaseConfig{
-		User: "root", Password: "pass", Host: "localhost", Port: 3306, Name: "snowy",
-	}
-	want := "mysql://root:pass@tcp(localhost:3306)/snowy"
-	assert.Equal(t, want, cfg.MigrateDSN())
-}
-
 func TestServerConfig_Addr(t *testing.T) {
 	tests := []struct {
 		host string

@@ -14,9 +14,8 @@ import (
 )
 
 func TestUserRepo_Create_Success(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer db.Close()
+	db, mock, cleanup := newMockGorm(t)
+	defer cleanup()
 
 	repo := NewUserRepository(db)
 
@@ -31,20 +30,19 @@ func TestUserRepo_Create_Success(t *testing.T) {
 		UpdatedAt:   time.Now(),
 	}
 
-	mock.ExpectExec("INSERT INTO users").
+	mock.ExpectExec("INSERT INTO `users`").
 		WithArgs(u.ID, u.Phone, u.Nickname, u.Role, u.AvatarURL, u.LastLoginAt, u.CreatedAt, u.UpdatedAt).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	err = repo.Create(context.Background(), u)
+	err := repo.Create(context.Background(), u)
 
 	require.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestUserRepo_GetByID_Success(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer db.Close()
+	db, mock, cleanup := newMockGorm(t)
+	defer cleanup()
 
 	repo := NewUserRepository(db)
 
@@ -53,8 +51,8 @@ func TestUserRepo_GetByID_Success(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"id", "phone", "nickname", "role", "avatar_url", "last_login_at", "created_at", "updated_at"}).
 		AddRow(uid, "13800138000", "Alice", "student", "", now, now, now)
 
-	mock.ExpectQuery("SELECT .+ FROM users WHERE id = \\?").
-		WithArgs(uid).
+	mock.ExpectQuery("SELECT \\* FROM `users` WHERE id = \\? LIMIT \\?").
+		WithArgs(uid, 1).
 		WillReturnRows(rows)
 
 	u, err := repo.GetByID(context.Background(), uid)
@@ -67,9 +65,8 @@ func TestUserRepo_GetByID_Success(t *testing.T) {
 }
 
 func TestUserRepo_GetByPhone_Success(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer db.Close()
+	db, mock, cleanup := newMockGorm(t)
+	defer cleanup()
 
 	repo := NewUserRepository(db)
 
@@ -78,8 +75,8 @@ func TestUserRepo_GetByPhone_Success(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"id", "phone", "nickname", "role", "avatar_url", "last_login_at", "created_at", "updated_at"}).
 		AddRow(uid, "13800138000", "Bob", "student", "", now, now, now)
 
-	mock.ExpectQuery("SELECT .+ FROM users WHERE phone = \\?").
-		WithArgs("13800138000").
+	mock.ExpectQuery("SELECT \\* FROM `users` WHERE phone = \\? LIMIT \\?").
+		WithArgs("13800138000", 1).
 		WillReturnRows(rows)
 
 	u, err := repo.GetByPhone(context.Background(), "13800138000")
@@ -90,18 +87,17 @@ func TestUserRepo_GetByPhone_Success(t *testing.T) {
 }
 
 func TestUserRepo_UpdateLastLogin_Success(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer db.Close()
+	db, mock, cleanup := newMockGorm(t)
+	defer cleanup()
 
 	repo := NewUserRepository(db)
 	uid := uuid.New()
 
-	mock.ExpectExec("UPDATE users SET last_login_at").
+	mock.ExpectExec("UPDATE `users` SET .* WHERE id = \\?").
 		WithArgs(uid).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	err = repo.UpdateLastLogin(context.Background(), uid)
+	err := repo.UpdateLastLogin(context.Background(), uid)
 
 	require.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())

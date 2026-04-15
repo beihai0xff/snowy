@@ -2,30 +2,26 @@ package mysql
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
 // historyRepo 实现 user.HistoryRepository 接口。
 type historyRepo struct {
-	db *sql.DB
+	db *gorm.DB
 }
 
 // NewHistoryRepository 创建 History Repository。
-func NewHistoryRepository(db *sql.DB) user.HistoryRepository {
+func NewHistoryRepository(db *gorm.DB) user.HistoryRepository {
 	return &historyRepo{db: db}
 }
 
 func (r *historyRepo) Add(ctx context.Context, item *user.HistoryItem) error {
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO history_items (id, user_id, action_type, query, session_id, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		item.ID, item.UserID, item.ActionType, item.Query, item.SessionID, item.CreatedAt,
-	)
+	err := dbFromContext(ctx, r.db).Create(newHistoryRow(item)).Error
 	if err != nil {
 		return fmt.Errorf("insert history item: %w", err)
 	}
@@ -38,18 +34,11 @@ func (r *historyRepo) ListByUser(
 	userID uuid.UUID,
 	offset, limit int,
 ) ([]*user.HistoryItem, int64, error) {
-	return listByUserRows(ctx, r.db, userID, offset, limit,
-		`SELECT COUNT(*) FROM history_items WHERE user_id = ?`,
-		`SELECT id, user_id, action_type, query, session_id, created_at
-		 FROM history_items WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+	return listByUserRows[historyRow](ctx, r.db, &historyRow{}, userID, offset, limit,
+		"created_at DESC",
 		"history items", "history items",
-		func(rows *sql.Rows) (*user.HistoryItem, error) {
-			h := &user.HistoryItem{}
-			if err := rows.Scan(&h.ID, &h.UserID, &h.ActionType, &h.Query, &h.SessionID, &h.CreatedAt); err != nil {
-				return nil, fmt.Errorf("scan history item: %w", err)
-			}
-
-			return h, nil
+		func(row *historyRow) (*user.HistoryItem, error) {
+			return row.toDomain(), nil
 		},
 	)
 }

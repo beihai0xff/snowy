@@ -3,32 +3,40 @@ package mysql
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
-	// Register the MySQL database/sql driver.
-	_ "github.com/go-sql-driver/mysql"
+	gormmysql "gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
-// NewDB 创建 MySQL 连接池。
-func NewDB(cfg config.DatabaseConfig) (*sql.DB, error) {
-	db, err := sql.Open("mysql", cfg.DSN())
+// NewDB 创建 GORM MySQL 客户端，并配置底层连接池。
+func NewDB(cfg config.DatabaseConfig) (*gorm.DB, error) {
+	db, err := gorm.Open(gormmysql.New(gormmysql.Config{DSN: cfg.DSN()}), &gorm.Config{
+		SkipDefaultTransaction: true,
+		Logger:                 logger.Default.LogMode(logger.Silent),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("open mysql: %w", err)
 	}
 
-	db.SetMaxOpenConns(cfg.MaxOpenConns)
-	db.SetMaxIdleConns(cfg.MaxIdleConns)
-	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("get sql db from gorm: %w", err)
+	}
+
+	sqlDB.SetMaxOpenConns(cfg.MaxOpenConns)
+	sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
+	sqlDB.SetConnMaxLifetime(cfg.ConnMaxLifetime)
 
 	pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := db.PingContext(pingCtx); err != nil {
-		_ = db.Close()
+	if err := sqlDB.PingContext(pingCtx); err != nil {
+		_ = sqlDB.Close()
 
 		return nil, fmt.Errorf("ping mysql: %w", err)
 	}

@@ -2,30 +2,26 @@ package mysql
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/beihai0xff/snowy/internal/agent"
 )
 
 // agentSessionRepo 实现 agent.SessionRepository 接口。
 type agentSessionRepo struct {
-	db *sql.DB
+	db *gorm.DB
 }
 
 // NewAgentSessionRepository 创建 Agent Session Repository。
-func NewAgentSessionRepository(db *sql.DB) agent.SessionRepository {
+func NewAgentSessionRepository(db *gorm.DB) agent.SessionRepository {
 	return &agentSessionRepo{db: db}
 }
 
 func (r *agentSessionRepo) Create(ctx context.Context, s *agent.Session) error {
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO agent_sessions (id, user_id, mode, status, metadata, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		s.ID, s.UserID, s.Mode, s.Status, newJSONMap(s.Metadata), s.CreatedAt, s.UpdatedAt,
-	)
+	err := dbFromContext(ctx, r.db).Create(newAgentSessionRow(s)).Error
 	if err != nil {
 		return fmt.Errorf("insert agent session: %w", err)
 	}
@@ -34,29 +30,28 @@ func (r *agentSessionRepo) Create(ctx context.Context, s *agent.Session) error {
 }
 
 func (r *agentSessionRepo) GetByID(ctx context.Context, id uuid.UUID) (*agent.Session, error) {
-	s := &agent.Session{}
-
-	var meta jsonMap
-
-	err := r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, mode, status, metadata, created_at, updated_at
-		 FROM agent_sessions WHERE id = ?`, id,
-	).Scan(&s.ID, &s.UserID, &s.Mode, &s.Status, &meta, &s.CreatedAt, &s.UpdatedAt)
+	row := &agentSessionRow{}
+	err := dbFromContext(ctx, r.db).Where("id = ?", id).Take(row).Error
 	if err != nil {
 		return nil, fmt.Errorf("get agent session: %w", err)
 	}
 
-	s.Metadata = map[string]any(meta)
-
-	return s, nil
+	return row.toDomain(), nil
 }
 
 func (r *agentSessionRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE agent_sessions SET status = ?, updated_at = NOW() WHERE id = ?`, status, id,
-	)
+	err := dbFromContext(ctx, r.db).
+		Model(&agentSessionRow{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"status":     status,
+			"updated_at": gorm.Expr("NOW(3)"),
+		}).Error
+	if err != nil {
+		return fmt.Errorf("update agent session status: %w", err)
+	}
 
-	return err
+	return nil
 }
 
 func (r *agentSessionRepo) ListByUser(
@@ -64,107 +59,59 @@ func (r *agentSessionRepo) ListByUser(
 	userID uuid.UUID,
 	offset, limit int,
 ) ([]*agent.Session, int64, error) {
-	var total int64
-
-	err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM agent_sessions WHERE user_id = ?`, userID,
-	).Scan(&total)
-	if err != nil {
-		return nil, 0, fmt.Errorf("count agent sessions: %w", err)
-	}
-
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, user_id, mode, status, metadata, created_at, updated_at
-		 FROM agent_sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-		userID, limit, offset,
+	return listByUserRows[agentSessionRow](ctx, r.db, &agentSessionRow{}, userID, offset, limit,
+		"created_at DESC",
+		"agent sessions", "agent sessions",
+		func(row *agentSessionRow) (*agent.Session, error) {
+			return row.toDomain(), nil
+		},
 	)
-	if err != nil {
-		return nil, 0, fmt.Errorf("list agent sessions: %w", err)
-	}
-	defer rows.Close()
-
-	var sessions []*agent.Session
-
-	for rows.Next() {
-		s := &agent.Session{}
-
-		var meta jsonMap
-		if err := rows.Scan(&s.ID, &s.UserID, &s.Mode, &s.Status, &meta, &s.CreatedAt, &s.UpdatedAt); err != nil {
-			return nil, 0, fmt.Errorf("scan agent session: %w", err)
-		}
-
-		s.Metadata = map[string]any(meta)
-		sessions = append(sessions, s)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("iterate agent sessions: %w", err)
-	}
-
-	return sessions, total, nil
 }
 
 // agentRunRepo 实现 agent.RunRepository 接口。
 type agentRunRepo struct {
-	db *sql.DB
+	db *gorm.DB
 }
 
 // NewAgentRunRepository 创建 Agent Run Repository。
-func NewAgentRunRepository(db *sql.DB) agent.RunRepository {
+func NewAgentRunRepository(db *gorm.DB) agent.RunRepository {
 	return &agentRunRepo{db: db}
 }
 
 func (r *agentRunRepo) Save(ctx context.Context, run *agent.Run) error {
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO agent_runs (id, session_id, message_id, mode, model_name, prompt_version,
-		 input_tokens, output_tokens, estimated_cost, latency_ms, confidence, fallback_reason,
-		 status, error_code, created_at)
-		 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-		run.ID, run.SessionID, run.MessageID, run.Mode, run.ModelName, run.PromptVersion,
-		run.InputTokens, run.OutputTokens, run.EstimatedCost, run.LatencyMS, run.Confidence,
-		run.FallbackReason, run.Status, run.ErrorCode, run.CreatedAt,
-	)
+	if err := dbFromContext(ctx, r.db).Create(newAgentRunRow(run)).Error; err != nil {
+		return fmt.Errorf("insert agent run: %w", err)
+	}
 
-	return err
+	return nil
 }
 
 func (r *agentRunRepo) GetByID(ctx context.Context, id uuid.UUID) (*agent.Run, error) {
-	run := &agent.Run{}
-
-	err := r.db.QueryRowContext(ctx,
-		`SELECT id, session_id, message_id, mode, model_name, prompt_version,
-		 input_tokens, output_tokens, estimated_cost, latency_ms, confidence,
-		 fallback_reason, status, error_code, created_at
-		 FROM agent_runs WHERE id = ?`, id,
-	).Scan(&run.ID, &run.SessionID, &run.MessageID, &run.Mode, &run.ModelName, &run.PromptVersion,
-		&run.InputTokens, &run.OutputTokens, &run.EstimatedCost, &run.LatencyMS, &run.Confidence,
-		&run.FallbackReason, &run.Status, &run.ErrorCode, &run.CreatedAt,
-	)
+	row := &agentRunRow{}
+	err := dbFromContext(ctx, r.db).Where("id = ?", id).Take(row).Error
 	if err != nil {
 		return nil, fmt.Errorf("get agent run: %w", err)
 	}
 
-	return run, nil
+	return row.toDomain(), nil
 }
 
 // agentMessageRepo 实现 agent.MessageRepository 接口。
 type agentMessageRepo struct {
-	db *sql.DB
+	db *gorm.DB
 }
 
 // NewAgentMessageRepository 创建 Agent Message Repository。
-func NewAgentMessageRepository(db *sql.DB) agent.MessageRepository {
+func NewAgentMessageRepository(db *gorm.DB) agent.MessageRepository {
 	return &agentMessageRepo{db: db}
 }
 
 func (r *agentMessageRepo) Save(ctx context.Context, msg *agent.Message) error {
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO agent_messages (id, session_id, role, content, created_at)
-		 VALUES (?, ?, ?, ?, ?)`,
-		msg.ID, msg.SessionID, msg.Role, msg.Content, msg.CreatedAt,
-	)
+	if err := dbFromContext(ctx, r.db).Create(newAgentMessageRow(msg)).Error; err != nil {
+		return fmt.Errorf("insert agent message: %w", err)
+	}
 
-	return err
+	return nil
 }
 
 func (r *agentMessageRepo) ListBySession(
@@ -173,37 +120,25 @@ func (r *agentMessageRepo) ListBySession(
 	offset, limit int,
 ) ([]*agent.Message, int64, error) {
 	var total int64
-
-	err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM agent_messages WHERE session_id = ?`, sessionID,
-	).Scan(&total)
+	err := dbFromContext(ctx, r.db).Model(&agentMessageRow{}).Where("session_id = ?", sessionID).Count(&total).Error
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("count agent messages: %w", err)
 	}
 
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, session_id, role, content, created_at
-		 FROM agent_messages WHERE session_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?`,
-		sessionID, limit, offset,
-	)
+	rows := make([]agentMessageRow, 0, limit)
+	err = dbFromContext(ctx, r.db).
+		Where("session_id = ?", sessionID).
+		Order("created_at ASC").
+		Limit(limit).
+		Offset(offset).
+		Find(&rows).Error
 	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
-	var msgs []*agent.Message
-
-	for rows.Next() {
-		m := &agent.Message{}
-		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.CreatedAt); err != nil {
-			return nil, 0, err
-		}
-
-		msgs = append(msgs, m)
+		return nil, 0, fmt.Errorf("list agent messages: %w", err)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("iterate agent messages: %w", err)
+	msgs := make([]*agent.Message, 0, len(rows))
+	for i := range rows {
+		msgs = append(msgs, rows[i].toDomain())
 	}
 
 	return msgs, total, nil
@@ -211,53 +146,35 @@ func (r *agentMessageRepo) ListBySession(
 
 // agentToolCallRepo 实现 agent.ToolCallRepository 接口。
 type agentToolCallRepo struct {
-	db *sql.DB
+	db *gorm.DB
 }
 
 // NewAgentToolCallRepository 创建 Agent ToolCall Repository。
-func NewAgentToolCallRepository(db *sql.DB) agent.ToolCallRepository {
+func NewAgentToolCallRepository(db *gorm.DB) agent.ToolCallRepository {
 	return &agentToolCallRepo{db: db}
 }
 
 func (r *agentToolCallRepo) Save(ctx context.Context, tc *agent.RunToolCall) error {
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO agent_tool_calls (id, run_id, tool_name, input, output, latency_ms, status, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		tc.ID, tc.RunID, tc.ToolName, jsonValueOf(tc.Input), jsonValueOf(tc.Output),
-		tc.LatencyMS, tc.Status, tc.CreatedAt,
-	)
+	if err := dbFromContext(ctx, r.db).Create(newAgentToolCallRow(tc)).Error; err != nil {
+		return fmt.Errorf("insert agent tool call: %w", err)
+	}
 
-	return err
+	return nil
 }
 
 func (r *agentToolCallRepo) ListByRun(ctx context.Context, runID uuid.UUID) ([]*agent.RunToolCall, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, run_id, tool_name, input, output, latency_ms, status, created_at
-		 FROM agent_tool_calls WHERE run_id = ? ORDER BY created_at ASC`, runID,
-	)
+	rows := make([]agentToolCallRow, 0)
+	err := dbFromContext(ctx, r.db).
+		Where("run_id = ?", runID).
+		Order("created_at ASC").
+		Find(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("list agent tool calls: %w", err)
 	}
-	defer rows.Close()
 
-	var calls []*agent.RunToolCall
-
-	for rows.Next() {
-		tc := &agent.RunToolCall{}
-
-		var input, output jsonMap
-		if err := rows.Scan(&tc.ID, &tc.RunID, &tc.ToolName, &input, &output,
-			&tc.LatencyMS, &tc.Status, &tc.CreatedAt); err != nil {
-			return nil, fmt.Errorf("scan agent tool call: %w", err)
-		}
-
-		tc.Input = map[string]any(input)
-		tc.Output = map[string]any(output)
-		calls = append(calls, tc)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate agent tool calls: %w", err)
+	calls := make([]*agent.RunToolCall, 0, len(rows))
+	for i := range rows {
+		calls = append(calls, rows[i].toDomain())
 	}
 
 	return calls, nil

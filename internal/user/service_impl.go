@@ -10,14 +10,16 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/beihai0xff/snowy/internal/pkg/config"
+	irepo "github.com/beihai0xff/snowy/internal/repo"
 )
 
 // serviceImpl 用户域应用服务实现。
 type serviceImpl struct {
-	repo     Repository
-	favRepo  FavoriteRepository
-	histRepo HistoryRepository
-	authCfg  config.AuthConfig
+	repo       Repository
+	favRepo    FavoriteRepository
+	histRepo   HistoryRepository
+	transactor irepo.Transactor
+	authCfg    config.AuthConfig
 }
 
 // NewService 创建用户域应用服务。
@@ -25,27 +27,49 @@ func NewService(
 	repo Repository,
 	favRepo FavoriteRepository,
 	histRepo HistoryRepository,
+	transactor irepo.Transactor,
 	authCfg config.AuthConfig,
 ) Service {
 	return &serviceImpl{
-		repo:     repo,
-		favRepo:  favRepo,
-		histRepo: histRepo,
-		authCfg:  authCfg,
+		repo:       repo,
+		favRepo:    favRepo,
+		histRepo:   histRepo,
+		transactor: transactor,
+		authCfg:    authCfg,
 	}
 }
 
 func (s *serviceImpl) Register(ctx context.Context, phone, nickname string) (*User, error) {
 	u := &User{
-		ID:        uuid.New(),
-		Phone:     phone,
-		Nickname:  nickname,
-		Role:      RoleStudent,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:          uuid.New(),
+		Phone:       phone,
+		Nickname:    nickname,
+		Role:        RoleStudent,
+		LastLoginAt: time.Now(),
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
-	if err := s.repo.Create(ctx, u); err != nil {
-		return nil, fmt.Errorf("create user: %w", err)
+	history := &HistoryItem{
+		ID:         uuid.New(),
+		UserID:     u.ID,
+		ActionType: "register",
+		Query:      "用户注册",
+		CreatedAt:  u.CreatedAt,
+	}
+
+	err := s.withTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.repo.Create(txCtx, u); err != nil {
+			return fmt.Errorf("create user: %w", err)
+		}
+
+		if err := s.histRepo.Add(txCtx, history); err != nil {
+			return fmt.Errorf("add register history: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	slog.InfoContext(ctx, "user registered", "user_id", u.ID, "phone", phone)
@@ -114,4 +138,12 @@ func (s *serviceImpl) generateToken(u *User, ttl time.Duration) (string, error) 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	return token.SignedString([]byte(s.authCfg.JWTSecret))
+}
+
+func (s *serviceImpl) withTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	if s.transactor == nil {
+		return fn(ctx)
+	}
+
+	return s.transactor.Transaction(ctx, fn)
 }

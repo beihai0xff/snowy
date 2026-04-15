@@ -25,7 +25,7 @@
 | **后端语言** | Go 1.24+ |
 | **HTTP 框架** | Gin |
 | **Agent 编排** | [Eino](https://github.com/cloudwego/eino) (CloudWeGo) |
-| **数据库** | MySQL 8.0+ (go-sql-driver/mysql + sqlc) |
+| **数据库** | MySQL 8.0+ (GORM + go-sql-driver/mysql) |
 | **缓存 & 队列** | Redis 7 + Asynq |
 | **搜索引擎** | OpenSearch（全文 + 向量 + 混合检索） |
 | **对象存储** | MinIO (S3 兼容，开发环境) |
@@ -177,7 +177,7 @@ SNOWY_MINIO_BUCKET=snowy
 当前集成测试会在执行前自动：
 
 - 等待 MySQL / Redis / OpenSearch / MinIO 健康检查通过
-- 应用 `internal/repo/mysql/migrations/` 下的初始化表结构
+- 通过 `internal/repo/mysql` 的 GORM migration runner 初始化 MySQL 表结构
 - 重建 OpenSearch 集成测试索引
 - 清理 MinIO 测试 bucket 中的对象
 - 清理 MySQL 表数据与 Redis DB，避免脏数据影响结果

@@ -2,31 +2,27 @@ package mysql
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
 // favoriteRepo 实现 user.FavoriteRepository 接口。
 type favoriteRepo struct {
-	db *sql.DB
+	db *gorm.DB
 }
 
 // NewFavoriteRepository 创建 Favorite Repository。
-func NewFavoriteRepository(db *sql.DB) user.FavoriteRepository {
+func NewFavoriteRepository(db *gorm.DB) user.FavoriteRepository {
 	return &favoriteRepo{db: db}
 }
 
 func (r *favoriteRepo) Add(ctx context.Context, fav *user.Favorite) error {
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO favorites (id, user_id, target_type, target_id, title, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		fav.ID, fav.UserID, fav.TargetType, fav.TargetID, fav.Title, fav.CreatedAt,
-	)
+	err := dbFromContext(ctx, r.db).Create(newFavoriteRow(fav)).Error
 	if err != nil {
 		return fmt.Errorf("insert favorite: %w", err)
 	}
@@ -35,15 +31,13 @@ func (r *favoriteRepo) Add(ctx context.Context, fav *user.Favorite) error {
 }
 
 func (r *favoriteRepo) Remove(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
-	result, err := r.db.ExecContext(ctx,
-		`DELETE FROM favorites WHERE id = ? AND user_id = ?`, id, userID,
-	)
+	result := dbFromContext(ctx, r.db).Where("id = ? AND user_id = ?", id, userID).Delete(&favoriteRow{})
+	err := result.Error
 	if err != nil {
 		return fmt.Errorf("delete favorite: %w", err)
 	}
 
-	n, _ := result.RowsAffected()
-	if n == 0 {
+	if result.RowsAffected == 0 {
 		return errors.New("favorite not found")
 	}
 
@@ -55,18 +49,11 @@ func (r *favoriteRepo) ListByUser(
 	userID uuid.UUID,
 	offset, limit int,
 ) ([]*user.Favorite, int64, error) {
-	return listByUserRows(ctx, r.db, userID, offset, limit,
-		`SELECT COUNT(*) FROM favorites WHERE user_id = ?`,
-		`SELECT id, user_id, target_type, target_id, title, created_at
-		 FROM favorites WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+	return listByUserRows[favoriteRow](ctx, r.db, &favoriteRow{}, userID, offset, limit,
+		"created_at DESC",
 		"favorites", "favorites",
-		func(rows *sql.Rows) (*user.Favorite, error) {
-			f := &user.Favorite{}
-			if err := rows.Scan(&f.ID, &f.UserID, &f.TargetType, &f.TargetID, &f.Title, &f.CreatedAt); err != nil {
-				return nil, fmt.Errorf("scan favorite: %w", err)
-			}
-
-			return f, nil
+		func(row *favoriteRow) (*user.Favorite, error) {
+			return row.toDomain(), nil
 		},
 	)
 }

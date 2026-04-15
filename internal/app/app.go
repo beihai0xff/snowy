@@ -4,13 +4,14 @@
 package app
 
 import (
-	"database/sql"
 	"fmt"
 	"log/slog"
 
 	"github.com/gin-gonic/gin"
 	goredis "github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 
+	"github.com/beihai0xff/snowy/internal/agent"
 	handler "github.com/beihai0xff/snowy/internal/handler/http"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 	mysqlrepo "github.com/beihai0xff/snowy/internal/repo/mysql"
@@ -21,7 +22,7 @@ import (
 // App 应用实例，持有所有依赖。
 type App struct {
 	cfg    *config.Config
-	db     *sql.DB
+	db     *gorm.DB
 	rdb    *goredis.Client
 	router *gin.Engine
 }
@@ -55,7 +56,9 @@ func New(cfg *config.Config) (*App, error) {
 	historyRepo := mysqlrepo.NewHistoryRepository(db)
 	sessionRepo := mysqlrepo.NewAgentSessionRepository(db)
 	messageRepo := mysqlrepo.NewAgentMessageRepository(db)
-	_ = mysqlrepo.NewAgentRunRepository(db)
+	runRepo := mysqlrepo.NewAgentRunRepository(db)
+	toolCallRepo := mysqlrepo.NewAgentToolCallRepository(db)
+	transactor := mysqlrepo.NewTransactor(db)
 
 	// ── 3. Redis 组件 ──────────────────────────────────
 	rateLimiter := redisrepo.NewRateLimiter(rdb)
@@ -67,16 +70,17 @@ func New(cfg *config.Config) (*App, error) {
 
 	// ── 5. Domain Service 实例化 ───────────────────────
 	// User Service
-	userSvc := user.NewService(userRepo, favoriteRepo, historyRepo, cfg.Auth)
+	userSvc := user.NewService(userRepo, favoriteRepo, historyRepo, transactor, cfg.Auth)
+	agentWriteSvc := agent.NewWriteService(transactor, sessionRepo, messageRepo, runRepo, toolCallRepo)
 
 	// TODO: 初始化 Search / Physics / Biology / Agent Services
 
 	// ── 6. Handler 实例化 ──────────────────────────────
 	handlers := &handler.Handlers{
-		Agent:   handler.NewAgentHandler(nil, sessionRepo, messageRepo), // TODO: 注入 Agent Service
-		Search:  handler.NewSearchHandler(nil),                          // TODO: 注入 Search Service
-		Physics: handler.NewPhysicsHandler(nil),                         // TODO: 注入 Physics Service
-		Biology: handler.NewBiologyHandler(nil),                         // TODO: 注入 Biology Service
+		Agent:   handler.NewAgentHandler(nil, agentWriteSvc, sessionRepo, messageRepo), // TODO: 注入 Agent Service
+		Search:  handler.NewSearchHandler(nil),                                         // TODO: 注入 Search Service
+		Physics: handler.NewPhysicsHandler(nil),                                        // TODO: 注入 Physics Service
+		Biology: handler.NewBiologyHandler(nil),                                        // TODO: 注入 Biology Service
 		User:    handler.NewUserHandler(userSvc),
 	}
 
@@ -96,7 +100,9 @@ func (a *App) Router() *gin.Engine {
 // Close 释放资源。
 func (a *App) Close() {
 	if a.db != nil {
-		_ = a.db.Close()
+		if sqlDB, err := a.db.DB(); err == nil {
+			_ = sqlDB.Close()
+		}
 	}
 
 	if a.rdb != nil {

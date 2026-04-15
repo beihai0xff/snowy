@@ -2,49 +2,52 @@ package mysql
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
-type userRowScanner[T any] func(*sql.Rows) (*T, error)
+type userRowMapper[R any, T any] func(*R) (*T, error)
 
-func listByUserRows[T any](
+func listByUserRows[R any, T any](
 	ctx context.Context,
-	db *sql.DB,
+	db *gorm.DB,
+	model any,
 	userID uuid.UUID,
 	offset, limit int,
-	countQuery, listQuery string,
+	order string,
 	countLabel, listLabel string,
-	scan userRowScanner[T],
+	mapRow userRowMapper[R, T],
 ) ([]*T, int64, error) {
 	var total int64
 
-	err := db.QueryRowContext(ctx, countQuery, userID).Scan(&total)
+	err := dbFromContext(ctx, db).Model(model).Where("user_id = ?", userID).Count(&total).Error
 	if err != nil {
 		return nil, 0, fmt.Errorf("count %s: %w", countLabel, err)
 	}
 
-	rows, err := db.QueryContext(ctx, listQuery, userID, limit, offset)
+	rows := make([]R, 0, limit)
+	err = dbFromContext(ctx, db).
+		Model(model).
+		Where("user_id = ?", userID).
+		Order(order).
+		Limit(limit).
+		Offset(offset).
+		Find(&rows).Error
 	if err != nil {
 		return nil, 0, fmt.Errorf("list %s: %w", listLabel, err)
 	}
-	defer rows.Close()
 
 	items := make([]*T, 0, limit)
 
-	for rows.Next() {
-		item, scanErr := scan(rows)
-		if scanErr != nil {
-			return nil, 0, scanErr
+	for i := range rows {
+		item, mapErr := mapRow(&rows[i])
+		if mapErr != nil {
+			return nil, 0, mapErr
 		}
 
 		items = append(items, item)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("iterate %s: %w", listLabel, err)
 	}
 
 	return items, total, nil

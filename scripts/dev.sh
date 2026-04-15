@@ -5,7 +5,7 @@ set -euo pipefail
 echo "▸ Starting infrastructure..."
 make docker-up
 
-echo "▸ Running migrations..."
+echo "▸ Running GORM migrations..."
 make migrate-up || true
 
 echo "▸ Starting API server..."

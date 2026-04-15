@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -88,6 +89,27 @@ func (m *mockSearchService) Query(ctx context.Context, q *search.Query) (*search
 	return m.queryFn(ctx, q)
 }
 
+type mockAgentWriteService struct {
+	createSessionFn       func(ctx context.Context, input *agent.CreateSessionInput) (*agent.Session, error)
+	persistConversationFn func(ctx context.Context, input *agent.PersistConversationInput) (*agent.PersistConversationResult, error)
+}
+
+func (m *mockAgentWriteService) CreateSession(ctx context.Context, input *agent.CreateSessionInput) (*agent.Session, error) {
+	if m.createSessionFn != nil {
+		return m.createSessionFn(ctx, input)
+	}
+
+	return nil, nil
+}
+
+func (m *mockAgentWriteService) PersistConversation(ctx context.Context, input *agent.PersistConversationInput) (*agent.PersistConversationResult, error) {
+	if m.persistConversationFn != nil {
+		return m.persistConversationFn(ctx, input)
+	}
+
+	return nil, nil
+}
+
 type mockSessionRepo struct {
 	createFn     func(ctx context.Context, s *agent.Session) error
 	getByIDFn    func(ctx context.Context, id uuid.UUID) (*agent.Session, error)
@@ -130,6 +152,22 @@ func (m *mockMessageRepo) ListBySession(
 	offset, limit int,
 ) ([]*agent.Message, int64, error) {
 	return m.listBySessionFn(ctx, sessionID, offset, limit)
+}
+
+type closeNotifyRecorder struct {
+	*httptest.ResponseRecorder
+	closeCh chan bool
+}
+
+func newCloseNotifyRecorder() *closeNotifyRecorder {
+	return &closeNotifyRecorder{
+		ResponseRecorder: httptest.NewRecorder(),
+		closeCh:          make(chan bool, 1),
+	}
+}
+
+func (r *closeNotifyRecorder) CloseNotify() <-chan bool {
+	return r.closeCh
 }
 
 // ── helpers ──────────────────────────────────────────────
@@ -273,7 +311,7 @@ func TestAgentHandler_Chat_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	handler := NewAgentHandler(svc, nil, nil)
+	handler := NewAgentHandler(svc, nil, nil, nil)
 
 	r := gin.New()
 	r.POST("/chat", handler.Chat)
@@ -288,7 +326,7 @@ func TestAgentHandler_Chat_Success(t *testing.T) {
 }
 
 func TestAgentHandler_Chat_BadJSON(t *testing.T) {
-	handler := NewAgentHandler(&mockAgentService{}, nil, nil)
+	handler := NewAgentHandler(&mockAgentService{}, nil, nil, nil)
 
 	r := gin.New()
 	r.POST("/chat", handler.Chat)
@@ -305,7 +343,7 @@ func TestAgentHandler_Chat_ServiceError(t *testing.T) {
 			return nil, errors.New("llm timeout")
 		},
 	}
-	handler := NewAgentHandler(svc, nil, nil)
+	handler := NewAgentHandler(svc, nil, nil, nil)
 
 	r := gin.New()
 	r.POST("/chat", handler.Chat)
@@ -370,12 +408,18 @@ func TestSearchHandler_Query_ServiceError(t *testing.T) {
 // ── AgentHandler Session Tests ───────────────────────────
 
 func TestAgentHandler_CreateSession_Success(t *testing.T) {
-	sessionRepo := &mockSessionRepo{
-		createFn: func(_ context.Context, s *agent.Session) error {
-			return nil
+	writeSvc := &mockAgentWriteService{
+		createSessionFn: func(_ context.Context, input *agent.CreateSessionInput) (*agent.Session, error) {
+			return &agent.Session{
+				ID:        uuid.New(),
+				UserID:    input.UserID,
+				Mode:      input.Mode,
+				Status:    "active",
+				CreatedAt: time.Now(),
+			}, nil
 		},
 	}
-	handler := NewAgentHandler(nil, sessionRepo, nil)
+	handler := NewAgentHandler(nil, writeSvc, nil, nil)
 
 	r := gin.New()
 	r.POST("/sessions", func(c *gin.Context) {
@@ -394,7 +438,7 @@ func TestAgentHandler_CreateSession_Success(t *testing.T) {
 }
 
 func TestAgentHandler_CreateSession_BadMode(t *testing.T) {
-	handler := NewAgentHandler(nil, nil, nil)
+	handler := NewAgentHandler(nil, nil, nil, nil)
 
 	r := gin.New()
 	r.POST("/sessions", handler.CreateSession)
@@ -415,7 +459,7 @@ func TestAgentHandler_GetSession_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	handler := NewAgentHandler(nil, sessionRepo, nil)
+	handler := NewAgentHandler(nil, nil, sessionRepo, nil)
 
 	r := gin.New()
 	r.GET("/sessions/:id", handler.GetSession)
@@ -426,7 +470,7 @@ func TestAgentHandler_GetSession_Success(t *testing.T) {
 }
 
 func TestAgentHandler_GetSession_InvalidID(t *testing.T) {
-	handler := NewAgentHandler(nil, nil, nil)
+	handler := NewAgentHandler(nil, nil, nil, nil)
 
 	r := gin.New()
 	r.GET("/sessions/:id", handler.GetSession)
@@ -442,7 +486,7 @@ func TestAgentHandler_GetSession_NotFound(t *testing.T) {
 			return nil, errors.New("not found")
 		},
 	}
-	handler := NewAgentHandler(nil, sessionRepo, nil)
+	handler := NewAgentHandler(nil, nil, sessionRepo, nil)
 
 	r := gin.New()
 	r.GET("/sessions/:id", handler.GetSession)
@@ -461,7 +505,7 @@ func TestAgentHandler_ListMessages_Success(t *testing.T) {
 			}, 1, nil
 		},
 	}
-	handler := NewAgentHandler(nil, nil, messageRepo)
+	handler := NewAgentHandler(nil, nil, nil, messageRepo)
 
 	r := gin.New()
 	r.GET("/sessions/:id/messages", handler.ListMessages)
@@ -476,7 +520,7 @@ func TestAgentHandler_ListMessages_Success(t *testing.T) {
 }
 
 func TestAgentHandler_ListMessages_InvalidID(t *testing.T) {
-	handler := NewAgentHandler(nil, nil, nil)
+	handler := NewAgentHandler(nil, nil, nil, nil)
 
 	r := gin.New()
 	r.GET("/sessions/:id/messages", handler.ListMessages)
@@ -484,4 +528,114 @@ func TestAgentHandler_ListMessages_InvalidID(t *testing.T) {
 	w := getRequest(r, "/sessions/not-a-uuid/messages")
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestAgentHandler_Chat_PersistsConversation(t *testing.T) {
+	userID := uuid.New()
+	persistCalled := false
+	svc := &mockAgentService{
+		chatFn: func(_ context.Context, req *agent.ChatRequest) (*agent.ChatResponse, error) {
+			return &agent.ChatResponse{Mode: agent.ModeSearch, Answer: "F=ma", Confidence: 0.9}, nil
+		},
+	}
+	writeSvc := &mockAgentWriteService{
+		persistConversationFn: func(_ context.Context, input *agent.PersistConversationInput) (*agent.PersistConversationResult, error) {
+			persistCalled = true
+			assert.Equal(t, userID, input.UserID)
+			assert.Equal(t, "牛顿第二定律", input.Message)
+			return &agent.PersistConversationResult{Session: &agent.Session{ID: uuid.New()}}, nil
+		},
+	}
+	handler := NewAgentHandler(svc, writeSvc, nil, nil)
+
+	r := gin.New()
+	r.POST("/chat", func(c *gin.Context) {
+		ctx := common.WithUserID(c.Request.Context(), userID.String())
+		c.Request = c.Request.WithContext(ctx)
+		handler.Chat(c)
+	})
+
+	w := postJSON(r, "/chat", map[string]string{"message": "牛顿第二定律", "mode": "search"})
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, persistCalled)
+	assert.NotEmpty(t, w.Header().Get("X-Session-ID"))
+}
+
+func TestAgentHandler_ChatStream_PersistsAggregatedConversation(t *testing.T) {
+	userID := uuid.New()
+	persistCalled := false
+	svc := &mockAgentService{
+		chatStreamFn: func(_ context.Context, _ *agent.ChatRequest, events chan<- agent.SSEEvent) error {
+			events <- agent.SSEEvent{Event: agent.SSEEventContent, Data: "F="}
+			events <- agent.SSEEvent{Event: agent.SSEEventContent, Data: map[string]any{"content": "ma"}}
+			events <- agent.SSEEvent{Event: agent.SSEEventToolCall, Data: map[string]any{"tool": "SearchTool", "status": "success"}}
+			events <- agent.SSEEvent{Event: agent.SSEEventDone, Data: map[string]any{"mode": "search", "confidence": 0.91}}
+			return nil
+		},
+	}
+	writeSvc := &mockAgentWriteService{
+		persistConversationFn: func(_ context.Context, input *agent.PersistConversationInput) (*agent.PersistConversationResult, error) {
+			persistCalled = true
+			assert.Equal(t, userID, input.UserID)
+			require.NotNil(t, input.Response)
+			assert.Equal(t, "F=ma", input.Response.Answer)
+			assert.Equal(t, 0.91, input.Response.Confidence)
+			require.Len(t, input.Response.ToolCalls, 1)
+			assert.Equal(t, "SearchTool", input.Response.ToolCalls[0].Tool)
+			return &agent.PersistConversationResult{Session: &agent.Session{ID: uuid.New()}}, nil
+		},
+	}
+	handler := NewAgentHandler(svc, writeSvc, nil, nil)
+
+	r := gin.New()
+	r.POST("/chat", func(c *gin.Context) {
+		ctx := common.WithUserID(c.Request.Context(), userID.String())
+		c.Request = c.Request.WithContext(ctx)
+		handler.Chat(c)
+	})
+
+	b, err := json.Marshal(map[string]string{"message": "牛顿第二定律", "mode": "search"})
+	require.NoError(t, err)
+	w := newCloseNotifyRecorder()
+	req := httptest.NewRequest("POST", "/chat", bytes.NewReader(b))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "text/event-stream")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, persistCalled)
+	assert.Contains(t, w.Body.String(), "event:content")
+	assert.Contains(t, w.Body.String(), "event:done")
+}
+
+func TestAgentHandler_ChatStream_DoesNotPersistWithoutDone(t *testing.T) {
+	persistCalled := false
+	svc := &mockAgentService{
+		chatStreamFn: func(_ context.Context, _ *agent.ChatRequest, events chan<- agent.SSEEvent) error {
+			events <- agent.SSEEvent{Event: agent.SSEEventContent, Data: "partial"}
+			return nil
+		},
+	}
+	writeSvc := &mockAgentWriteService{
+		persistConversationFn: func(_ context.Context, _ *agent.PersistConversationInput) (*agent.PersistConversationResult, error) {
+			persistCalled = true
+			return nil, nil
+		},
+	}
+	handler := NewAgentHandler(svc, writeSvc, nil, nil)
+
+	r := gin.New()
+	r.POST("/chat", handler.Chat)
+
+	b, err := json.Marshal(map[string]string{"message": "partial", "mode": "search"})
+	require.NoError(t, err)
+	w := newCloseNotifyRecorder()
+	req := httptest.NewRequest("POST", "/chat", bytes.NewReader(b))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "text/event-stream")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.False(t, persistCalled)
 }

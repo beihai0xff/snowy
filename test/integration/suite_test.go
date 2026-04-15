@@ -5,7 +5,6 @@ package integration
 import (
 	"bufio"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,6 +21,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 	mysqlrepo "github.com/beihai0xff/snowy/internal/repo/mysql"
@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	integrationDB    *sql.DB
+	integrationDB    *gorm.DB
 	integrationRedis *goredis.Client
 	integrationMinIO *minio.Client
 )
@@ -52,14 +52,14 @@ func TestMain(m *testing.M) {
 
 	if err := applyMySQLMigrations(ctx, integrationDB); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to apply mysql migrations for integration tests: %v\n", err)
-		_ = integrationDB.Close()
+		closeIntegrationDB(integrationDB)
 		os.Exit(1)
 	}
 
 	rdb, err := redisrepo.NewClient(integrationRedisConfig())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to connect redis for integration tests: %v\n", err)
-		_ = integrationDB.Close()
+		closeIntegrationDB(integrationDB)
 		os.Exit(1)
 	}
 	integrationRedis = rdb
@@ -68,7 +68,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to connect minio for integration tests: %v\n", err)
 		_ = integrationRedis.Close()
-		_ = integrationDB.Close()
+		closeIntegrationDB(integrationDB)
 		os.Exit(1)
 	}
 	integrationMinIO = minioClient
@@ -76,25 +76,25 @@ func TestMain(m *testing.M) {
 	if err := resetMySQL(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to reset mysql state for integration tests: %v\n", err)
 		_ = integrationRedis.Close()
-		_ = integrationDB.Close()
+		closeIntegrationDB(integrationDB)
 		os.Exit(1)
 	}
 	if err := resetRedis(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to reset redis state for integration tests: %v\n", err)
 		_ = integrationRedis.Close()
-		_ = integrationDB.Close()
+		closeIntegrationDB(integrationDB)
 		os.Exit(1)
 	}
 	if err := resetOpenSearch(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to reset opensearch state for integration tests: %v\n", err)
 		_ = integrationRedis.Close()
-		_ = integrationDB.Close()
+		closeIntegrationDB(integrationDB)
 		os.Exit(1)
 	}
 	if err := resetMinIO(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to reset minio state for integration tests: %v\n", err)
 		_ = integrationRedis.Close()
-		_ = integrationDB.Close()
+		closeIntegrationDB(integrationDB)
 		os.Exit(1)
 	}
 
@@ -104,7 +104,7 @@ func TestMain(m *testing.M) {
 	_ = resetOpenSearch(ctx)
 	_ = resetRedis(ctx)
 	_ = integrationRedis.Close()
-	_ = integrationDB.Close()
+	closeIntegrationDB(integrationDB)
 	os.Exit(code)
 }
 
@@ -130,6 +130,14 @@ func integrationRedisConfig() config.RedisConfig {
 		Password: getenv("SNOWY_REDIS_PASSWORD", ""),
 		DB:       getenvInt("SNOWY_REDIS_DB", 0),
 		PoolSize: 10,
+	}
+}
+
+func integrationAuthConfig() config.AuthConfig {
+	return config.AuthConfig{
+		JWTSecret:       getenv("SNOWY_AUTH_JWT_SECRET", "integration-secret"),
+		AccessTokenTTL:  15 * time.Minute,
+		RefreshTokenTTL: 24 * time.Hour,
 	}
 }
 
@@ -205,26 +213,8 @@ func projectRoot(t *testing.T) string {
 	return filepath.Clean(filepath.Join(wd, "..", ".."))
 }
 
-func applyMySQLMigrations(ctx context.Context, db *sql.DB) error {
-	wd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("get wd: %w", err)
-	}
-
-	migrationPath := filepath.Clean(
-		filepath.Join(wd, "..", "..", "internal", "repo", "mysql", "migrations", "000001_init_schema.up.sql"),
-	)
-	content, err := os.ReadFile(migrationPath)
-	if err != nil {
-		return fmt.Errorf("read migration file: %w", err)
-	}
-
-	for _, stmt := range splitSQLStatements(string(content)) {
-		if _, err := db.ExecContext(ctx, stmt); err != nil {
-			return fmt.Errorf("exec migration statement: %w", err)
-		}
-	}
-	return nil
+func applyMySQLMigrations(ctx context.Context, db *gorm.DB) error {
+	return mysqlrepo.RunMigrations(ctx, db)
 }
 
 func splitSQLStatements(content string) []string {
@@ -277,11 +267,24 @@ func resetMySQL(ctx context.Context) error {
 	}
 
 	for _, query := range queries {
-		if _, err := integrationDB.ExecContext(ctx, query); err != nil {
+		if err := integrationDB.WithContext(ctx).Exec(query).Error; err != nil {
 			return fmt.Errorf("exec reset query %q: %w", query, err)
 		}
 	}
 	return nil
+}
+
+func closeIntegrationDB(db *gorm.DB) {
+	if db == nil {
+		return
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return
+	}
+
+	_ = sqlDB.Close()
 }
 
 func resetRedis(ctx context.Context) error {

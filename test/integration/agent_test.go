@@ -47,6 +47,34 @@ func TestUserRepositoryIntegration(t *testing.T) {
 	assert.Equal(t, phone, gotByID.Phone)
 }
 
+func TestUserServiceRegisterIntegration(t *testing.T) {
+	ctx := context.Background()
+	require.NoError(t, resetMySQL(ctx))
+
+	userRepo := mysqlrepo.NewUserRepository(integrationDB)
+	favoriteRepo := mysqlrepo.NewFavoriteRepository(integrationDB)
+	historyRepo := mysqlrepo.NewHistoryRepository(integrationDB)
+	transactor := mysqlrepo.NewTransactor(integrationDB)
+
+	svc := user.NewService(userRepo, favoriteRepo, historyRepo, transactor, integrationAuthConfig())
+	phone := fmt.Sprintf("136%08d", time.Now().UnixNano()%100000000)
+
+	u, err := svc.Register(ctx, phone, "tx-user")
+	require.NoError(t, err)
+	require.NotNil(t, u)
+
+	gotByID, err := userRepo.GetByID(ctx, u.ID)
+	require.NoError(t, err)
+	assert.Equal(t, phone, gotByID.Phone)
+
+	historyItems, total, err := historyRepo.ListByUser(ctx, u.ID, 0, 10)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), total)
+	require.Len(t, historyItems, 1)
+	assert.Equal(t, "register", historyItems[0].ActionType)
+	assert.Equal(t, "用户注册", historyItems[0].Query)
+}
+
 func TestFavoriteRepositoryIntegration(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, resetMySQL(ctx))
@@ -179,6 +207,68 @@ func TestAgentRepositoriesIntegration(t *testing.T) {
 	toolCalls, err := toolCallRepo.ListByRun(ctx, run.ID)
 	require.NoError(t, err)
 	assert.Len(t, toolCalls, 1)
+	assert.Equal(t, "SearchTool", toolCalls[0].ToolName)
+}
+
+func TestAgentWriteServiceIntegration(t *testing.T) {
+	ctx := context.Background()
+	require.NoError(t, resetMySQL(ctx))
+
+	userRepo := mysqlrepo.NewUserRepository(integrationDB)
+	sessionRepo := mysqlrepo.NewAgentSessionRepository(integrationDB)
+	messageRepo := mysqlrepo.NewAgentMessageRepository(integrationDB)
+	runRepo := mysqlrepo.NewAgentRunRepository(integrationDB)
+	toolCallRepo := mysqlrepo.NewAgentToolCallRepository(integrationDB)
+	transactor := mysqlrepo.NewTransactor(integrationDB)
+	writeSvc := agent.NewWriteService(transactor, sessionRepo, messageRepo, runRepo, toolCallRepo)
+
+	u := &user.User{
+		ID:          uuid.New(),
+		Phone:       fmt.Sprintf("135%08d", time.Now().UnixNano()%100000000),
+		Nickname:    "write-owner",
+		Role:        user.RoleStudent,
+		AvatarURL:   "",
+		LastLoginAt: time.Now(),
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	require.NoError(t, userRepo.Create(ctx, u))
+
+	persisted, err := writeSvc.PersistConversation(ctx, &agent.PersistConversationInput{
+		UserID:  u.ID,
+		Mode:    agent.ModeSearch,
+		Message: "牛顿第二定律怎么用？",
+		Filters: agent.Filters{Subject: "physics", Grade: "high-school"},
+		Response: &agent.ChatResponse{
+			Mode:       agent.ModeSearch,
+			Answer:     "F=ma",
+			Confidence: 0.92,
+			ToolCalls:  []agent.ToolCall{{Tool: "SearchTool", Status: "success"}},
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, persisted)
+	require.NotNil(t, persisted.Session)
+
+	gotSession, err := sessionRepo.GetByID(ctx, persisted.Session.ID)
+	require.NoError(t, err)
+	assert.Equal(t, u.ID, gotSession.UserID)
+	assert.Equal(t, "physics", gotSession.Metadata["subject"])
+
+	messages, total, err := messageRepo.ListBySession(ctx, persisted.Session.ID, 0, 10)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), total)
+	require.Len(t, messages, 2)
+	assert.Equal(t, "user", messages[0].Role)
+	assert.Equal(t, "assistant", messages[1].Role)
+
+	gotRun, err := runRepo.GetByID(ctx, persisted.Run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, persisted.UserMessage.ID, gotRun.MessageID)
+
+	toolCalls, err := toolCallRepo.ListByRun(ctx, persisted.Run.ID)
+	require.NoError(t, err)
+	require.Len(t, toolCalls, 1)
 	assert.Equal(t, "SearchTool", toolCalls[0].ToolName)
 }
 

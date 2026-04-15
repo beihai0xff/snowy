@@ -73,14 +73,6 @@ func (d DatabaseConfig) DSN() string {
 	)
 }
 
-// MigrateDSN 返回 golang-migrate 使用的 MySQL DSN。
-func (d DatabaseConfig) MigrateDSN() string {
-	return fmt.Sprintf(
-		"mysql://%s:%s@tcp(%s:%d)/%s",
-		d.User, d.Password, d.Host, d.Port, d.Name,
-	)
-}
-
 // RedisConfig Redis 连接配置。
 type RedisConfig struct {
 	Addr     string `mapstructure:"addr"`

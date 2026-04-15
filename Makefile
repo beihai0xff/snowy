@@ -24,7 +24,6 @@ BIN_DIR        := $(ROOT_DIR)/bin
 CMD_DIR        := $(ROOT_DIR)/cmd
 DEPLOY_DIR     := $(ROOT_DIR)/deployments/docker
 CONFIG_DIR     := $(ROOT_DIR)/configs
-MIGRATION_DIR  := $(ROOT_DIR)/internal/repo/mysql/migrations
 
 # ── Go 参数 ─────────────────────────────────────────────────
 GO             := go
@@ -44,11 +43,10 @@ IMAGE_WORKER   := $(if $(DOCKER_REG),$(DOCKER_REG)/)$(PROJECT_NAME)-worker:$(VER
 
 # ── 工具 ────────────────────────────────────────────────────
 GOLANGCI_LINT  := $(shell command -v golangci-lint 2>/dev/null)
-MIGRATE        := $(shell command -v migrate 2>/dev/null)
-SQLC           := $(shell command -v sqlc 2>/dev/null)
 GOLANGCI_CONFIG := $(ROOT_DIR)/.golangci.yml
 GOLANGCI_FMT_CMD := golangci-lint fmt -c $(GOLANGCI_CONFIG)
 GOLANGCI_RUN_CMD := golangci-lint run -c $(GOLANGCI_CONFIG) ./...
+MYSQL_MIGRATE_CMD := $(GO) run ./cmd/migrate -config $(CONFIG_DIR)/config.yaml
 
 # ── 数据库 (本地开发默认值) ─────────────────────────────────
 DB_HOST        ?= localhost
@@ -299,64 +297,29 @@ run-worker: build-worker
 dev: docker-up run-api
 
 # ============================================================
-#  Database Migration (golang-migrate)
+#  Database Migration (GORM)
 # ============================================================
 
-.PHONY: migrate-up migrate-down migrate-create migrate-force migrate-version
+.PHONY: migrate-up migrate-reset
 
-## migrate-up: 执行全部待应用的迁移
+## migrate-up: 使用 GORM 初始化 / 同步 MySQL Schema
 migrate-up:
-ifndef MIGRATE
-	@echo "$(YELLOW)▸ Installing golang-migrate...$(RESET)"
-	@go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-endif
-	@echo "$(GREEN)▸ Running migrations up...$(RESET)"
-	migrate -path $(MIGRATION_DIR) -database "$(DATABASE_URL)" up
+	@echo "$(GREEN)▸ Running GORM migrations...$(RESET)"
+	$(MYSQL_MIGRATE_CMD)
 
-## migrate-down: 回滚最近一次迁移
-migrate-down:
-	@echo "$(YELLOW)▸ Rolling back last migration...$(RESET)"
-	migrate -path $(MIGRATION_DIR) -database "$(DATABASE_URL)" down 1
-
-## migrate-create: 创建新迁移文件 (用法: make migrate-create NAME=create_users)
-migrate-create:
-ifndef NAME
-	$(error NAME is required. Usage: make migrate-create NAME=create_users)
-endif
-	@mkdir -p $(MIGRATION_DIR)
-	migrate create -ext sql -dir $(MIGRATION_DIR) -seq $(NAME)
-	@echo "$(GREEN)✓ Migration files created in $(MIGRATION_DIR)$(RESET)"
-
-## migrate-force: 强制设置迁移版本 (用法: make migrate-force V=1)
-migrate-force:
-ifndef V
-	$(error V is required. Usage: make migrate-force V=1)
-endif
-	migrate -path $(MIGRATION_DIR) -database "$(DATABASE_URL)" force $(V)
-
-## migrate-version: 查看当前迁移版本
-migrate-version:
-	migrate -path $(MIGRATION_DIR) -database "$(DATABASE_URL)" version
+## migrate-reset: 重建 Docker MySQL 后重新应用 GORM Schema
+migrate-reset: docker-down docker-up migrate-up
 
 # ============================================================
 #  Code Generation
 # ============================================================
 
-.PHONY: generate sqlc-generate
+.PHONY: generate
 
-## generate: 运行全部代码生成 (go generate + sqlc)
-generate: sqlc-generate
+## generate: 运行全部代码生成 (go generate)
+generate:
 	@echo "$(GREEN)▸ Running go generate...$(RESET)"
 	$(GO) generate ./...
-
-## sqlc-generate: 运行 sqlc 代码生成
-sqlc-generate:
-ifndef SQLC
-	@echo "$(YELLOW)▸ Installing sqlc...$(RESET)"
-	@go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
-endif
-	@echo "$(GREEN)▸ Running sqlc generate...$(RESET)"
-	sqlc generate
 
 # ============================================================
 #  Dependencies
@@ -389,8 +352,6 @@ vendor:
 tools:
 	@echo "$(GREEN)▸ Installing dev tools...$(RESET)"
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-	go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 	@echo "$(GREEN)✓ All tools installed$(RESET)"
 
 # ============================================================

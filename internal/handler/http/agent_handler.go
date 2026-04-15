@@ -2,6 +2,7 @@ package http
 
 import (
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 // 参考技术方案 §17.1 & §17.6。
 type AgentHandler struct {
 	agentSvc    agent.Service
+	writeSvc    agent.WriteService
 	sessionRepo agent.SessionRepository
 	messageRepo agent.MessageRepository
 }
@@ -24,11 +26,13 @@ type AgentHandler struct {
 // NewAgentHandler 创建 AgentHandler。
 func NewAgentHandler(
 	agentSvc agent.Service,
+	writeSvc agent.WriteService,
 	sessionRepo agent.SessionRepository,
 	messageRepo agent.MessageRepository,
 ) *AgentHandler {
 	return &AgentHandler{
 		agentSvc:    agentSvc,
+		writeSvc:    writeSvc,
 		sessionRepo: sessionRepo,
 		messageRepo: messageRepo,
 	}
@@ -52,8 +56,9 @@ func (h *AgentHandler) Chat(c *gin.Context) {
 	}
 
 	chatReq := &agent.ChatRequest{
-		Message: req.Message,
-		Mode:    agent.Mode(req.Mode),
+		SessionID: parseOptionalUUID(req.SessionID),
+		Message:   req.Message,
+		Mode:      agent.Mode(req.Mode),
 		Filters: agent.Filters{
 			Subject: req.Filters.Subject,
 			Grade:   req.Filters.Grade,
@@ -66,6 +71,27 @@ func (h *AgentHandler) Chat(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
 
 		return
+	}
+
+	if h.writeSvc != nil {
+		persisted, persistErr := h.writeSvc.PersistConversation(c.Request.Context(), &agent.PersistConversationInput{
+			UserID:    parseOptionalUUID(common.UserIDFromContext(c.Request.Context())),
+			SessionID: chatReq.SessionID,
+			Mode:      chatReq.Mode,
+			Message:   chatReq.Message,
+			Filters:   chatReq.Filters,
+			Response:  resp,
+		})
+		if persistErr != nil {
+			reqID := common.RequestIDFromContext(c.Request.Context())
+			c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
+
+			return
+		}
+
+		if persisted != nil && persisted.Session != nil {
+			c.Header("X-Session-ID", persisted.Session.ID.String())
+		}
 	}
 
 	c.JSON(http.StatusOK, common.Success(resp))
@@ -81,19 +107,28 @@ func (h *AgentHandler) CreateSession(c *gin.Context) {
 		return
 	}
 
-	userID := common.UserIDFromContext(c.Request.Context())
-	uid, _ := uuid.Parse(userID)
+	uid := parseOptionalUUID(common.UserIDFromContext(c.Request.Context()))
 
-	session := &agent.Session{
-		ID:        uuid.New(),
-		UserID:    uid,
-		Mode:      agent.Mode(req.Mode),
-		Status:    "active",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+	var session *agent.Session
+	var err error
+	if h.writeSvc != nil {
+		session, err = h.writeSvc.CreateSession(c.Request.Context(), &agent.CreateSessionInput{
+			UserID: uid,
+			Mode:   agent.Mode(req.Mode),
+		})
+	} else {
+		session = &agent.Session{
+			ID:        uuid.New(),
+			UserID:    uid,
+			Mode:      agent.Mode(req.Mode),
+			Status:    "active",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		err = h.sessionRepo.Create(c.Request.Context(), session)
 	}
 
-	if err := h.sessionRepo.Create(c.Request.Context(), session); err != nil {
+	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
 
@@ -171,10 +206,12 @@ func (h *AgentHandler) chatStream(c *gin.Context, req *dto.ChatReq) {
 	c.Header("Connection", "keep-alive")
 
 	events := make(chan agent.SSEEvent, 32)
+	errCh := make(chan error, 1)
 
 	chatReq := &agent.ChatRequest{
-		Message: req.Message,
-		Mode:    agent.Mode(req.Mode),
+		SessionID: parseOptionalUUID(req.SessionID),
+		Message:   req.Message,
+		Mode:      agent.Mode(req.Mode),
 		Filters: agent.Filters{
 			Subject: req.Filters.Subject,
 			Grade:   req.Filters.Grade,
@@ -184,17 +221,62 @@ func (h *AgentHandler) chatStream(c *gin.Context, req *dto.ChatReq) {
 	go func() {
 		defer close(events)
 
-		_ = h.agentSvc.ChatStream(c.Request.Context(), chatReq, events)
+		errCh <- h.agentSvc.ChatStream(c.Request.Context(), chatReq, events)
 	}()
 
-	c.Stream(func(_ io.Writer) bool {
+	aggregator := agent.NewStreamResponseAggregator(chatReq.Mode)
+
+	disconnected := c.Stream(func(_ io.Writer) bool {
 		event, ok := <-events
 		if !ok {
 			return false
+		}
+
+		if err := aggregator.Consume(event); err != nil {
+			slog.WarnContext(c.Request.Context(), "consume stream event failed", "error", err, "event", event.Event)
 		}
 
 		c.SSEvent(string(event.Event), event.Data)
 
 		return true
 	})
+
+	streamErr := <-errCh
+	if disconnected || streamErr != nil || !aggregator.Done() || h.writeSvc == nil || c.Request.Context().Err() != nil {
+		if streamErr != nil {
+			slog.WarnContext(c.Request.Context(), "agent stream ended without persistence", "error", streamErr)
+		}
+
+		return
+	}
+
+	persisted, err := h.writeSvc.PersistConversation(c.Request.Context(), &agent.PersistConversationInput{
+		UserID:    parseOptionalUUID(common.UserIDFromContext(c.Request.Context())),
+		SessionID: chatReq.SessionID,
+		Mode:      chatReq.Mode,
+		Message:   chatReq.Message,
+		Filters:   chatReq.Filters,
+		Response:  aggregator.Response(),
+	})
+	if err != nil {
+		slog.WarnContext(c.Request.Context(), "persist streamed conversation failed", "error", err)
+		return
+	}
+
+	if persisted != nil && persisted.Session != nil {
+		c.Header("X-Session-ID", persisted.Session.ID.String())
+	}
+}
+
+func parseOptionalUUID(raw string) uuid.UUID {
+	if raw == "" {
+		return uuid.Nil
+	}
+
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return uuid.Nil
+	}
+
+	return id
 }

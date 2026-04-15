@@ -384,20 +384,19 @@ graph TB
 - 与 HTTP 入参绑定配合成熟。
 
 ### 6.1.6 数据库访问
-- **go-sql-driver/mysql + sqlc**
+- **GORM + go-sql-driver/mysql**
 
 备选：
-- GORM
 - sqlx
+- 原生 database/sql
 
 选择原因：
-- 类型安全；
-- SQL 显式、便于优化；
-- 对复杂查询更稳定；
-- 比 ORM 更适合检索和建模类服务。
+- 与当前仓储实现、事务封装、集成测试迁移入口保持一致；
+- 能统一承载 CRUD、事务、Schema 演进；
+- 对 MVP 阶段的快速迭代更友好。
 
 ### 6.1.7 数据迁移
-- **golang-migrate**
+- **GORM AutoMigrate + 统一 migration runner**
 
 ### 6.1.8 缓存与异步任务
 - **Redis + Asynq**
@@ -1578,7 +1577,7 @@ Snowy 首发阶段推荐采用：
 - **Go 作为核心后端语言**
 - **Eino (CloudWeGo) 作为 Agent 编排基座 + 业务扩展层**
 - **Gin 作为 HTTP 框架**
-- **go-sql-driver/mysql + sqlc 作为数据库访问方案**
+- **GORM + go-sql-driver/mysql 作为数据库访问方案**
 - **Redis + Asynq 作为缓存与异步任务机制**
 - **OpenSearch 作为统一检索引擎**
 - **`gpt5` 主推理、`gemini3` 备选**

@@ -14,9 +14,8 @@ import (
 )
 
 func TestHistoryRepo_Add_Success(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer db.Close()
+	db, mock, cleanup := newMockGorm(t)
+	defer cleanup()
 
 	repo := NewHistoryRepository(db)
 
@@ -29,35 +28,34 @@ func TestHistoryRepo_Add_Success(t *testing.T) {
 		CreatedAt:  time.Now(),
 	}
 
-	mock.ExpectExec("INSERT INTO history_items").
+	mock.ExpectExec("INSERT INTO `history_items`").
 		WithArgs(item.ID, item.UserID, item.ActionType, item.Query, item.SessionID, item.CreatedAt).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	err = repo.Add(context.Background(), item)
+	err := repo.Add(context.Background(), item)
 
 	require.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestHistoryRepo_ListByUser_Success(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer db.Close()
+	db, mock, cleanup := newMockGorm(t)
+	defer cleanup()
 
 	repo := NewHistoryRepository(db)
 	userID := uuid.New()
 	now := time.Now()
 	sid := uuid.New()
 
-	mock.ExpectQuery("SELECT COUNT\\(\\*\\) FROM history_items WHERE user_id = \\?").
+	mock.ExpectQuery("SELECT count\\(\\*\\) FROM `history_items` WHERE user_id = \\?").
 		WithArgs(userID).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 
 	rows := sqlmock.NewRows([]string{"id", "user_id", "action_type", "query", "session_id", "created_at"}).
 		AddRow(uuid.New(), userID, "physics", "平抛运动", sid, now)
 
-	mock.ExpectQuery("SELECT .+ FROM history_items WHERE user_id = \\?").
-		WithArgs(userID, 10, 0).
+	mock.ExpectQuery("SELECT \\* FROM `history_items` WHERE user_id = \\? ORDER BY created_at DESC LIMIT \\?").
+		WithArgs(userID, 10).
 		WillReturnRows(rows)
 
 	items, total, err := repo.ListByUser(context.Background(), userID, 0, 10)
@@ -70,21 +68,20 @@ func TestHistoryRepo_ListByUser_Success(t *testing.T) {
 }
 
 func TestHistoryRepo_ListByUser_Empty(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer db.Close()
+	db, mock, cleanup := newMockGorm(t)
+	defer cleanup()
 
 	repo := NewHistoryRepository(db)
 	userID := uuid.New()
 
-	mock.ExpectQuery("SELECT COUNT\\(\\*\\) FROM history_items WHERE user_id = \\?").
+	mock.ExpectQuery("SELECT count\\(\\*\\) FROM `history_items` WHERE user_id = \\?").
 		WithArgs(userID).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 
 	rows := sqlmock.NewRows([]string{"id", "user_id", "action_type", "query", "session_id", "created_at"})
 
-	mock.ExpectQuery("SELECT .+ FROM history_items WHERE user_id = \\?").
-		WithArgs(userID, 20, 0).
+	mock.ExpectQuery("SELECT \\* FROM `history_items` WHERE user_id = \\? ORDER BY created_at DESC LIMIT \\?").
+		WithArgs(userID, 20).
 		WillReturnRows(rows)
 
 	items, total, err := repo.ListByUser(context.Background(), userID, 0, 20)
