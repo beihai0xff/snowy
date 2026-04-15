@@ -1,4 +1,5 @@
-//nolint:revive // http is the transport-layer package name for this adapter set.
+// Package http is the transport-layer package name for this adapter set.
+// nolint:revive,godoclint
 package http
 
 import (
