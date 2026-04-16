@@ -50,7 +50,9 @@ func logTaskHandler(taskName string) func(context.Context, *asynq.Task) error {
 				slog.WarnContext(ctx, "task payload is not json", "task", taskName, "error", err)
 			}
 		}
+
 		slog.InfoContext(ctx, "worker task executed", "task", taskName, "payload", payload)
+
 		return nil
 	}
 }

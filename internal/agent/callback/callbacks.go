@@ -4,7 +4,6 @@ package callback
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -81,11 +80,13 @@ func (m *MetricsCollector) OnNodeEnd(ctx context.Context, nodeName string, _ any
 	if err != nil {
 		status = "failed"
 	}
+
 	if start, ok := m.startTimes.LoadAndDelete(metricKey(ctx, nodeName)); ok {
 		if startedAt, ok := start.(time.Time); ok {
 			nodeDurationHistogram.WithLabelValues(nodeName, status).Observe(time.Since(startedAt).Seconds())
 		}
 	}
+
 	nodeExecutionCounter.WithLabelValues(nodeName, status).Inc()
 }
 
@@ -101,28 +102,34 @@ func NewOTelTracer() *OTelTracer {
 }
 
 // OnNodeStart 创建追踪 Span。
+//
+//nolint:spancheck // Span lifetime is intentionally completed in the paired OnNodeEnd callback.
 func (o *OTelTracer) OnNodeStart(ctx context.Context, nodeName string, _ any) {
 	_, span := o.tracer.Start(ctx, nodeName)
 	o.spans.Store(metricKey(ctx, nodeName), span)
 }
 
 // OnNodeEnd 结束追踪 Span。
+//
+
 func (o *OTelTracer) OnNodeEnd(ctx context.Context, nodeName string, _ any, err error) {
 	value, ok := o.spans.LoadAndDelete(metricKey(ctx, nodeName))
 	if !ok {
 		return
 	}
+
 	span, ok := value.(trace.Span)
 	if !ok {
 		return
 	}
+	defer span.End()
+
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 	} else {
 		span.SetStatus(codes.Ok, "completed")
 	}
-	span.End()
 }
 
 func metricKey(ctx context.Context, nodeName string) string {
@@ -130,8 +137,10 @@ func metricKey(ctx context.Context, nodeName string) string {
 	if requestID == "" {
 		requestID = common.TraceIDFromContext(ctx)
 	}
+
 	if requestID == "" {
-		requestID = fmt.Sprintf("fallback-%s", nodeName)
+		requestID = "fallback-" + nodeName
 	}
+
 	return requestID + ":" + nodeName
 }

@@ -17,6 +17,7 @@ func NewSimpleAnalyzer() Analyzer {
 func (a *simpleAnalyzer) AnalyzeVariables(_ context.Context, text string) (*domain.ExperimentVariables, error) {
 	lower := strings.ToLower(text)
 	vars := &domain.ExperimentVariables{}
+
 	switch {
 	case strings.Contains(lower, "光") || strings.Contains(lower, "photosynthesis"):
 		vars.Independent = []string{"光照强度"}
@@ -29,5 +30,6 @@ func (a *simpleAnalyzer) AnalyzeVariables(_ context.Context, text string) (*doma
 	default:
 		vars.Controlled = []string{"需补充实验条件"}
 	}
+
 	return vars, nil
 }

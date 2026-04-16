@@ -28,6 +28,7 @@ func listByUserRows[R any, T any](
 	}
 
 	rows := make([]R, 0, limit)
+
 	err = dbFromContext(ctx, db).
 		Model(model).
 		Where("user_id = ?", userID).

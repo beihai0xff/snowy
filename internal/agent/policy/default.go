@@ -20,11 +20,13 @@ func (e *defaultEngine) PreCheck(_ context.Context, input any) (*Result, error) 
 	if text == "" || text == "<nil>" {
 		return &Result{Passed: false, Reason: "empty input"}, nil
 	}
+
 	for _, keyword := range defaultUnsafeKeywords {
 		if strings.Contains(strings.ToLower(text), strings.ToLower(keyword)) {
 			return &Result{Passed: false, Reason: "unsafe content"}, nil
 		}
 	}
+
 	return &Result{Passed: true}, nil
 }
 
@@ -33,5 +35,6 @@ func (e *defaultEngine) PostCheck(_ context.Context, output any) (*Result, error
 	if text == "" || text == "<nil>" {
 		return &Result{Passed: false, Reason: "empty output"}, nil
 	}
+
 	return &Result{Passed: true}, nil
 }

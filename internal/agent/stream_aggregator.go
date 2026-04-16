@@ -1,9 +1,6 @@
 package agent
 
-import (
-	"encoding/json"
-	"fmt"
-)
+import "encoding/json"
 
 // StreamResponseAggregator 将 SSE 事件流聚合为最终 ChatResponse。
 type StreamResponseAggregator struct {
@@ -24,7 +21,44 @@ func NewStreamResponseAggregator(initialMode Mode) *StreamResponseAggregator {
 
 // Consume 消费一个 SSE 事件并更新聚合结果。
 func (a *StreamResponseAggregator) Consume(event SSEEvent) error {
+	if event.Event == SSEEventDone {
+		a.done = true
+		a.consumeDone(event.Data)
+
+		return nil
+	}
+
+	a.consumeIncrementalEvent(event)
+
+	return nil
+}
+
+// Done 返回是否已收到终态事件。
+func (a *StreamResponseAggregator) Done() bool {
+	return a.done
+}
+
+// Response 返回聚合后的最终响应副本。
+func (a *StreamResponseAggregator) Response() *ChatResponse {
+	resp := a.response
+	if len(a.response.Citations) > 0 {
+		resp.Citations = append([]Citation(nil), a.response.Citations...)
+	}
+
+	if len(a.response.ToolCalls) > 0 {
+		resp.ToolCalls = append([]ToolCall(nil), a.response.ToolCalls...)
+	}
+
+	if len(a.response.NextActions) > 0 {
+		resp.NextActions = append([]string(nil), a.response.NextActions...)
+	}
+
+	return &resp
+}
+
+func (a *StreamResponseAggregator) consumeIncrementalEvent(event SSEEvent) {
 	switch event.Event {
+	case SSEEventThinking, SSEEventDone:
 	case SSEEventContent:
 		content, ok := stringValue(event.Data, "content", "text", "answer")
 		if ok {
@@ -44,83 +78,22 @@ func (a *StreamResponseAggregator) Consume(event SSEEvent) error {
 		if a.response.StructuredPayload == nil {
 			a.response.StructuredPayload = event.Data
 		}
-	case SSEEventDone:
-		a.done = true
-		if err := a.consumeDone(event.Data); err != nil {
-			return fmt.Errorf("consume done event: %w", err)
-		}
 	}
-
-	return nil
 }
 
-// Done 返回是否已收到终态事件。
-func (a *StreamResponseAggregator) Done() bool {
-	return a.done
-}
-
-// Response 返回聚合后的最终响应副本。
-func (a *StreamResponseAggregator) Response() *ChatResponse {
-	resp := a.response
-	if len(a.response.Citations) > 0 {
-		resp.Citations = append([]Citation(nil), a.response.Citations...)
-	}
-	if len(a.response.ToolCalls) > 0 {
-		resp.ToolCalls = append([]ToolCall(nil), a.response.ToolCalls...)
-	}
-	if len(a.response.NextActions) > 0 {
-		resp.NextActions = append([]string(nil), a.response.NextActions...)
-	}
-
-	return &resp
-}
-
-func (a *StreamResponseAggregator) consumeDone(data any) error {
+func (a *StreamResponseAggregator) consumeDone(data any) {
 	if data == nil {
-		return nil
+		return
 	}
 
 	var done ChatResponse
 	if err := decodeViaJSON(data, &done); err == nil {
-		if done.Mode != "" {
-			a.response.Mode = done.Mode
-		}
-		if done.Answer != "" {
-			a.response.Answer = done.Answer
-		}
-		if done.Confidence != 0 {
-			a.response.Confidence = done.Confidence
-		}
-		if len(done.Citations) > 0 {
-			for _, citation := range done.Citations {
-				a.appendCitation(citation)
-			}
-		}
-		if len(done.ToolCalls) > 0 {
-			for _, call := range done.ToolCalls {
-				a.upsertToolCall(call)
-			}
-		}
-		if done.StructuredPayload != nil {
-			a.response.StructuredPayload = done.StructuredPayload
-		}
-		if len(done.NextActions) > 0 {
-			a.response.NextActions = append([]string(nil), done.NextActions...)
-		}
-		return nil
+		a.applyDoneResponse(done)
+
+		return
 	}
 
-	if mode, ok := modeValue(data, "mode"); ok {
-		a.response.Mode = mode
-	}
-	if answer, ok := stringValue(data, "answer", "content"); ok {
-		a.response.Answer = answer
-	}
-	if confidence, ok := floatValue(data, "confidence"); ok {
-		a.response.Confidence = confidence
-	}
-
-	return nil
+	a.applyDoneFields(data)
 }
 
 func (a *StreamResponseAggregator) appendCitation(citation Citation) {
@@ -136,6 +109,7 @@ func (a *StreamResponseAggregator) appendCitation(citation Citation) {
 func (a *StreamResponseAggregator) upsertToolCall(toolCall ToolCall) {
 	if index, ok := a.toolCallIndex[toolCall.Tool]; ok {
 		a.response.ToolCalls[index] = toolCall
+
 		return
 	}
 
@@ -216,4 +190,48 @@ func modeValue(data any, key string) (Mode, bool) {
 	}
 
 	return Mode(value), true
+}
+
+func (a *StreamResponseAggregator) applyDoneResponse(done ChatResponse) {
+	if done.Mode != "" {
+		a.response.Mode = done.Mode
+	}
+
+	if done.Answer != "" {
+		a.response.Answer = done.Answer
+	}
+
+	if done.Confidence != 0 {
+		a.response.Confidence = done.Confidence
+	}
+
+	for _, citation := range done.Citations {
+		a.appendCitation(citation)
+	}
+
+	for _, call := range done.ToolCalls {
+		a.upsertToolCall(call)
+	}
+
+	if done.StructuredPayload != nil {
+		a.response.StructuredPayload = done.StructuredPayload
+	}
+
+	if len(done.NextActions) > 0 {
+		a.response.NextActions = append([]string(nil), done.NextActions...)
+	}
+}
+
+func (a *StreamResponseAggregator) applyDoneFields(data any) {
+	if mode, ok := modeValue(data, "mode"); ok {
+		a.response.Mode = mode
+	}
+
+	if answer, ok := stringValue(data, "answer", "content"); ok {
+		a.response.Answer = answer
+	}
+
+	if confidence, ok := floatValue(data, "confidence"); ok {
+		a.response.Confidence = confidence
+	}
 }

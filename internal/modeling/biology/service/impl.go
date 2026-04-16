@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -20,25 +21,34 @@ func NewService(analyzer experimentanalyzer.Analyzer, builder diagrambuilder.Dia
 	if analyzer == nil {
 		analyzer = experimentanalyzer.NewSimpleAnalyzer()
 	}
+
 	if builder == nil {
 		builder = diagrambuilder.NewSimpleDiagramBuilder()
 	}
+
 	return &serviceImpl{analyzer: analyzer, builder: builder}
 }
 
-func (s *serviceImpl) Analyze(ctx context.Context, question string, sessionContext string) (*domain.BiologyModel, error) {
+func (s *serviceImpl) Analyze(
+	ctx context.Context,
+	question string,
+	sessionContext string,
+) (*domain.BiologyModel, error) {
 	question = strings.TrimSpace(question)
 	if question == "" {
-		return nil, fmt.Errorf("question is empty")
+		return nil, errors.New("question is empty")
 	}
+
 	fullText := strings.TrimSpace(question + " " + sessionContext)
 	topic := inferTopic(fullText)
 	concepts := inferConcepts(fullText)
 	relations := inferRelations(concepts)
+
 	variables, err := s.analyzer.AnalyzeVariables(ctx, fullText)
 	if err != nil {
 		return nil, fmt.Errorf("analyze experiment variables: %w", err)
 	}
+
 	diagram, err := s.builder.Build(concepts, relations, topic+" 关系图")
 	if err != nil {
 		return nil, fmt.Errorf("build biology diagram: %w", err)
@@ -78,6 +88,7 @@ func inferConcepts(text string) []domain.Concept {
 				return
 			}
 		}
+
 		concepts = append(concepts, domain.Concept{Name: name, Type: conceptType})
 	}
 
@@ -86,13 +97,16 @@ func inferConcepts(text string) []domain.Concept {
 		add("叶绿体", "structure")
 		add("有机物积累", "result")
 	}
+
 	if strings.Contains(lower, "二氧化碳") {
 		add("二氧化碳浓度", "factor")
 	}
+
 	if strings.Contains(lower, "酶") {
 		add("酶活性", "result")
 		add("温度", "factor")
 	}
+
 	if len(concepts) == 0 {
 		add("核心概念", "process")
 		add("分析对象", "result")
@@ -102,10 +116,14 @@ func inferConcepts(text string) []domain.Concept {
 }
 
 func inferRelations(concepts []domain.Concept) []domain.Relation {
-	relations := make([]domain.Relation, 0, max(len(concepts)-1, 0))
-	for i := 0; i < len(concepts)-1; i++ {
-		relations = append(relations, domain.Relation{Source: concepts[i].Name, Target: concepts[i+1].Name, Type: "influences"})
+	relations := make([]domain.Relation, 0, maxInt(len(concepts)-1, 0))
+	for i := range len(concepts) - 1 {
+		relations = append(
+			relations,
+			domain.Relation{Source: concepts[i].Name, Target: concepts[i+1].Name, Type: "influences"},
+		)
 	}
+
 	return relations
 }
 
@@ -129,9 +147,10 @@ func processSteps(topic string) []domain.ProcessStep {
 	}
 }
 
-func max(a, b int) int {
+func maxInt(a, b int) int {
 	if a > b {
 		return a
 	}
+
 	return b
 }

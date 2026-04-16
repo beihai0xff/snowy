@@ -9,6 +9,7 @@ import (
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
+//nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.
 type userRow struct {
 	ID          uuid.UUID `gorm:"column:id"`
 	Phone       string    `gorm:"column:phone"`
@@ -56,6 +57,7 @@ func (r *userRow) toDomain() *user.User {
 	}
 }
 
+//nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.
 type favoriteRow struct {
 	ID         uuid.UUID `gorm:"column:id"`
 	UserID     uuid.UUID `gorm:"column:user_id"`
@@ -97,6 +99,7 @@ func (r *favoriteRow) toDomain() *user.Favorite {
 	}
 }
 
+//nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.
 type historyRow struct {
 	ID         uuid.UUID  `gorm:"column:id"`
 	UserID     uuid.UUID  `gorm:"column:user_id"`
@@ -142,6 +145,7 @@ func (r *historyRow) toDomain() *user.HistoryItem {
 	return item
 }
 
+//nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.
 type agentSessionRow struct {
 	ID        uuid.UUID  `gorm:"column:id"`
 	UserID    uuid.UUID  `gorm:"column:user_id"`
@@ -186,6 +190,7 @@ func (r *agentSessionRow) toDomain() *agent.Session {
 	}
 }
 
+//nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.
 type agentMessageRow struct {
 	ID        uuid.UUID `gorm:"column:id"`
 	SessionID uuid.UUID `gorm:"column:session_id"`
@@ -224,6 +229,7 @@ func (r *agentMessageRow) toDomain() *agent.Message {
 	}
 }
 
+//nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.
 type agentRunRow struct {
 	ID             uuid.UUID  `gorm:"column:id"`
 	SessionID      uuid.UUID  `gorm:"column:session_id"`
@@ -292,6 +298,7 @@ func (r *agentRunRow) toDomain() *agent.Run {
 	}
 }
 
+//nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.
 type agentToolCallRow struct {
 	ID        uuid.UUID `gorm:"column:id"`
 	RunID     uuid.UUID `gorm:"column:run_id"`

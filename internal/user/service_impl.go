@@ -46,6 +46,7 @@ func NewServiceWithVerifier(
 	if verifier == nil {
 		verifier = NewNoopVerificationCodeChecker()
 	}
+
 	return &serviceImpl{
 		repo:       repo,
 		favRepo:    favRepo,
@@ -98,6 +99,7 @@ func (s *serviceImpl) Login(ctx context.Context, phone, code string) (string, st
 	if err := s.verifier.Verify(ctx, phone, code); err != nil {
 		return "", "", fmt.Errorf("verify login code: %w", err)
 	}
+
 	u, err := s.repo.GetByPhone(ctx, phone)
 	if err != nil {
 		return "", "", fmt.Errorf("get user by phone: %w", err)

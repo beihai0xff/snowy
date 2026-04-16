@@ -32,6 +32,7 @@ func (r *favoriteRepo) Add(ctx context.Context, fav *user.Favorite) error {
 
 func (r *favoriteRepo) Remove(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	result := dbFromContext(ctx, r.db).Where("id = ? AND user_id = ?", id, userID).Delete(&favoriteRow{})
+
 	err := result.Error
 	if err != nil {
 		return fmt.Errorf("delete favorite: %w", err)

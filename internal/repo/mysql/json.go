@@ -8,6 +8,8 @@ import (
 
 // jsonMap 用于 map[string]any 与 MySQL JSON 列之间的序列化/反序列化。
 // 实现 driver.Valuer 和 sql.Scanner 接口。
+//
+//nolint:recvcheck // Value uses a value receiver for serialization while Scan must mutate the destination.
 type jsonMap map[string]any
 
 func newJSONMap(v map[string]any) jsonMap {
@@ -50,6 +52,8 @@ func (m *jsonMap) Scan(src any) error {
 }
 
 // jsonValue 用于任意 JSON 值与 MySQL JSON 列之间的序列化/反序列化。
+//
+//nolint:recvcheck // Value uses a value receiver for serialization while Scan must mutate the destination.
 type jsonValue struct {
 	Data any
 }

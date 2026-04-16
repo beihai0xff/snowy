@@ -31,6 +31,7 @@ func (r *agentSessionRepo) Create(ctx context.Context, s *agent.Session) error {
 
 func (r *agentSessionRepo) GetByID(ctx context.Context, id uuid.UUID) (*agent.Session, error) {
 	row := &agentSessionRow{}
+
 	err := dbFromContext(ctx, r.db).Where("id = ?", id).Take(row).Error
 	if err != nil {
 		return nil, fmt.Errorf("get agent session: %w", err)
@@ -88,6 +89,7 @@ func (r *agentRunRepo) Save(ctx context.Context, run *agent.Run) error {
 
 func (r *agentRunRepo) GetByID(ctx context.Context, id uuid.UUID) (*agent.Run, error) {
 	row := &agentRunRow{}
+
 	err := dbFromContext(ctx, r.db).Where("id = ?", id).Take(row).Error
 	if err != nil {
 		return nil, fmt.Errorf("get agent run: %w", err)
@@ -120,6 +122,7 @@ func (r *agentMessageRepo) ListBySession(
 	offset, limit int,
 ) ([]*agent.Message, int64, error) {
 	var total int64
+
 	err := dbFromContext(ctx, r.db).Model(&agentMessageRow{}).Where("session_id = ?", sessionID).Count(&total).Error
 	if err != nil {
 		return nil, 0, fmt.Errorf("count agent messages: %w", err)
@@ -165,6 +168,7 @@ func (r *agentToolCallRepo) Save(ctx context.Context, tc *agent.RunToolCall) err
 
 func (r *agentToolCallRepo) ListByRun(ctx context.Context, runID uuid.UUID) ([]*agent.RunToolCall, error) {
 	rows := make([]agentToolCallRow, 0)
+
 	err := dbFromContext(ctx, r.db).
 		Where("run_id = ?", runID).
 		Order("created_at ASC").
