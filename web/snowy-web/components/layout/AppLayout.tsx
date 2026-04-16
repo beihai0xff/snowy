@@ -41,7 +41,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (isLoggedIn && !user) {
       api.getProfile().then((res) => {
         if (res.data) setUser(res.data);
-      }).catch(() => { /* ignore */ });
+      }).catch((err) => { console.warn('Failed to load profile:', err); });
     }
   }, [isLoggedIn, user, setUser]);
 

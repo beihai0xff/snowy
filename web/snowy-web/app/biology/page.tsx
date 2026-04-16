@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Input, Card, Typography, Space, Spin, Tag, Steps, Row, Col, Empty, Button, List, Alert, message } from 'antd';
 import { BranchesOutlined, StarOutlined } from '@ant-design/icons';
@@ -19,16 +19,7 @@ function BiologyPageInner() {
   const [result, setResult] = useState<BiologyModel | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const q = searchParams.get('q');
-    if (q) {
-      setQuestion(q);
-      handleAnalyze(q);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-
-  const handleAnalyze = async (q?: string) => {
+  const handleAnalyze = useCallback(async (q?: string) => {
     const text = q || question;
     if (!text.trim()) return;
     setLoading(true);
@@ -40,7 +31,15 @@ function BiologyPageInner() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [question, context]);
+
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q) {
+      setQuestion(q);
+      handleAnalyze(q);
+    }
+  }, [searchParams, handleAnalyze]);
 
   const handleFavorite = async () => {
     if (!isLoggedIn) { message.warning('请先登录'); return; }

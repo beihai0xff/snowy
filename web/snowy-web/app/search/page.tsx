@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Input, Card, Tag, Typography, Space, Spin, Alert, Select, Row, Col, List, Empty, Button, message } from 'antd';
 import { SearchOutlined, StarOutlined, ExperimentOutlined, BranchesOutlined } from '@ant-design/icons';
@@ -20,7 +20,7 @@ function SearchPageInner() {
   const [subject, setSubject] = useState<string | undefined>();
   const [grade, setGrade] = useState<string | undefined>();
 
-  const handleSearch = async (value: string) => {
+  const handleSearch = useCallback(async (value: string) => {
     if (!value.trim()) return;
     setLoading(true);
     try {
@@ -34,7 +34,7 @@ function SearchPageInner() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [subject, grade]);
 
   useEffect(() => {
     const q = searchParams.get('q');
@@ -42,8 +42,7 @@ function SearchPageInner() {
       setQuery(q);
       handleSearch(q);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams, handleSearch]);
 
   const handleFavorite = async () => {
     if (!isLoggedIn) {

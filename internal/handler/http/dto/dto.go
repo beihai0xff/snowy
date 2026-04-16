@@ -105,7 +105,7 @@ type FavoriteReq struct {
 
 // SendCodeReq 发送验证码请求。
 type SendCodeReq struct {
-	Phone string `binding:"required" json:"phone"`
+	Phone string `binding:"required,min=5,max=20" json:"phone"`
 }
 
 // RecommendationItem 首页推荐条目。
