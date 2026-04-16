@@ -25,7 +25,7 @@
 | **后端语言** | Go 1.24+ |
 | **HTTP 框架** | Gin |
 | **Agent 编排** | [Eino](https://github.com/cloudwego/eino) (CloudWeGo) |
-| **数据库** | PostgreSQL 17 (pgx + sqlc) |
+| **数据库** | MySQL 8.0+ (GORM + go-sql-driver/mysql) |
 | **缓存 & 队列** | Redis 7 + Asynq |
 | **搜索引擎** | OpenSearch（全文 + 向量 + 混合检索） |
 | **对象存储** | MinIO (S3 兼容，开发环境) |
@@ -43,14 +43,14 @@ snowy/
     worker/               # Asynq 异步任务 Worker 入口
   internal/
     agent/                # Agent 编排域（Eino Graph）
-    search/               # 知识检索域
+    user/                 # 用户服务
+    content/              # 内容入库域
     modeling/
       physics/            # 物理建模域
       biology/            # 生物建模域
-    user/                 # 用户服务
-    content/              # 内容入库域
-    provider/             # LLM / Embedding / Storage 适配层
-    store/                # PostgreSQL / Redis 底层访问
+    handler/http/         # HTTP Handler 层
+    repo/                 # 基础设施层（MySQL / Redis / LLM / Embedding / OpenSearch / Storage）
+    pkg/                  # 公共基础包（common / config / middleware）
   api/openapi/            # OpenAPI 契约
   web/snowy-web/          # 前端项目
   configs/                # 多环境配置
@@ -81,7 +81,7 @@ make docker-up
 
 | 服务 | 地址 |
 |---|---|
-| PostgreSQL | `localhost:5432` |
+| MySQL | `localhost:3306` |
 | Redis | `localhost:6379` |
 | OpenSearch | `localhost:9200` |
 | OpenSearch Dashboards | `localhost:5601` |
@@ -126,6 +126,66 @@ make docker-run-api
 ```bash
 make help
 ```
+
+### 6. 测试
+
+推荐按分层执行测试：
+
+- `make test` / `make test-unit`：纯单元测试，默认使用 mock，速度快、适合日常开发
+- `make test-integration`：自动启动 Docker 中的 `MySQL` / `Redis` / `OpenSearch` / `MinIO`，执行带 `integration` tag 的真实依赖测试
+- `make test-e2e`：执行带 `e2e` tag 的端到端测试
+
+```bash
+# 仅运行单元测试
+make test
+
+# 启动 MySQL / Redis / OpenSearch / MinIO Docker 依赖并运行集成测试
+make test-integration
+
+# 如需保留测试依赖容器，便于手动排查
+./scripts/test.sh --integration --keep-deps
+```
+
+集成测试默认连接以下本地端点（可通过环境变量覆盖）：
+
+- MySQL：`127.0.0.1:3306`
+- Redis：`127.0.0.1:6379`
+- OpenSearch：`http://127.0.0.1:9200`
+- MinIO：`127.0.0.1:9000`
+
+可覆盖的环境变量示例：
+
+```bash
+SNOWY_DATABASE_HOST=127.0.0.1
+SNOWY_DATABASE_PORT=3306
+SNOWY_DATABASE_USER=snowy
+SNOWY_DATABASE_PASSWORD=snowy_secret
+SNOWY_DATABASE_NAME=snowy
+SNOWY_REDIS_ADDR=127.0.0.1:6379
+SNOWY_REDIS_PASSWORD=
+SNOWY_REDIS_DB=0
+SNOWY_OPENSEARCH_ADDR=http://127.0.0.1:9200
+SNOWY_OPENSEARCH_USERNAME=admin
+SNOWY_OPENSEARCH_PASSWORD=admin
+SNOWY_OPENSEARCH_INDEX=snowy-content-integration
+SNOWY_MINIO_ENDPOINT=127.0.0.1:9000
+SNOWY_MINIO_ACCESS_KEY=snowy_admin
+SNOWY_MINIO_SECRET_KEY=snowy_minio_secret
+SNOWY_MINIO_BUCKET=snowy
+```
+
+当前集成测试会在执行前自动：
+
+- 等待 MySQL / Redis / OpenSearch / MinIO 健康检查通过
+- 通过 `internal/repo/mysql` 的 GORM migration runner 初始化 MySQL 表结构
+- 重建 OpenSearch 集成测试索引
+- 清理 MinIO 测试 bucket 中的对象
+- 清理 MySQL 表数据与 Redis DB，避免脏数据影响结果
+
+仓库中的 GitHub Actions 工作流会自动执行：
+
+- 单元测试 + `go vet` + `go build`
+- 基于 Docker Compose 的基础设施集成测试矩阵（MySQL / Redis / OpenSearch / MinIO）
 
 ---
 

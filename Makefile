@@ -6,7 +6,7 @@
 #    make help          — 查看所有可用目标
 #    make build         — 编译全部 Go 二进制
 #    make test          — 运行测试
-#    make docker-up     — 启动基础设施 (PG/Redis/OpenSearch/MinIO/...)
+#    make docker-up     — 启动基础设施 (MySQL/Redis/OpenSearch/MinIO/...)
 #    make docker-build  — 构建应用 Docker 镜像
 #    make run-api       — 本地运行 API 服务
 # ============================================================
@@ -24,7 +24,6 @@ BIN_DIR        := $(ROOT_DIR)/bin
 CMD_DIR        := $(ROOT_DIR)/cmd
 DEPLOY_DIR     := $(ROOT_DIR)/deployments/docker
 CONFIG_DIR     := $(ROOT_DIR)/configs
-MIGRATION_DIR  := $(ROOT_DIR)/internal/store/postgres/migrations
 
 # ── Go 参数 ─────────────────────────────────────────────────
 GO             := go
@@ -34,6 +33,7 @@ LDFLAGS        := -s -w \
                   -X main.BuildTime=$(BUILD_TIME) \
                   -X main.Commit=$(COMMIT)
 GOTEST_FLAGS   := -race -count=1 -timeout 120s
+TEST_DEPS_SERVICES := mysql redis opensearch minio
 
 # ── Docker 参数 ─────────────────────────────────────────────
 DOCKER_COMPOSE := docker compose -f $(DEPLOY_DIR)/docker-compose.yml -p $(PROJECT_NAME)
@@ -43,17 +43,18 @@ IMAGE_WORKER   := $(if $(DOCKER_REG),$(DOCKER_REG)/)$(PROJECT_NAME)-worker:$(VER
 
 # ── 工具 ────────────────────────────────────────────────────
 GOLANGCI_LINT  := $(shell command -v golangci-lint 2>/dev/null)
-MIGRATE        := $(shell command -v migrate 2>/dev/null)
-SQLC           := $(shell command -v sqlc 2>/dev/null)
+GOLANGCI_CONFIG := $(ROOT_DIR)/.golangci.yml
+GOLANGCI_FMT_CMD := golangci-lint fmt -c $(GOLANGCI_CONFIG)
+GOLANGCI_RUN_CMD := golangci-lint run -c $(GOLANGCI_CONFIG) ./...
+MYSQL_MIGRATE_CMD := $(GO) run ./cmd/migrate -config $(CONFIG_DIR)/config.yaml
 
 # ── 数据库 (本地开发默认值) ─────────────────────────────────
 DB_HOST        ?= localhost
-DB_PORT        ?= 5432
+DB_PORT        ?= 3306
 DB_USER        ?= snowy
 DB_PASSWORD    ?= snowy_secret
 DB_NAME        ?= snowy
-DB_SSL         ?= disable
-DATABASE_URL   ?= postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSL)
+DATABASE_URL   ?= mysql://$(DB_USER):$(DB_PASSWORD)@tcp($(DB_HOST):$(DB_PORT))/$(DB_NAME)
 
 # ── 颜色 ────────────────────────────────────────────────────
 GREEN  := \033[0;32m
@@ -100,17 +101,25 @@ clean:
 #  Test & Lint
 # ============================================================
 
-.PHONY: test test-integration test-coverage lint fmt vet
+.PHONY: test test-unit test-integration test-e2e test-coverage lint fmt vet test-deps-up test-deps-down ensure-golangci-lint
 
 ## test: 运行单元测试
-test:
+test: test-unit
+
+## test-unit: 运行单元测试
+test-unit:
 	@echo "$(GREEN)▸ Running unit tests...$(RESET)"
 	$(GO) test $(GOTEST_FLAGS) ./internal/...
 
-## test-integration: 运行集成测试 (需要基础设施)
+## test-integration: 启动 MySQL/Redis/OpenSearch/MinIO Docker 依赖并运行集成测试
 test-integration:
-	@echo "$(GREEN)▸ Running integration tests...$(RESET)"
-	$(GO) test $(GOTEST_FLAGS) -tags=integration ./test/integration/...
+	@echo "$(GREEN)▸ Running integration tests with Docker dependencies...$(RESET)"
+	@bash ./scripts/test.sh --integration
+
+## test-e2e: 运行端到端测试
+test-e2e:
+	@echo "$(GREEN)▸ Running e2e tests...$(RESET)"
+	$(GO) test $(GOTEST_FLAGS) -tags=e2e ./test/e2e/...
 
 ## test-coverage: 生成测试覆盖率报告
 test-coverage:
@@ -120,19 +129,22 @@ test-coverage:
 	$(GO) tool cover -html=$(BIN_DIR)/coverage.out -o $(BIN_DIR)/coverage.html
 	@echo "$(GREEN)✓ Coverage report: $(BIN_DIR)/coverage.html$(RESET)"
 
+## ensure-golangci-lint: 确保 golangci-lint 已安装
+ensure-golangci-lint:
+	@if ! command -v golangci-lint >/dev/null 2>&1; then \
+		echo "$(YELLOW)▸ Installing golangci-lint...$(RESET)"; \
+		go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; \
+	fi
+
 ## lint: 运行 golangci-lint
-lint:
-ifndef GOLANGCI_LINT
-	@echo "$(YELLOW)▸ Installing golangci-lint...$(RESET)"
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-endif
+lint: ensure-golangci-lint
 	@echo "$(GREEN)▸ Running linter...$(RESET)"
-	golangci-lint run ./...
+	$(GOLANGCI_RUN_CMD)
 
 ## fmt: 格式化代码
-fmt:
+fmt: ensure-golangci-lint
 	@echo "$(GREEN)▸ Formatting code...$(RESET)"
-	$(GO) fmt ./...
+	$(GOLANGCI_FMT_CMD)
 	@echo "$(GREEN)✓ Formatted$(RESET)"
 
 ## vet: 静态分析
@@ -140,19 +152,30 @@ vet:
 	@echo "$(GREEN)▸ Running vet...$(RESET)"
 	$(GO) vet ./...
 
+## test-deps-up: 启动测试所需 Docker 依赖 (MySQL/Redis/OpenSearch/MinIO)
+test-deps-up:
+	@echo "$(CYAN)▸ Starting test dependencies: $(TEST_DEPS_SERVICES)...$(RESET)"
+	$(DOCKER_COMPOSE) up -d $(TEST_DEPS_SERVICES)
+
+## test-deps-down: 停止测试所需 Docker 依赖 (MySQL/Redis/OpenSearch/MinIO)
+test-deps-down:
+	@echo "$(YELLOW)▸ Stopping test dependencies: $(TEST_DEPS_SERVICES)...$(RESET)"
+	-$(DOCKER_COMPOSE) stop $(TEST_DEPS_SERVICES)
+	-$(DOCKER_COMPOSE) rm -f $(TEST_DEPS_SERVICES)
+
 # ============================================================
 #  Docker — 基础设施 (docker-compose)
 # ============================================================
 
 .PHONY: docker-up docker-down docker-ps docker-logs docker-clean
 
-## docker-up: 启动全部基础设施 (PostgreSQL/Redis/OpenSearch/MinIO/Prometheus/Grafana)
+## docker-up: 启动全部基础设施 (MySQL/Redis/OpenSearch/MinIO/Prometheus/Grafana)
 docker-up:
 	@echo "$(CYAN)▸ Starting infrastructure...$(RESET)"
 	$(DOCKER_COMPOSE) up -d
 	@echo "$(CYAN)✓ Infrastructure is up$(RESET)"
 	@echo ""
-	@echo "  PostgreSQL : localhost:5432"
+	@echo "  MySQL      : localhost:3306"
 	@echo "  Redis      : localhost:6379"
 	@echo "  OpenSearch : localhost:9200"
 	@echo "  OS Dashboard: localhost:5601"
@@ -219,7 +242,7 @@ docker-run-api:
 		--name snowy-api \
 		--network $(PROJECT_NAME)_default \
 		-p 8080:8080 \
-		-e DATABASE_URL="postgres://$(DB_USER):$(DB_PASSWORD)@snowy-postgres:5432/$(DB_NAME)?sslmode=$(DB_SSL)" \
+		-e DATABASE_URL="mysql://$(DB_USER):$(DB_PASSWORD)@tcp(snowy-mysql:3306)/$(DB_NAME)" \
 		-e REDIS_ADDR="snowy-redis:6379" \
 		-e OPENSEARCH_URL="http://snowy-opensearch:9200" \
 		-e MINIO_ENDPOINT="snowy-minio:9000" \
@@ -232,7 +255,7 @@ docker-run-worker:
 		--name snowy-worker \
 		--network $(PROJECT_NAME)_default \
 		-p 8081:8081 \
-		-e DATABASE_URL="postgres://$(DB_USER):$(DB_PASSWORD)@snowy-postgres:5432/$(DB_NAME)?sslmode=$(DB_SSL)" \
+		-e DATABASE_URL="mysql://$(DB_USER):$(DB_PASSWORD)@tcp(snowy-mysql:3306)/$(DB_NAME)" \
 		-e REDIS_ADDR="snowy-redis:6379" \
 		-e OPENSEARCH_URL="http://snowy-opensearch:9200" \
 		-e MINIO_ENDPOINT="snowy-minio:9000" \
@@ -274,64 +297,29 @@ run-worker: build-worker
 dev: docker-up run-api
 
 # ============================================================
-#  Database Migration (golang-migrate)
+#  Database Migration (GORM)
 # ============================================================
 
-.PHONY: migrate-up migrate-down migrate-create migrate-force migrate-version
+.PHONY: migrate-up migrate-reset
 
-## migrate-up: 执行全部待应用的迁移
+## migrate-up: 使用 GORM 初始化 / 同步 MySQL Schema
 migrate-up:
-ifndef MIGRATE
-	@echo "$(YELLOW)▸ Installing golang-migrate...$(RESET)"
-	@go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-endif
-	@echo "$(GREEN)▸ Running migrations up...$(RESET)"
-	migrate -path $(MIGRATION_DIR) -database "$(DATABASE_URL)" up
+	@echo "$(GREEN)▸ Running GORM migrations...$(RESET)"
+	$(MYSQL_MIGRATE_CMD)
 
-## migrate-down: 回滚最近一次迁移
-migrate-down:
-	@echo "$(YELLOW)▸ Rolling back last migration...$(RESET)"
-	migrate -path $(MIGRATION_DIR) -database "$(DATABASE_URL)" down 1
-
-## migrate-create: 创建新迁移文件 (用法: make migrate-create NAME=create_users)
-migrate-create:
-ifndef NAME
-	$(error NAME is required. Usage: make migrate-create NAME=create_users)
-endif
-	@mkdir -p $(MIGRATION_DIR)
-	migrate create -ext sql -dir $(MIGRATION_DIR) -seq $(NAME)
-	@echo "$(GREEN)✓ Migration files created in $(MIGRATION_DIR)$(RESET)"
-
-## migrate-force: 强制设置迁移版本 (用法: make migrate-force V=1)
-migrate-force:
-ifndef V
-	$(error V is required. Usage: make migrate-force V=1)
-endif
-	migrate -path $(MIGRATION_DIR) -database "$(DATABASE_URL)" force $(V)
-
-## migrate-version: 查看当前迁移版本
-migrate-version:
-	migrate -path $(MIGRATION_DIR) -database "$(DATABASE_URL)" version
+## migrate-reset: 重建 Docker MySQL 后重新应用 GORM Schema
+migrate-reset: docker-down docker-up migrate-up
 
 # ============================================================
 #  Code Generation
 # ============================================================
 
-.PHONY: generate sqlc-generate
+.PHONY: generate
 
-## generate: 运行全部代码生成 (go generate + sqlc)
-generate: sqlc-generate
+## generate: 运行全部代码生成 (go generate)
+generate:
 	@echo "$(GREEN)▸ Running go generate...$(RESET)"
 	$(GO) generate ./...
-
-## sqlc-generate: 运行 sqlc 代码生成
-sqlc-generate:
-ifndef SQLC
-	@echo "$(YELLOW)▸ Installing sqlc...$(RESET)"
-	@go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
-endif
-	@echo "$(GREEN)▸ Running sqlc generate...$(RESET)"
-	sqlc generate
 
 # ============================================================
 #  Dependencies
@@ -364,8 +352,6 @@ vendor:
 tools:
 	@echo "$(GREEN)▸ Installing dev tools...$(RESET)"
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-	go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 	@echo "$(GREEN)✓ All tools installed$(RESET)"
 
 # ============================================================

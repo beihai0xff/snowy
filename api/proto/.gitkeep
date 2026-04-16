@@ -1,0 +1,3 @@
+# api/proto
+此目录用于存放 gRPC Proto 文件（后续引入时使用）。
+

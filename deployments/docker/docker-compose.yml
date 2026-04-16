@@ -2,7 +2,7 @@
 # 参考技术方案 §6 技术栈选型 & §18 数据库与存储设计
 #
 # 包含服务:
-#   - PostgreSQL  : 主数据库（用户、会话、Agent 记录、内容元数据等）
+#   - MySQL       : 主数据库（用户、会话、Agent 记录、内容元数据等）
 #   - Redis       : 缓存 + Asynq 异步任务队列
 #   - OpenSearch  : 全文 + 向量 + 混合检索
 #   - MinIO       : S3 兼容对象存储（开发环境替代）
@@ -11,22 +11,27 @@
 
 services:
   # ──────────────────────────────────────────────
-  # PostgreSQL — 主数据库
+  # MySQL — 主数据库
   # ──────────────────────────────────────────────
-  postgres:
-    image: postgres:17
-    container_name: snowy-postgres
+  mysql:
+    image: mysql:8.0
+    container_name: snowy-mysql
     restart: unless-stopped
     environment:
-      POSTGRES_USER: snowy
-      POSTGRES_PASSWORD: snowy_secret
-      POSTGRES_DB: snowy
+      MYSQL_ROOT_PASSWORD: snowy_root_secret
+      MYSQL_USER: snowy
+      MYSQL_PASSWORD: snowy_secret
+      MYSQL_DATABASE: snowy
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U snowy"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "snowy", "-psnowy_secret"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -135,6 +140,7 @@ services:
     entrypoint: >
       /bin/sh -c "
       mc alias set snowy http://minio:9000 snowy_admin snowy_minio_secret &&
+      mc mb --ignore-existing snowy/snowy &&
       mc mb --ignore-existing snowy/snowy-content &&
       mc mb --ignore-existing snowy/snowy-charts &&
       mc mb --ignore-existing snowy/snowy-exports &&
@@ -175,8 +181,60 @@ services:
     depends_on:
       - prometheus
 
+  # ──────────────────────────────────────────────
+  # Snowy API — Go HTTP API 服务
+  # ──────────────────────────────────────────────
+  snowy-api:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        TARGET: api
+    image: snowy-api:latest
+    container_name: snowy-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    command: ["--config", "configs/config.docker.yaml"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ──────────────────────────────────────────────
+  # Snowy Worker — 异步任务 Worker 服务
+  # ──────────────────────────────────────────────
+  snowy-worker:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        TARGET: worker
+    image: snowy-worker:latest
+    container_name: snowy-worker
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["--config", "configs/config.docker.yaml"]
+
 volumes:
-  postgres_data:
+  mysql_data:
     driver: local
   redis_data:
     driver: local

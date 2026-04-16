@@ -32,10 +32,10 @@ scrape_configs:
   #   static_configs:
   #     - targets: ["redis-exporter:9121"]
 
-  # PostgreSQL Exporter（如需独立部署可取消注释）
-  # - job_name: "postgres"
+  # MySQL Exporter（如需独立部署可取消注释）
+  # - job_name: "mysql"
   #   static_configs:
-  #     - targets: ["postgres-exporter:9187"]
+  #     - targets: ["mysql-exporter:9104"]
 
   # OpenSearch（通过 REST API 采集）
   # - job_name: "opensearch"

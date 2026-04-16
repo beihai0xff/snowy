@@ -1,0 +1,87 @@
+# Snowy Docker 容器内运行配置
+# 覆盖默认 config.yaml 中的 localhost 为 Docker 容器名
+server:
+  host: "0.0.0.0"
+  port: 8080
+  mode: "release"
+  read_timeout: 30s
+  write_timeout: 60s
+  shutdown_timeout: 10s
+
+database:
+  host: "snowy-mysql"
+  port: 3306
+  user: "snowy"
+  password: "snowy_secret"
+  name: "snowy"
+  charset: "utf8mb4"
+  parse_time: true
+  loc: "Local"
+  max_open_conns: 25
+  max_idle_conns: 10
+  conn_max_lifetime: 30m
+
+redis:
+  addr: "snowy-redis:6379"
+  password: ""
+  db: 0
+  pool_size: 20
+
+opensearch:
+  addresses:
+    - "http://snowy-opensearch:9200"
+  username: "admin"
+  password: "admin"
+  insecure_skip_verify: true
+
+minio:
+  endpoint: "snowy-minio:9000"
+  access_key: "snowy_admin"
+  secret_key: "snowy_minio_secret"
+  bucket: "snowy"
+  use_ssl: false
+
+llm:
+  primary:
+    provider: "openai"
+    model: "gpt5"
+    api_key: ""
+    base_url: "https://api.openai.com/v1"
+    timeout: 30s
+    max_retries: 2
+  fallback:
+    provider: "google"
+    model: "gemini3"
+    api_key: ""
+    base_url: "https://generativelanguage.googleapis.com/v1"
+    timeout: 30s
+    max_retries: 2
+
+embedding:
+  provider: "openai"
+  model: "text-embedding-3-large"
+  api_key: ""
+  base_url: "https://api.openai.com/v1"
+  dimensions: 3072
+
+auth:
+  jwt_secret: "change-me-in-production"
+  access_token_ttl: 30m
+  refresh_token_ttl: 168h
+
+ratelimit:
+  authenticated_rpm: 60
+  anonymous_rpm: 10
+
+token_budget:
+  per_request_input: 4096
+  per_request_output: 4096
+  per_session: 51200
+  per_user_daily: 204800
+
+observability:
+  otel_endpoint: "localhost:4317"
+  prometheus_path: "/metrics"
+  log_level: "info"
+  log_format: "json"
+

@@ -253,7 +253,7 @@ graph TB
     end
 
     subgraph 数据与检索层
-        PG[(PostgreSQL)]
+        MySQL[(MySQL)]
         Redis[(Redis + Asynq)]
         OS[(OpenSearch)]
         ObjStore[(Object Storage / MinIO)]
@@ -280,10 +280,10 @@ graph TB
     CacheAdapter --> Redis
     SessionMgr --> CacheAdapter
 
-    UserSvc --> PG
-    ContentSvc --> PG
+    UserSvc --> MySQL
+    ContentSvc --> MySQL
     ContentSvc --> OS
-    AgentService --> PG
+    AgentService --> MySQL
 ```
 
 整体分层如下：
@@ -315,7 +315,7 @@ graph TB
    - Cache Adapter
 
 6. **数据与检索层**
-   - PostgreSQL
+   - MySQL
    - Redis
    - OpenSearch
    - Object Storage
@@ -384,20 +384,19 @@ graph TB
 - 与 HTTP 入参绑定配合成熟。
 
 ### 6.1.6 数据库访问
-- **pgx + sqlc**
+- **GORM + go-sql-driver/mysql**
 
 备选：
-- GORM
 - sqlx
+- 原生 database/sql
 
 选择原因：
-- 类型安全；
-- SQL 显式、便于优化；
-- 对复杂查询更稳定；
-- 比 ORM 更适合检索和建模类服务。
+- 与当前仓储实现、事务封装、集成测试迁移入口保持一致；
+- 能统一承载 CRUD、事务、Schema 演进；
+- 对 MVP 阶段的快速迭代更友好。
 
 ### 6.1.7 数据迁移
-- **golang-migrate**
+- **GORM AutoMigrate + 统一 migration runner**
 
 ### 6.1.8 缓存与异步任务
 - **Redis + Asynq**
@@ -410,7 +409,7 @@ graph TB
 ## 6.2 检索与存储技术栈
 
 ### 6.2.1 主数据库
-- **PostgreSQL**
+- **MySQL**
 
 用于：
 - 用户数据
@@ -570,7 +569,7 @@ snowy/
       storage/
 
     store/                     # DB / Redis 等底层访问
-      postgres/
+      mysql/
       redis/
 
     common/                    # 仅存放真正跨域的小工具
@@ -1007,7 +1006,7 @@ graph LR
 4. 文本切片；
 5. embedding 生成；
 6. OpenSearch 建索引；
-7. 元数据写入 PostgreSQL；
+7. 元数据写入 MySQL；
 8. 构建版本记录与可追踪性。
 
 ---
@@ -1354,7 +1353,7 @@ data: {"confidence": 0.92, "token_usage": {"input": 1200, "output": 800}}
 
 ## 18. 数据库与存储设计
 
-## 18.1 PostgreSQL 核心表
+## 18.1 MySQL 核心表
 - `users`
 - `search_sessions`
 - `search_logs`
@@ -1578,7 +1577,7 @@ Snowy 首发阶段推荐采用：
 - **Go 作为核心后端语言**
 - **Eino (CloudWeGo) 作为 Agent 编排基座 + 业务扩展层**
 - **Gin 作为 HTTP 框架**
-- **pgx + sqlc 作为数据库访问方案**
+- **GORM + go-sql-driver/mysql 作为数据库访问方案**
 - **Redis + Asynq 作为缓存与异步任务机制**
 - **OpenSearch 作为统一检索引擎**
 - **`gpt5` 主推理、`gemini3` 备选**

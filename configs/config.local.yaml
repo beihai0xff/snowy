@@ -1,0 +1,8 @@
+# Snowy 本地开发配置 — 覆盖 docker-compose 默认端点
+server:
+  mode: "debug"
+
+observability:
+  log_level: "debug"
+  log_format: "text"
+
