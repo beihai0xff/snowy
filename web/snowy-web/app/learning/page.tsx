@@ -2,26 +2,23 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, Typography, Tabs, List, Tag, Empty, Spin, Avatar, Button, Space, message } from 'antd';
+import { Card, Typography, Tabs, List, Tag, Empty, Spin, Button, Space, message } from 'antd';
 import {
   BookOutlined,
   HistoryOutlined,
   StarOutlined,
-  UserOutlined,
   SearchOutlined,
   ExperimentOutlined,
   BranchesOutlined,
 } from '@ant-design/icons';
-import { api, type User, type HistoryItem, type Favorite } from '@/lib/api';
-import { useAuthStore } from '@/stores/auth';
+import { api, type HistoryItem, type Favorite } from '@/lib/api';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 const actionTypeIcon: Record<string, React.ReactNode> = {
   search: <SearchOutlined />,
   physics: <ExperimentOutlined />,
   biology: <BranchesOutlined />,
-  register: <UserOutlined />,
 };
 
 const actionTypeColor: Record<string, string> = {
@@ -32,26 +29,17 @@ const actionTypeColor: Record<string, string> = {
 
 export default function LearningPage() {
   const router = useRouter();
-  const { isLoggedIn, user } = useAuthStore();
-  const [profile, setProfile] = useState<User | null>(user);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      setLoading(false);
-      return;
-    }
-
     const loadData = async () => {
       try {
-        const [profileRes, historyRes, favRes] = await Promise.all([
-          api.getProfile(),
+        const [historyRes, favRes] = await Promise.all([
           api.getHistory(),
           api.listFavorites(),
         ]);
-        if (profileRes.data) setProfile(profileRes.data);
         if (historyRes.data) setHistory(historyRes.data.items || []);
         if (favRes.data) setFavorites(favRes.data.items || []);
       } catch {
@@ -61,17 +49,7 @@ export default function LearningPage() {
       }
     };
     loadData();
-  }, [isLoggedIn]);
-
-  if (!isLoggedIn) {
-    return (
-      <div style={{ textAlign: 'center', paddingTop: 80 }}>
-        <BookOutlined style={{ fontSize: 64, color: '#ccc' }} />
-        <Title level={3} style={{ marginTop: 16, color: '#999' }}>请先登录</Title>
-        <Paragraph type="secondary">登录后可查看学习历史、收藏内容</Paragraph>
-      </div>
-    );
-  }
+  }, []);
 
   if (loading) {
     return <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>;
@@ -168,29 +146,14 @@ export default function LearningPage() {
     <div>
       <Title level={3}><BookOutlined /> 学习中心</Title>
 
-      {/* Profile Card */}
-      {profile && (
-        <Card style={{ marginBottom: 16 }}>
-          <Space size="large">
-            <Avatar size={64} style={{ backgroundColor: '#1677ff' }} icon={<UserOutlined />} />
-            <div>
-              <Title level={4} style={{ margin: 0 }}>{profile.nickname}</Title>
-              <Text type="secondary">{profile.email || profile.nickname}</Text>
-              <div style={{ marginTop: 4 }}>
-                <Tag color="blue">{profile.role}</Tag>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  注册于 {new Date(profile.created_at).toLocaleDateString('zh-CN')}
-                </Text>
-              </div>
-            </div>
-            <Space>
-              <Button onClick={() => router.push('/search')}>去检索</Button>
-              <Button onClick={() => router.push('/physics')}>物理建模</Button>
-              <Button onClick={() => router.push('/biology')}>生物建模</Button>
-            </Space>
-          </Space>
-        </Card>
-      )}
+      {/* Quick Navigation */}
+      <Card style={{ marginBottom: 16 }}>
+        <Space>
+          <Button onClick={() => router.push('/search')}>去检索</Button>
+          <Button onClick={() => router.push('/physics')}>物理建模</Button>
+          <Button onClick={() => router.push('/biology')}>生物建模</Button>
+        </Space>
+      </Card>
 
       {/* History & Favorites */}
       <Card>

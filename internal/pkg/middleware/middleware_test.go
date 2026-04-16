@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -32,12 +31,6 @@ func performRequest(r *gin.Engine, method, path string, headers map[string]strin
 	}
 	r.ServeHTTP(w, req)
 	return w
-}
-
-func makeToken(secret string, claims jwt.MapClaims) string {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	s, _ := token.SignedString([]byte(secret))
-	return s
 }
 
 var testAuthCfg = config.AuthConfig{
@@ -103,27 +96,7 @@ func TestCORS_OptionsPreflight(t *testing.T) {
 
 // ── Auth Tests ───────────────────────────────────────────
 
-func TestAuth_NoHeader_Anonymous(t *testing.T) {
-	r := gin.New()
-	r.Use(RequestID()) // required by abortWithError
-	r.Use(Auth(testAuthCfg))
-	r.GET("/test", func(c *gin.Context) {
-		anon, _ := c.Get("anonymous")
-		assert.True(t, anon.(bool))
-		c.Status(200)
-	})
-
-	w := performRequest(r, "GET", "/test", nil)
-	assert.Equal(t, 200, w.Code)
-}
-
-func TestAuth_ValidToken(t *testing.T) {
-	tokenStr := makeToken(testAuthCfg.JWTSecret, jwt.MapClaims{
-		"user_id": "user-abc",
-		"role":    "student",
-		"exp":     time.Now().Add(time.Hour).Unix(),
-	})
-
+func TestAuth_AlwaysSetsDefaultUser(t *testing.T) {
 	r := gin.New()
 	r.Use(RequestID())
 	r.Use(Auth(testAuthCfg))
@@ -131,81 +104,37 @@ func TestAuth_ValidToken(t *testing.T) {
 		uid, _ := c.Get("user_id")
 		role, _ := c.Get("role")
 		anon, _ := c.Get("anonymous")
-		assert.Equal(t, "user-abc", uid)
+		assert.Equal(t, common.DefaultUserID, uid)
 		assert.Equal(t, "student", role)
 		assert.False(t, anon.(bool))
 		c.Status(200)
 	})
 
+	w := performRequest(r, "GET", "/test", nil)
+	assert.Equal(t, 200, w.Code)
+}
+
+func TestAuth_SetsDefaultUserEvenWithToken(t *testing.T) {
+	r := gin.New()
+	r.Use(RequestID())
+	r.Use(Auth(testAuthCfg))
+	r.GET("/test", func(c *gin.Context) {
+		uid, _ := c.Get("user_id")
+		assert.Equal(t, common.DefaultUserID, uid)
+		c.Status(200)
+	})
+
 	w := performRequest(r, "GET", "/test", map[string]string{
-		"Authorization": "Bearer " + tokenStr,
+		"Authorization": "Bearer some-token",
 	})
 	assert.Equal(t, 200, w.Code)
 }
 
-func TestAuth_MissingBearerPrefix(t *testing.T) {
-	r := gin.New()
-	r.Use(RequestID())
-	r.Use(Auth(testAuthCfg))
-	r.GET("/test", func(c *gin.Context) { c.Status(200) })
-
-	w := performRequest(r, "GET", "/test", map[string]string{
-		"Authorization": "some-token-without-bearer",
-	})
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
-func TestAuth_ExpiredToken(t *testing.T) {
-	tokenStr := makeToken(testAuthCfg.JWTSecret, jwt.MapClaims{
-		"user_id": "user-abc",
-		"exp":     time.Now().Add(-time.Hour).Unix(),
-	})
-
-	r := gin.New()
-	r.Use(RequestID())
-	r.Use(Auth(testAuthCfg))
-	r.GET("/test", func(c *gin.Context) { c.Status(200) })
-
-	w := performRequest(r, "GET", "/test", map[string]string{
-		"Authorization": "Bearer " + tokenStr,
-	})
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
-func TestAuth_WrongSigningKey(t *testing.T) {
-	tokenStr := makeToken("wrong-secret", jwt.MapClaims{
-		"user_id": "user-abc",
-		"exp":     time.Now().Add(time.Hour).Unix(),
-	})
-
-	r := gin.New()
-	r.Use(RequestID())
-	r.Use(Auth(testAuthCfg))
-	r.GET("/test", func(c *gin.Context) { c.Status(200) })
-
-	w := performRequest(r, "GET", "/test", map[string]string{
-		"Authorization": "Bearer " + tokenStr,
-	})
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
 // ── RequireAuth Tests ────────────────────────────────────
 
-func TestRequireAuth_AnonymousRejected(t *testing.T) {
+func TestRequireAuth_AlwaysPasses(t *testing.T) {
 	r := gin.New()
 	r.Use(RequestID())
-	r.Use(func(c *gin.Context) { c.Set("anonymous", true); c.Next() })
-	r.Use(RequireAuth())
-	r.GET("/test", func(c *gin.Context) { c.Status(200) })
-
-	w := performRequest(r, "GET", "/test", nil)
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
-func TestRequireAuth_AuthenticatedPasses(t *testing.T) {
-	r := gin.New()
-	r.Use(RequestID())
-	r.Use(func(c *gin.Context) { c.Set("anonymous", false); c.Next() })
 	r.Use(RequireAuth())
 	r.GET("/test", func(c *gin.Context) { c.Status(200) })
 

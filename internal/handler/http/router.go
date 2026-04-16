@@ -18,6 +18,7 @@ type Handlers struct {
 
 // NewRouter 创建 Gin 路由，组装所有路由和中间件。
 // 参考技术方案 §17 API 设计。
+// 当前已禁用登录，所有接口对匿名用户开放。
 func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) *gin.Engine {
 	gin.SetMode(cfg.Server.Mode)
 
@@ -39,18 +40,12 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 	// ── API v1 路由组 ──────────────────────────────────
 	v1 := r.Group("/api/v1")
 
-	// 鉴权中间件（支持匿名通过）
+	// 鉴权中间件（自动分配默认用户）
 	v1.Use(middleware.Auth(cfg.Auth))
 	// 限流中间件
 	v1.Use(middleware.RateLimit(limiter, cfg.RateLimit))
 
-	// ── 公开接口（无需认证）─────────────────────────────
-	auth := v1.Group("/auth")
-	{
-		auth.POST("/google/callback", h.User.GoogleLogin)
-	}
-
-	// ── 首页推荐（无需认证）─────────────────────────────
+	// ── 首页推荐 ──────────────────────────────────────
 	v1.GET("/recommendations", h.User.GetRecommendations)
 
 	// ── Agent 接口 ─────────────────────────────────────
@@ -83,15 +78,11 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 		}
 	}
 
-	// ── 用户接口（需认证）──────────────────────────────
-	user := v1.Group("")
-	user.Use(middleware.RequireAuth())
-	{
-		user.GET("/user/profile", h.User.GetProfile)
-		user.GET("/history", h.User.GetHistory)
-		user.POST("/favorites", h.User.AddFavorite)
-		user.GET("/favorites", h.User.ListFavorites)
-	}
+	// ── 用户接口（不再需要认证）──────────────────────
+	v1.GET("/user/profile", h.User.GetProfile)
+	v1.GET("/history", h.User.GetHistory)
+	v1.POST("/favorites", h.User.AddFavorite)
+	v1.GET("/favorites", h.User.ListFavorites)
 
 	return r
 }

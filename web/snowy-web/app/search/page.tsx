@@ -5,7 +5,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Input, Card, Tag, Typography, Space, Spin, Alert, Select, Row, Col, List, Empty, Button, message } from 'antd';
 import { SearchOutlined, StarOutlined, ExperimentOutlined, BranchesOutlined } from '@ant-design/icons';
 import { api, type SearchResponse, type FavoriteReq } from '@/lib/api';
-import { useAuthStore } from '@/stores/auth';
 
 const { Title, Paragraph, Text } = Typography;
 const { Search } = Input;
@@ -13,7 +12,6 @@ const { Search } = Input;
 function SearchPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { isLoggedIn } = useAuthStore();
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [result, setResult] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -45,10 +43,6 @@ function SearchPageInner() {
   }, [searchParams, handleSearch]);
 
   const handleFavorite = async () => {
-    if (!isLoggedIn) {
-      message.warning('请先登录');
-      return;
-    }
     if (!result) return;
     const req: FavoriteReq = {
       target_type: 'search',

@@ -1,121 +1,33 @@
 package http
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
-	"github.com/beihai0xff/snowy/internal/pkg/config"
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
 // UserHandler 用户 HTTP Handler。
 // 参考技术方案 §17.7 & §18A。
+// 当前已禁用登录，所有请求自动使用默认匿名用户。
 type UserHandler struct {
-	userSvc   user.Service
-	googleCfg config.GoogleOAuthConfig
+	userSvc user.Service
 }
 
 // NewUserHandler 创建 UserHandler。
-func NewUserHandler(userSvc user.Service, googleCfg config.GoogleOAuthConfig) *UserHandler {
-	return &UserHandler{userSvc: userSvc, googleCfg: googleCfg}
-}
-
-// GoogleLogin POST /api/v1/auth/google/callback — Google OAuth 登录。
-// 前端传入 Google ID Token，后端验证后签发 JWT。
-func (h *UserHandler) GoogleLogin(c *gin.Context) {
-	var req dto.GoogleLoginReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
-
-		return
-	}
-
-	info, err := h.verifyGoogleIDToken(req.IDToken)
-	if err != nil {
-		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusUnauthorized, common.Fail(common.ErrUnauthorized.WithMessage("Google 登录验证失败"), reqID))
-
-		return
-	}
-
-	access, refresh, err := h.userSvc.GoogleLogin(c.Request.Context(), info)
-	if err != nil {
-		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
-
-		return
-	}
-
-	c.JSON(http.StatusOK, common.Success(dto.LoginResp{
-		AccessToken:  access,
-		RefreshToken: refresh,
-	}))
-}
-
-// verifyGoogleIDToken 验证 Google ID Token 并提取用户信息。
-// 通过 Google tokeninfo 端点验证 token 的有效性和签发者。
-func (h *UserHandler) verifyGoogleIDToken(idToken string) (*user.GoogleUserInfo, error) {
-	verifyURL := "https://oauth2.googleapis.com/tokeninfo?id_token=" + url.QueryEscape(idToken)
-
-	resp, err := http.Get(verifyURL) //nolint:gosec // URL is constructed from a constant base + user-supplied token that is query-escaped.
-	if err != nil {
-		return nil, fmt.Errorf("verify google token: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("google token verification failed: status %d", resp.StatusCode)
-	}
-
-	var payload struct {
-		Sub           string `json:"sub"`
-		Email         string `json:"email"`
-		EmailVerified string `json:"email_verified"`
-		Name          string `json:"name"`
-		Picture       string `json:"picture"`
-		Aud           string `json:"aud"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return nil, fmt.Errorf("decode google token payload: %w", err)
-	}
-
-	// 验证 audience 匹配 — ClientID 必须配置
-	if h.googleCfg.ClientID == "" {
-		return nil, fmt.Errorf("google oauth client_id not configured")
-	}
-
-	if payload.Aud != h.googleCfg.ClientID {
-		return nil, fmt.Errorf("google token audience mismatch: got %s", payload.Aud)
-	}
-
-	if payload.Sub == "" {
-		return nil, fmt.Errorf("google token missing sub claim")
-	}
-
-	return &user.GoogleUserInfo{
-		GoogleID:  payload.Sub,
-		Email:     payload.Email,
-		Name:      payload.Name,
-		AvatarURL: payload.Picture,
-	}, nil
+func NewUserHandler(userSvc user.Service) *UserHandler {
+	return &UserHandler{userSvc: userSvc}
 }
 
 // GetProfile GET /api/v1/user/profile — 获取当前用户资料。
 func (h *UserHandler) GetProfile(c *gin.Context) {
 	userID := common.UserIDFromContext(c.Request.Context())
 	if userID == "" {
-		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusUnauthorized, common.Fail(common.ErrUnauthorized, reqID))
-
-		return
+		userID = common.DefaultUserID
 	}
 
 	uid, err := uuid.Parse(userID)
@@ -140,11 +52,14 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 // GetHistory GET /api/v1/history — 历史记录。
 func (h *UserHandler) GetHistory(c *gin.Context) {
 	userID := common.UserIDFromContext(c.Request.Context())
+	if userID == "" {
+		userID = common.DefaultUserID
+	}
 
 	uid, err := uuid.Parse(userID)
 	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusUnauthorized, common.Fail(common.ErrUnauthorized, reqID))
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput, reqID))
 
 		return
 	}
@@ -168,11 +83,14 @@ func (h *UserHandler) GetHistory(c *gin.Context) {
 // ListFavorites GET /api/v1/favorites — 收藏列表。
 func (h *UserHandler) ListFavorites(c *gin.Context) {
 	userID := common.UserIDFromContext(c.Request.Context())
+	if userID == "" {
+		userID = common.DefaultUserID
+	}
 
 	uid, err := uuid.Parse(userID)
 	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusUnauthorized, common.Fail(common.ErrUnauthorized, reqID))
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput, reqID))
 
 		return
 	}
@@ -230,11 +148,14 @@ func (h *UserHandler) AddFavorite(c *gin.Context) {
 	}
 
 	userID := common.UserIDFromContext(c.Request.Context())
+	if userID == "" {
+		userID = common.DefaultUserID
+	}
 
 	uid, err := uuid.Parse(userID)
 	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusUnauthorized, common.Fail(common.ErrUnauthorized, reqID))
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput, reqID))
 
 		return
 	}

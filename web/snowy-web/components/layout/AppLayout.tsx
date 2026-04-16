@@ -1,21 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Layout, Menu, Button, Avatar, Dropdown, Space, message } from 'antd';
+import { Layout, Menu } from 'antd';
 import {
   HomeOutlined,
   SearchOutlined,
   ExperimentOutlined,
   BranchesOutlined,
   BookOutlined,
-  UserOutlined,
-  LogoutOutlined,
-  LoginOutlined,
 } from '@ant-design/icons';
-import { useAuthStore } from '@/stores/auth';
-import { api } from '@/lib/api';
-import AuthModal from '@/components/auth/AuthModal';
 
 const { Header, Content } = Layout;
 
@@ -30,39 +24,10 @@ const menuItems = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isLoggedIn, user, logout, loadFromStorage, setUser } = useAuthStore();
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-
-  useEffect(() => {
-    loadFromStorage();
-  }, [loadFromStorage]);
-
-  useEffect(() => {
-    if (isLoggedIn && !user) {
-      api.getProfile().then((res) => {
-        if (res.data) setUser(res.data);
-      }).catch((err) => { console.warn('Failed to load profile:', err); });
-    }
-  }, [isLoggedIn, user, setUser]);
 
   const handleMenuClick = (e: { key: string }) => {
-    if (e.key === '/learning' && !isLoggedIn) {
-      setAuthModalOpen(true);
-      return;
-    }
     router.push(e.key);
   };
-
-  const handleLogout = () => {
-    logout();
-    message.success('已退出登录');
-    router.push('/');
-  };
-
-  const userMenuItems = [
-    { key: 'profile', icon: <UserOutlined />, label: user?.nickname || '个人中心', onClick: () => router.push('/learning') },
-    { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', onClick: handleLogout },
-  ];
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -89,25 +54,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           onClick={handleMenuClick}
           style={{ flex: 1, border: 'none' }}
         />
-        <Space>
-          {isLoggedIn ? (
-            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-              <Avatar
-                style={{ backgroundColor: '#1677ff', cursor: 'pointer' }}
-                icon={<UserOutlined />}
-              />
-            </Dropdown>
-          ) : (
-            <Button type="primary" icon={<LoginOutlined />} onClick={() => setAuthModalOpen(true)}>
-              登录
-            </Button>
-          )}
-        </Space>
       </Header>
       <Content style={{ padding: '24px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
         {children}
       </Content>
-      <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </Layout>
   );
 }

@@ -78,17 +78,6 @@ type BiologyAnalyzeReq struct {
 
 // ── User ─────────────────────────────────────────────────
 
-// GoogleLoginReq Google OAuth 登录请求 — 前端用 Google ID token 换取本平台 JWT。
-type GoogleLoginReq struct {
-	IDToken string `binding:"required" json:"id_token"`
-}
-
-// LoginResp 登录响应。
-type LoginResp struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-}
-
 // FavoriteReq 收藏请求。
 type FavoriteReq struct {
 	TargetType string `binding:"required,oneof=search physics biology" json:"target_type"`

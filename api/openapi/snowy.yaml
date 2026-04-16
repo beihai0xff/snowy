@@ -124,27 +124,10 @@ paths:
         '200':
           description: 成功
 
-  /auth/google/callback:
-    post:
-      summary: Google OAuth 登录
-      description: 前端传入 Google ID Token，后端验证后签发 JWT token 对。新用户自动注册。
-      tags: [Auth]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GoogleLoginRequest'
-      responses:
-        '200':
-          description: 成功
-
   /user/profile:
     get:
       summary: 获取用户资料
       tags: [User]
-      security:
-        - bearerAuth: []
       responses:
         '200':
           description: 成功
@@ -153,8 +136,6 @@ paths:
     get:
       summary: 历史记录
       tags: [User]
-      security:
-        - bearerAuth: []
       responses:
         '200':
           description: 成功
@@ -163,16 +144,12 @@ paths:
     get:
       summary: 收藏列表
       tags: [User]
-      security:
-        - bearerAuth: []
       responses:
         '200':
           description: 成功
     post:
       summary: 添加收藏
       tags: [User]
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -192,11 +169,6 @@ paths:
           description: 成功
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
 
   schemas:
     APIResponse:
@@ -278,14 +250,6 @@ components:
           type: string
         context:
           type: string
-
-    GoogleLoginRequest:
-      type: object
-      required: [id_token]
-      properties:
-        id_token:
-          type: string
-          description: Google ID Token from Google Sign-In
 
     FavoriteRequest:
       type: object

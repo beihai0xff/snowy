@@ -1,6 +1,7 @@
 /**
  * Snowy API 客户端 — 封装所有后端接口调用。
- * 统一处理 token 注入、响应解包、错误映射。
+ * 统一处理响应解包、错误映射。
+ * 当前已禁用登录，无需 token 注入。
  */
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '/api/v1';
@@ -17,17 +18,6 @@ export interface PageResponse<T = unknown> {
   page: number;
   page_size: number;
   items: T[];
-}
-
-// ── Auth ─────────────────────────────────────────────────
-
-export interface GoogleLoginReq {
-  id_token: string;
-}
-
-export interface LoginResp {
-  access_token: string;
-  refresh_token: string;
 }
 
 // ── User ─────────────────────────────────────────────────
@@ -275,23 +265,14 @@ export interface SessionResp {
 
 // ── HTTP helpers ─────────────────────────────────────────
 
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('snowy_access_token');
-}
-
 async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<APIResponse<T>> {
-  const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -308,10 +289,6 @@ async function request<T>(
 // ── API functions ────────────────────────────────────────
 
 export const api = {
-  // Auth
-  googleLogin: (data: GoogleLoginReq) =>
-    request<LoginResp>('/auth/google/callback', { method: 'POST', body: JSON.stringify(data) }),
-
   // User
   getProfile: () => request<User>('/user/profile'),
 

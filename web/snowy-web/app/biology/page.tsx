@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import { Input, Card, Typography, Space, Spin, Tag, Steps, Row, Col, Empty, Button, List, Alert, message } from 'antd';
 import { BranchesOutlined, StarOutlined } from '@ant-design/icons';
 import { api, type BiologyModel } from '@/lib/api';
-import { useAuthStore } from '@/stores/auth';
 import BiologyDiagram from '@/components/biology/BiologyDiagram';
 
 const { Title, Paragraph, Text } = Typography;
@@ -13,7 +12,6 @@ const { TextArea } = Input;
 
 function BiologyPageInner() {
   const searchParams = useSearchParams();
-  const { isLoggedIn } = useAuthStore();
   const [question, setQuestion] = useState(searchParams.get('q') || '');
   const [context, setContext] = useState('');
   const [result, setResult] = useState<BiologyModel | null>(null);
@@ -42,7 +40,6 @@ function BiologyPageInner() {
   }, [searchParams, handleAnalyze]);
 
   const handleFavorite = async () => {
-    if (!isLoggedIn) { message.warning('请先登录'); return; }
     try {
       await api.addFavorite({ target_type: 'biology', target_id: question, title: question });
       message.success('收藏成功');

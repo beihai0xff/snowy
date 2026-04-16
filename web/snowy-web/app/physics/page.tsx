@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import { Input, Card, Typography, Space, Spin, Tag, Steps, Slider, Row, Col, Table, Empty, Button, Alert, message } from 'antd';
 import { ExperimentOutlined, StarOutlined } from '@ant-design/icons';
 import { api, type PhysicsModel, type ComputeResult } from '@/lib/api';
-import { useAuthStore } from '@/stores/auth';
 import PhysicsChart from '@/components/physics/PhysicsChart';
 
 const { Title, Paragraph, Text } = Typography;
@@ -13,7 +12,6 @@ const { TextArea } = Input;
 
 function PhysicsPageInner() {
   const searchParams = useSearchParams();
-  const { isLoggedIn } = useAuthStore();
   const [question, setQuestion] = useState(searchParams.get('q') || '');
   const [context, setContext] = useState('');
   const [result, setResult] = useState<PhysicsModel | null>(null);
@@ -70,7 +68,6 @@ function PhysicsPageInner() {
   };
 
   const handleFavorite = async () => {
-    if (!isLoggedIn) { message.warning('请先登录'); return; }
     try {
       await api.addFavorite({ target_type: 'physics', target_id: question, title: question });
       message.success('收藏成功');

@@ -8,6 +8,9 @@ const (
 	ctxKeyUserID    contextKey = "user_id"
 	ctxKeyRequestID contextKey = "request_id"
 	ctxKeyTraceID   contextKey = "trace_id"
+
+	// DefaultUserID 默认匿名用户 ID（禁用登录后所有请求使用此 ID）。
+	DefaultUserID = "00000000-0000-0000-0000-000000000001"
 )
 
 // WithUserID 将 UserID 写入 context。
