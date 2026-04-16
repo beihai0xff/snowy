@@ -208,10 +208,10 @@ docker-clean:
 #  Docker — 应用镜像构建 & 运行
 # ============================================================
 
-.PHONY: docker-build docker-build-api docker-build-worker docker-run-api docker-run-worker docker-push
+.PHONY: docker-build docker-build-api docker-build-worker docker-build-web docker-run-api docker-run-worker docker-push
 
-## docker-build: 构建全部应用 Docker 镜像 (api + worker)
-docker-build: docker-build-api docker-build-worker
+## docker-build: 构建全部应用 Docker 镜像 (api + worker + web)
+docker-build: docker-build-api docker-build-worker docker-build-web
 
 ## docker-build-api: 构建 API 服务镜像
 docker-build-api:
@@ -234,6 +234,15 @@ docker-build-worker:
 		-t $(PROJECT_NAME)-worker:latest \
 		$(ROOT_DIR)
 	@echo "$(CYAN)✓ $(IMAGE_WORKER)$(RESET)"
+
+## docker-build-web: 构建前端 Nginx 服务镜像
+docker-build-web:
+	@echo "$(CYAN)▸ Building Docker image: $(PROJECT_NAME)-web:latest...$(RESET)"
+	docker build \
+		-f $(DEPLOY_DIR)/Dockerfile.web \
+		-t $(PROJECT_NAME)-web:latest \
+		$(ROOT_DIR)
+	@echo "$(CYAN)✓ $(PROJECT_NAME)-web:latest$(RESET)"
 
 ## docker-run-api: 以容器方式运行 API 服务 (连接本地基础设施)
 docker-run-api:
@@ -273,7 +282,7 @@ endif
 #  Run — 本地开发运行
 # ============================================================
 
-.PHONY: run-api run-worker dev
+.PHONY: run-api run-worker dev web-dev web-build
 
 ## run-api: 本地运行 API 服务 (需先 make docker-up 启动基础设施)
 run-api: build-api
@@ -295,6 +304,17 @@ run-worker: build-worker
 
 ## dev: 启动基础设施 + 本地运行 API 服务 (一键开发)
 dev: docker-up run-api
+
+## web-dev: 启动前端开发服务器 (localhost:3000)
+web-dev:
+	@echo "$(GREEN)▸ Starting frontend dev server...$(RESET)"
+	cd web/snowy-web && npm run dev
+
+## web-build: 构建前端静态产物
+web-build:
+	@echo "$(GREEN)▸ Building frontend...$(RESET)"
+	cd web/snowy-web && npm run build
+	@echo "$(GREEN)✓ Frontend built: web/snowy-web/out/$(RESET)"
 
 # ============================================================
 #  Database Migration (GORM)

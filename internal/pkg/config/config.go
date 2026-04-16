@@ -125,9 +125,17 @@ type EmbeddingConfig struct {
 
 // AuthConfig 鉴权配置。
 type AuthConfig struct {
-	JWTSecret       string        `mapstructure:"jwt_secret"`
-	AccessTokenTTL  time.Duration `mapstructure:"access_token_ttl"`
-	RefreshTokenTTL time.Duration `mapstructure:"refresh_token_ttl"`
+	JWTSecret       string            `mapstructure:"jwt_secret"`
+	AccessTokenTTL  time.Duration     `mapstructure:"access_token_ttl"`
+	RefreshTokenTTL time.Duration     `mapstructure:"refresh_token_ttl"`
+	GoogleOAuth     GoogleOAuthConfig `mapstructure:"google_oauth"`
+}
+
+// GoogleOAuthConfig Google OAuth 2.0 配置。
+type GoogleOAuthConfig struct {
+	ClientID     string `mapstructure:"client_id"`
+	ClientSecret string `mapstructure:"client_secret"`
+	RedirectURI  string `mapstructure:"redirect_uri"`
 }
 
 // RateLimitConfig 限流配置。

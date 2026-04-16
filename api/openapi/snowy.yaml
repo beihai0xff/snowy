@@ -124,40 +124,10 @@ paths:
         '200':
           description: 成功
 
-  /auth/login:
-    post:
-      summary: 登录
-      tags: [Auth]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-      responses:
-        '200':
-          description: 成功
-
-  /auth/register:
-    post:
-      summary: 注册
-      tags: [Auth]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegisterRequest'
-      responses:
-        '201':
-          description: 注册成功
-
   /user/profile:
     get:
       summary: 获取用户资料
       tags: [User]
-      security:
-        - bearerAuth: []
       responses:
         '200':
           description: 成功
@@ -166,18 +136,20 @@ paths:
     get:
       summary: 历史记录
       tags: [User]
-      security:
-        - bearerAuth: []
       responses:
         '200':
           description: 成功
 
   /favorites:
+    get:
+      summary: 收藏列表
+      tags: [User]
+      responses:
+        '200':
+          description: 成功
     post:
       summary: 添加收藏
       tags: [User]
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -188,12 +160,15 @@ paths:
         '201':
           description: 收藏成功
 
+  /recommendations:
+    get:
+      summary: 首页推荐数据
+      tags: [Home]
+      responses:
+        '200':
+          description: 成功
+
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
 
   schemas:
     APIResponse:
@@ -274,24 +249,6 @@ components:
         question:
           type: string
         context:
-          type: string
-
-    LoginRequest:
-      type: object
-      required: [phone, code]
-      properties:
-        phone:
-          type: string
-        code:
-          type: string
-
-    RegisterRequest:
-      type: object
-      required: [phone, nickname]
-      properties:
-        phone:
-          type: string
-        nickname:
           type: string
 
     FavoriteRequest:

@@ -68,6 +68,10 @@ auth:
   jwt_secret: "change-me-in-production"
   access_token_ttl: 30m
   refresh_token_ttl: 168h
+  google_oauth:
+    client_id: ""
+    client_secret: ""
+    redirect_uri: "http://localhost:3001"
 
 ratelimit:
   authenticated_rpm: 60

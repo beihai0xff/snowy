@@ -28,20 +28,14 @@ func init() {
 // ── Mock Services ────────────────────────────────────────
 
 type mockUserService struct {
-	registerFn      func(ctx context.Context, phone, nickname string) (*user.User, error)
-	loginFn         func(ctx context.Context, phone, code string) (string, string, error)
 	getProfileFn    func(ctx context.Context, userID uuid.UUID) (*user.User, error)
 	getHistoryFn    func(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*user.HistoryItem, int64, error)
 	addFavoriteFn   func(ctx context.Context, fav *user.Favorite) error
 	listFavoritesFn func(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*user.Favorite, int64, error)
 }
 
-func (m *mockUserService) Register(ctx context.Context, phone, nickname string) (*user.User, error) {
-	return m.registerFn(ctx, phone, nickname)
-}
-
-func (m *mockUserService) Login(ctx context.Context, phone, code string) (string, string, error) {
-	return m.loginFn(ctx, phone, code)
+func (m *mockUserService) GoogleLogin(_ context.Context, _ *user.GoogleUserInfo) (string, string, error) {
+	return "", "", nil
 }
 
 func (m *mockUserService) GetProfile(ctx context.Context, userID uuid.UUID) (*user.User, error) {
@@ -190,85 +184,8 @@ func getRequest(r *gin.Engine, path string) *httptest.ResponseRecorder {
 
 // ── UserHandler Tests ────────────────────────────────────
 
-func TestUserHandler_Login_Success(t *testing.T) {
-	svc := &mockUserService{
-		loginFn: func(_ context.Context, phone, code string) (string, string, error) {
-			return "access-token", "refresh-token", nil
-		},
-	}
-	handler := NewUserHandler(svc)
-
-	r := gin.New()
-	r.POST("/login", handler.Login)
-
-	w := postJSON(r, "/login", map[string]string{"phone": "13800138000", "code": "1234"})
-
-	assert.Equal(t, http.StatusOK, w.Code)
-
-	var resp common.APIResponse
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	assert.Equal(t, "OK", resp.Code)
-}
-
-func TestUserHandler_Login_BadJSON(t *testing.T) {
-	handler := NewUserHandler(&mockUserService{})
-
-	r := gin.New()
-	r.POST("/login", handler.Login)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/login", bytes.NewReader([]byte(`{invalid`)))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestUserHandler_Login_ServiceError(t *testing.T) {
-	svc := &mockUserService{
-		loginFn: func(_ context.Context, _, _ string) (string, string, error) {
-			return "", "", errors.New("user not found")
-		},
-	}
-	handler := NewUserHandler(svc)
-
-	r := gin.New()
-	r.POST("/login", handler.Login)
-
-	w := postJSON(r, "/login", map[string]string{"phone": "13800138000", "code": "1234"})
-
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
-func TestUserHandler_Register_Success(t *testing.T) {
-	svc := &mockUserService{
-		registerFn: func(_ context.Context, phone, nickname string) (*user.User, error) {
-			return &user.User{ID: uuid.New(), Phone: phone, Nickname: nickname}, nil
-		},
-	}
-	handler := NewUserHandler(svc)
-
-	r := gin.New()
-	r.POST("/register", handler.Register)
-
-	w := postJSON(r, "/register", map[string]string{"phone": "13800138000", "nickname": "Alice"})
-
-	assert.Equal(t, http.StatusCreated, w.Code)
-}
-
-func TestUserHandler_Register_MissingField(t *testing.T) {
-	handler := NewUserHandler(&mockUserService{})
-
-	r := gin.New()
-	r.POST("/register", handler.Register)
-
-	w := postJSON(r, "/register", map[string]string{"phone": "13800138000"}) // missing nickname
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
 func TestUserHandler_GetProfile_Success(t *testing.T) {
-	uid := uuid.New()
+	uid := uuid.MustParse(common.DefaultUserID)
 	svc := &mockUserService{
 		getProfileFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
 			return &user.User{ID: id, Nickname: "Bob"}, nil
@@ -288,15 +205,21 @@ func TestUserHandler_GetProfile_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestUserHandler_GetProfile_NoUserID(t *testing.T) {
-	handler := NewUserHandler(&mockUserService{})
+func TestUserHandler_GetProfile_DefaultUser(t *testing.T) {
+	svc := &mockUserService{
+		getProfileFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			assert.Equal(t, uuid.MustParse(common.DefaultUserID), id)
+			return &user.User{ID: id, Nickname: "Anonymous"}, nil
+		},
+	}
+	handler := NewUserHandler(svc)
 
 	r := gin.New()
-	r.GET("/profile", handler.GetProfile)
+	r.GET("/profile", handler.GetProfile) // no user ID in context
 
 	w := getRequest(r, "/profile")
 
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 // ── AgentHandler Tests ───────────────────────────────────

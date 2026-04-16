@@ -6,12 +6,18 @@ import (
 	"github.com/google/uuid"
 )
 
+// GoogleUserInfo Google OAuth 回调中获取的用户信息。
+type GoogleUserInfo struct {
+	GoogleID  string
+	Email     string
+	Name      string
+	AvatarURL string
+}
+
 // Service 用户域应用服务接口。
 type Service interface {
-	// Register 注册新用户。
-	Register(ctx context.Context, phone, nickname string) (*User, error)
-	// Login 登录（手机号+验证码），返回 access / refresh token。
-	Login(ctx context.Context, phone, code string) (accessToken, refreshToken string, err error)
+	// GoogleLogin 通过 Google OAuth 登录（查找已有用户或自动注册），返回 access / refresh token。
+	GoogleLogin(ctx context.Context, info *GoogleUserInfo) (accessToken, refreshToken string, err error)
 	// GetProfile 获取用户资料。
 	GetProfile(ctx context.Context, userID uuid.UUID) (*User, error)
 	// GetHistory 获取历史记录。

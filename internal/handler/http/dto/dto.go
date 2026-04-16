@@ -78,27 +78,25 @@ type BiologyAnalyzeReq struct {
 
 // ── User ─────────────────────────────────────────────────
 
-// LoginReq 登录请求。
-type LoginReq struct {
-	Phone string `binding:"required" json:"phone"`
-	Code  string `binding:"required" json:"code"`
-}
-
-// LoginResp 登录响应。
-type LoginResp struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-}
-
-// RegisterReq 注册请求。
-type RegisterReq struct {
-	Phone    string `binding:"required" json:"phone"`
-	Nickname string `binding:"required" json:"nickname"`
-}
-
 // FavoriteReq 收藏请求。
 type FavoriteReq struct {
 	TargetType string `binding:"required,oneof=search physics biology" json:"target_type"`
 	TargetID   string `binding:"required"                              json:"target_id"`
 	Title      string `binding:"required"                              json:"title"`
+}
+
+// RecommendationItem 首页推荐条目。
+type RecommendationItem struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Category    string `json:"category"` // search / physics / biology
+	Icon        string `json:"icon,omitempty"`
+}
+
+// RecommendationsResp 首页推荐响应。
+type RecommendationsResp struct {
+	HotTopics     []RecommendationItem `json:"hot_topics"`
+	PhysicsModels []RecommendationItem `json:"physics_models"`
+	BiologyTopics []RecommendationItem `json:"biology_topics"`
 }

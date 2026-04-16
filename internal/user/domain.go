@@ -4,10 +4,14 @@
 package user
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+// ErrUserNotFound 用户不存在。
+var ErrUserNotFound = errors.New("user not found")
 
 // Role 用户角色。
 type Role string
@@ -21,7 +25,9 @@ const (
 // User 用户实体。
 type User struct {
 	ID          uuid.UUID `json:"id"`
-	Phone       string    `json:"phone"`
+	GoogleID    string    `json:"google_id,omitempty"`
+	Email       string    `json:"email,omitempty"`
+	Phone       string    `json:"phone,omitempty"`
 	Nickname    string    `json:"nickname"`
 	Role        Role      `json:"role"`
 	AvatarURL   string    `json:"avatar_url,omitempty"`
