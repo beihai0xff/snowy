@@ -96,7 +96,7 @@ type RecommendationItem struct {
 
 // RecommendationsResp 首页推荐响应。
 type RecommendationsResp struct {
-	HotTopics      []RecommendationItem `json:"hot_topics"`
-	PhysicsModels  []RecommendationItem `json:"physics_models"`
-	BiologyTopics  []RecommendationItem `json:"biology_topics"`
+	HotTopics     []RecommendationItem `json:"hot_topics"`
+	PhysicsModels []RecommendationItem `json:"physics_models"`
+	BiologyTopics []RecommendationItem `json:"biology_topics"`
 }
