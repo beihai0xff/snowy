@@ -21,9 +21,8 @@ export interface PageResponse<T = unknown> {
 
 // ── Auth ─────────────────────────────────────────────────
 
-export interface LoginReq {
-  phone: string;
-  code: string;
+export interface GoogleLoginReq {
+  id_token: string;
 }
 
 export interface LoginResp {
@@ -31,20 +30,13 @@ export interface LoginResp {
   refresh_token: string;
 }
 
-export interface RegisterReq {
-  phone: string;
-  nickname: string;
-}
-
-export interface SendCodeReq {
-  phone: string;
-}
-
 // ── User ─────────────────────────────────────────────────
 
 export interface User {
   id: string;
-  phone: string;
+  google_id?: string;
+  email?: string;
+  phone?: string;
   nickname: string;
   role: string;
   avatar_url?: string;
@@ -317,14 +309,8 @@ async function request<T>(
 
 export const api = {
   // Auth
-  sendCode: (data: SendCodeReq) =>
-    request('/auth/send-code', { method: 'POST', body: JSON.stringify(data) }),
-
-  login: (data: LoginReq) =>
-    request<LoginResp>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
-
-  register: (data: RegisterReq) =>
-    request<User>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+  googleLogin: (data: GoogleLoginReq) =>
+    request<LoginResp>('/auth/google/callback', { method: 'POST', body: JSON.stringify(data) }),
 
   // User
   getProfile: () => request<User>('/user/profile'),

@@ -1,43 +1,55 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Modal, Form, Input, Button, Tabs, message } from 'antd';
-import { PhoneOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Modal, Button, message, Typography, Divider, Spin } from 'antd';
+import { GoogleOutlined } from '@ant-design/icons';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
+
+const { Text } = Typography;
+
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
 interface AuthModalProps {
   open: boolean;
   onClose: () => void;
 }
 
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: { credential: string }) => void;
+            auto_select?: boolean;
+          }) => void;
+          renderButton: (element: HTMLElement, config: {
+            theme?: string;
+            size?: string;
+            width?: number;
+            text?: string;
+            shape?: string;
+            locale?: string;
+          }) => void;
+          prompt: () => void;
+        };
+      };
+    };
+  }
+}
+
 export default function AuthModal({ open, onClose }: AuthModalProps) {
-  const [activeTab, setActiveTab] = useState('login');
   const [loading, setLoading] = useState(false);
-  const [codeSent, setCodeSent] = useState(false);
   const { setAuth } = useAuthStore();
-  const [loginForm] = Form.useForm();
-  const [registerForm] = Form.useForm();
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+  const [gsiReady, setGsiReady] = useState(false);
 
-  const handleSendCode = async () => {
-    try {
-      const phone = loginForm.getFieldValue('phone') || registerForm.getFieldValue('phone');
-      if (!phone) {
-        message.warning('请输入手机号');
-        return;
-      }
-      await api.sendCode({ phone });
-      setCodeSent(true);
-      message.success('验证码已发送（开发环境任意验证码即可）');
-    } catch {
-      message.error('发送验证码失败');
-    }
-  };
-
-  const handleLogin = async (values: { phone: string; code: string }) => {
+  const handleGoogleCredential = useCallback(async (credential: string) => {
     setLoading(true);
     try {
-      const res = await api.login(values);
+      const res = await api.googleLogin({ id_token: credential });
       if (res.data) {
         const profileRes = await api.getProfile();
         if (profileRes.data) {
@@ -47,77 +59,98 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
         }
       }
     } catch {
-      message.error('登录失败，请检查手机号和验证码');
+      message.error('Google 登录失败，请重试');
     } finally {
       setLoading(false);
     }
-  };
+  }, [setAuth, onClose]);
 
-  const handleRegister = async (values: { phone: string; nickname: string }) => {
-    setLoading(true);
-    try {
-      await api.register(values);
-      message.success('注册成功，请登录');
-      setActiveTab('login');
-    } catch {
-      message.error('注册失败');
-    } finally {
-      setLoading(false);
+  // Load Google Identity Services SDK
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return;
+    if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+      setGsiReady(true);
+      return;
     }
-  };
 
-  const tabItems = [
-    {
-      key: 'login',
-      label: '登录',
-      children: (
-        <Form form={loginForm} onFinish={handleLogin} layout="vertical" size="large">
-          <Form.Item name="phone" rules={[{ required: true, message: '请输入手机号' }]}>
-            <Input prefix={<PhoneOutlined />} placeholder="手机号" />
-          </Form.Item>
-          <Form.Item name="code" rules={[{ required: true, message: '请输入验证码' }]}>
-            <Input
-              prefix={<LockOutlined />}
-              placeholder="验证码"
-              suffix={
-                <Button type="link" size="small" onClick={handleSendCode} disabled={codeSent}>
-                  {codeSent ? '已发送' : '获取验证码'}
-                </Button>
-              }
-            />
-          </Form.Item>
-          <Form.Item>
-            <Button type="primary" htmlType="submit" loading={loading} block>
-              登录
-            </Button>
-          </Form.Item>
-        </Form>
-      ),
-    },
-    {
-      key: 'register',
-      label: '注册',
-      children: (
-        <Form form={registerForm} onFinish={handleRegister} layout="vertical" size="large">
-          <Form.Item name="phone" rules={[{ required: true, message: '请输入手机号' }]}>
-            <Input prefix={<PhoneOutlined />} placeholder="手机号" />
-          </Form.Item>
-          <Form.Item name="nickname" rules={[{ required: true, message: '请输入昵称' }]}>
-            <Input prefix={<UserOutlined />} placeholder="昵称" />
-          </Form.Item>
-          <Form.Item>
-            <Button type="primary" htmlType="submit" loading={loading} block>
-              注册
-            </Button>
-          </Form.Item>
-        </Form>
-      ),
-    },
-  ];
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => setGsiReady(true);
+    document.head.appendChild(script);
+
+    return () => {
+      // Cleanup only if we added it
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+  }, []);
+
+  // Render Google button when GSI is ready and modal is open
+  useEffect(() => {
+    if (!open || !gsiReady || !GOOGLE_CLIENT_ID || !googleBtnRef.current) return;
+    if (!window.google?.accounts?.id) return;
+
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: (response: { credential: string }) => {
+        handleGoogleCredential(response.credential);
+      },
+    });
+
+    // Clear the container before rendering
+    googleBtnRef.current.innerHTML = '';
+    window.google.accounts.id.renderButton(googleBtnRef.current, {
+      theme: 'outline',
+      size: 'large',
+      width: 320,
+      text: 'signin_with',
+      shape: 'rectangular',
+      locale: 'zh_CN',
+    });
+  }, [open, gsiReady, handleGoogleCredential]);
 
   return (
-    <Modal title="欢迎使用 Snowy" open={open} onCancel={onClose} footer={null} width={400}>
-      <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} centered />
+    <Modal
+      title="欢迎使用 Snowy"
+      open={open}
+      onCancel={onClose}
+      footer={null}
+      width={400}
+      centered
+    >
+      <div style={{ textAlign: 'center', padding: '24px 0' }}>
+        <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
+          使用 Google 账号快速登录，无需注册
+        </Text>
+
+        {loading ? (
+          <Spin size="large" />
+        ) : GOOGLE_CLIENT_ID ? (
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div ref={googleBtnRef} />
+          </div>
+        ) : (
+          /* Fallback when Google Client ID is not configured (dev mode) */
+          <>
+            <Divider>开发模式</Divider>
+            <Button
+              type="primary"
+              icon={<GoogleOutlined />}
+              size="large"
+              block
+              onClick={() => handleGoogleCredential('dev-mock-token')}
+            >
+              使用 Google 账号登录
+            </Button>
+            <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
+              开发环境未配置 NEXT_PUBLIC_GOOGLE_CLIENT_ID
+            </Text>
+          </>
+        )}
+      </div>
     </Modal>
   );
 }
