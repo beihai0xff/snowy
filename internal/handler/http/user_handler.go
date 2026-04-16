@@ -25,16 +25,8 @@ func NewUserHandler(userSvc user.Service) *UserHandler {
 
 // GetProfile GET /api/v1/user/profile — 获取当前用户资料。
 func (h *UserHandler) GetProfile(c *gin.Context) {
-	userID := common.UserIDFromContext(c.Request.Context())
-	if userID == "" {
-		userID = common.DefaultUserID
-	}
-
-	uid, err := uuid.Parse(userID)
-	if err != nil {
-		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput, reqID))
-
+	uid, ok := resolveUserID(c)
+	if !ok {
 		return
 	}
 
@@ -49,8 +41,9 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, common.Success(profile))
 }
 
-// GetHistory GET /api/v1/history — 历史记录。
-func (h *UserHandler) GetHistory(c *gin.Context) {
+// resolveUserID 从 context 中获取 userID 并解析为 uuid.UUID，
+// 若 context 中无 userID 则使用默认匿名用户。
+func resolveUserID(c *gin.Context) (uuid.UUID, bool) {
 	userID := common.UserIDFromContext(c.Request.Context())
 	if userID == "" {
 		userID = common.DefaultUserID
@@ -61,6 +54,16 @@ func (h *UserHandler) GetHistory(c *gin.Context) {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput, reqID))
 
+		return uuid.Nil, false
+	}
+
+	return uid, true
+}
+
+// GetHistory GET /api/v1/history — 历史记录。
+func (h *UserHandler) GetHistory(c *gin.Context) {
+	uid, ok := resolveUserID(c)
+	if !ok {
 		return
 	}
 
@@ -82,16 +85,8 @@ func (h *UserHandler) GetHistory(c *gin.Context) {
 
 // ListFavorites GET /api/v1/favorites — 收藏列表。
 func (h *UserHandler) ListFavorites(c *gin.Context) {
-	userID := common.UserIDFromContext(c.Request.Context())
-	if userID == "" {
-		userID = common.DefaultUserID
-	}
-
-	uid, err := uuid.Parse(userID)
-	if err != nil {
-		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput, reqID))
-
+	uid, ok := resolveUserID(c)
+	if !ok {
 		return
 	}
 
@@ -147,16 +142,8 @@ func (h *UserHandler) AddFavorite(c *gin.Context) {
 		return
 	}
 
-	userID := common.UserIDFromContext(c.Request.Context())
-	if userID == "" {
-		userID = common.DefaultUserID
-	}
-
-	uid, err := uuid.Parse(userID)
-	if err != nil {
-		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput, reqID))
-
+	uid, ok := resolveUserID(c)
+	if !ok {
 		return
 	}
 

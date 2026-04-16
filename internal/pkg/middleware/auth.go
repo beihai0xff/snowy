@@ -33,8 +33,3 @@ func RequireAuth() gin.HandlerFunc {
 		c.Next()
 	}
 }
-
-func abortWithError(c *gin.Context, err *common.AppError) {
-	requestID := common.RequestIDFromContext(c.Request.Context())
-	c.AbortWithStatusJSON(err.HTTPStatus, common.Fail(err, requestID))
-}

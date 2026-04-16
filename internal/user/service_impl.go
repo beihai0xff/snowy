@@ -46,50 +46,9 @@ func (s *serviceImpl) GoogleLogin(ctx context.Context, info *GoogleUserInfo) (st
 		return "", "", errors.New("google user info is required")
 	}
 
-	// 尝试用 google_id 查找已有用户
-	u, err := s.repo.GetByGoogleID(ctx, info.GoogleID)
-	if err != nil && !errors.Is(err, ErrUserNotFound) {
-		// 数据库查询失败 — 不是"用户不存在"
-		return "", "", fmt.Errorf("lookup google user: %w", err)
-	}
-
-	if errors.Is(err, ErrUserNotFound) {
-		// 用户不存在 — 自动注册
-		u = &User{
-			ID:          uuid.New(),
-			GoogleID:    info.GoogleID,
-			Email:       info.Email,
-			Nickname:    info.Name,
-			AvatarURL:   info.AvatarURL,
-			Role:        RoleStudent,
-			LastLoginAt: time.Now(),
-			CreatedAt:   time.Now(),
-			UpdatedAt:   time.Now(),
-		}
-		history := &HistoryItem{
-			ID:         uuid.New(),
-			UserID:     u.ID,
-			ActionType: "register",
-			Query:      "Google 账号注册",
-			CreatedAt:  u.CreatedAt,
-		}
-
-		txErr := s.withTransaction(ctx, func(txCtx context.Context) error {
-			if createErr := s.repo.Create(txCtx, u); createErr != nil {
-				return fmt.Errorf("create user: %w", createErr)
-			}
-
-			if histErr := s.histRepo.Add(txCtx, history); histErr != nil {
-				return fmt.Errorf("add register history: %w", histErr)
-			}
-
-			return nil
-		})
-		if txErr != nil {
-			return "", "", txErr
-		}
-
-		slog.InfoContext(ctx, "user registered via google", "user_id", u.ID, "email", info.Email)
+	u, err := s.findOrCreateGoogleUser(ctx, info)
+	if err != nil {
+		return "", "", err
 	}
 
 	// 更新最后登录时间
@@ -135,6 +94,57 @@ func (s *serviceImpl) ListFavorites(
 	offset, limit int,
 ) ([]*Favorite, int64, error) {
 	return s.favRepo.ListByUser(ctx, userID, offset, limit)
+}
+
+// findOrCreateGoogleUser 根据 GoogleID 查找已有用户，不存在则自动注册。
+func (s *serviceImpl) findOrCreateGoogleUser(ctx context.Context, info *GoogleUserInfo) (*User, error) {
+	u, err := s.repo.GetByGoogleID(ctx, info.GoogleID)
+	if err != nil && !errors.Is(err, ErrUserNotFound) {
+		return nil, fmt.Errorf("lookup google user: %w", err)
+	}
+
+	if !errors.Is(err, ErrUserNotFound) {
+		return u, nil
+	}
+
+	// 用户不存在 — 自动注册
+	u = &User{
+		ID:          uuid.New(),
+		GoogleID:    info.GoogleID,
+		Email:       info.Email,
+		Nickname:    info.Name,
+		AvatarURL:   info.AvatarURL,
+		Role:        RoleStudent,
+		LastLoginAt: time.Now(),
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	history := &HistoryItem{
+		ID:         uuid.New(),
+		UserID:     u.ID,
+		ActionType: "register",
+		Query:      "Google 账号注册",
+		CreatedAt:  u.CreatedAt,
+	}
+
+	txErr := s.withTransaction(ctx, func(txCtx context.Context) error {
+		if createErr := s.repo.Create(txCtx, u); createErr != nil {
+			return fmt.Errorf("create user: %w", createErr)
+		}
+
+		if histErr := s.histRepo.Add(txCtx, history); histErr != nil {
+			return fmt.Errorf("add register history: %w", histErr)
+		}
+
+		return nil
+	})
+	if txErr != nil {
+		return nil, txErr
+	}
+
+	slog.InfoContext(ctx, "user registered via google", "user_id", u.ID, "email", info.Email)
+
+	return u, nil
 }
 
 func (s *serviceImpl) generateToken(u *User, ttl time.Duration) (string, error) {
