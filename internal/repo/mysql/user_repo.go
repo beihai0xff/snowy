@@ -51,6 +51,17 @@ func (r *userRepo) GetByPhone(ctx context.Context, phone string) (*user.User, er
 	return row.toDomain(), nil
 }
 
+func (r *userRepo) GetByGoogleID(ctx context.Context, googleID string) (*user.User, error) {
+	row := &userRow{}
+
+	err := dbFromContext(ctx, r.db).Where("google_id = ?", googleID).Take(row).Error
+	if err != nil {
+		return nil, fmt.Errorf("get user by google_id: %w", err)
+	}
+
+	return row.toDomain(), nil
+}
+
 func (r *userRepo) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 	err := dbFromContext(ctx, r.db).
 		Model(&userRow{}).

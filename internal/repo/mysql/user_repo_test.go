@@ -31,7 +31,7 @@ func TestUserRepo_Create_Success(t *testing.T) {
 	}
 
 	mock.ExpectExec("INSERT INTO `users`").
-		WithArgs(u.ID, u.Phone, u.Nickname, u.Role, u.AvatarURL, u.LastLoginAt, u.CreatedAt, u.UpdatedAt).
+		WithArgs(u.ID, u.GoogleID, u.Email, u.Phone, u.Nickname, u.Role, u.AvatarURL, u.LastLoginAt, u.CreatedAt, u.UpdatedAt).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err := repo.Create(context.Background(), u)
@@ -48,8 +48,9 @@ func TestUserRepo_GetByID_Success(t *testing.T) {
 
 	uid := uuid.New()
 	now := time.Now()
-	rows := sqlmock.NewRows([]string{"id", "phone", "nickname", "role", "avatar_url", "last_login_at", "created_at", "updated_at"}).
-		AddRow(uid, "13800138000", "Alice", "student", "", now, now, now)
+	rows := sqlmock.NewRows([]string{
+		"id", "google_id", "email", "phone", "nickname", "role", "avatar_url", "last_login_at", "created_at", "updated_at",
+	}).AddRow(uid, "", "", "13800138000", "Alice", "student", "", now, now, now)
 
 	mock.ExpectQuery("SELECT \\* FROM `users` WHERE id = \\? LIMIT \\?").
 		WithArgs(uid, 1).
@@ -72,8 +73,9 @@ func TestUserRepo_GetByPhone_Success(t *testing.T) {
 
 	uid := uuid.New()
 	now := time.Now()
-	rows := sqlmock.NewRows([]string{"id", "phone", "nickname", "role", "avatar_url", "last_login_at", "created_at", "updated_at"}).
-		AddRow(uid, "13800138000", "Bob", "student", "", now, now, now)
+	rows := sqlmock.NewRows([]string{
+		"id", "google_id", "email", "phone", "nickname", "role", "avatar_url", "last_login_at", "created_at", "updated_at",
+	}).AddRow(uid, "", "", "13800138000", "Bob", "student", "", now, now, now)
 
 	mock.ExpectQuery("SELECT \\* FROM `users` WHERE phone = \\? LIMIT \\?").
 		WithArgs("13800138000", 1).
@@ -83,6 +85,31 @@ func TestUserRepo_GetByPhone_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "Bob", u.Nickname)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepo_GetByGoogleID_Success(t *testing.T) {
+	db, mock, cleanup := newMockGorm(t)
+	defer cleanup()
+
+	repo := NewUserRepository(db)
+
+	uid := uuid.New()
+	now := time.Now()
+	rows := sqlmock.NewRows([]string{
+		"id", "google_id", "email", "phone", "nickname", "role", "avatar_url", "last_login_at", "created_at", "updated_at",
+	}).AddRow(uid, "google-abc", "test@gmail.com", "", "Charlie", "student", "", now, now, now)
+
+	mock.ExpectQuery("SELECT \\* FROM `users` WHERE google_id = \\? LIMIT \\?").
+		WithArgs("google-abc", 1).
+		WillReturnRows(rows)
+
+	u, err := repo.GetByGoogleID(context.Background(), "google-abc")
+
+	require.NoError(t, err)
+	assert.Equal(t, "Charlie", u.Nickname)
+	assert.Equal(t, "google-abc", u.GoogleID)
+	assert.Equal(t, "test@gmail.com", u.Email)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 

@@ -138,7 +138,7 @@ func New(cfg *config.Config) (*App, error) {
 		Search:  handler.NewSearchHandler(searchSvc),
 		Physics: handler.NewPhysicsHandler(physicsSvc),
 		Biology: handler.NewBiologyHandler(biologySvc),
-		User:    handler.NewUserHandler(userSvc),
+		User:    handler.NewUserHandler(userSvc, cfg.Auth.GoogleOAuth),
 	}
 
 	// ── 7. Router 装配 ────────────────────────────────

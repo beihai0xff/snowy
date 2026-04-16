@@ -47,9 +47,7 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 	// ── 公开接口（无需认证）─────────────────────────────
 	auth := v1.Group("/auth")
 	{
-		auth.POST("/login", h.User.Login)
-		auth.POST("/register", h.User.Register)
-		auth.POST("/send-code", h.User.SendCode)
+		auth.POST("/google/callback", h.User.GoogleLogin)
 	}
 
 	// ── 首页推荐（无需认证）─────────────────────────────

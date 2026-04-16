@@ -17,6 +17,7 @@ import (
 
 	"github.com/beihai0xff/snowy/internal/agent"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
+	"github.com/beihai0xff/snowy/internal/pkg/config"
 	"github.com/beihai0xff/snowy/internal/repo/search"
 	"github.com/beihai0xff/snowy/internal/user"
 )
@@ -28,20 +29,15 @@ func init() {
 // ── Mock Services ────────────────────────────────────────
 
 type mockUserService struct {
-	registerFn      func(ctx context.Context, phone, nickname string) (*user.User, error)
-	loginFn         func(ctx context.Context, phone, code string) (string, string, error)
+	googleLoginFn   func(ctx context.Context, info *user.GoogleUserInfo) (string, string, error)
 	getProfileFn    func(ctx context.Context, userID uuid.UUID) (*user.User, error)
 	getHistoryFn    func(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*user.HistoryItem, int64, error)
 	addFavoriteFn   func(ctx context.Context, fav *user.Favorite) error
 	listFavoritesFn func(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*user.Favorite, int64, error)
 }
 
-func (m *mockUserService) Register(ctx context.Context, phone, nickname string) (*user.User, error) {
-	return m.registerFn(ctx, phone, nickname)
-}
-
-func (m *mockUserService) Login(ctx context.Context, phone, code string) (string, string, error) {
-	return m.loginFn(ctx, phone, code)
+func (m *mockUserService) GoogleLogin(ctx context.Context, info *user.GoogleUserInfo) (string, string, error) {
+	return m.googleLoginFn(ctx, info)
 }
 
 func (m *mockUserService) GetProfile(ctx context.Context, userID uuid.UUID) (*user.User, error) {
@@ -190,79 +186,27 @@ func getRequest(r *gin.Engine, path string) *httptest.ResponseRecorder {
 
 // ── UserHandler Tests ────────────────────────────────────
 
-func TestUserHandler_Login_Success(t *testing.T) {
-	svc := &mockUserService{
-		loginFn: func(_ context.Context, phone, code string) (string, string, error) {
-			return "access-token", "refresh-token", nil
-		},
-	}
-	handler := NewUserHandler(svc)
+func TestUserHandler_GoogleLogin_BadJSON(t *testing.T) {
+	handler := NewUserHandler(&mockUserService{}, config.GoogleOAuthConfig{})
 
 	r := gin.New()
-	r.POST("/login", handler.Login)
-
-	w := postJSON(r, "/login", map[string]string{"phone": "13800138000", "code": "1234"})
-
-	assert.Equal(t, http.StatusOK, w.Code)
-
-	var resp common.APIResponse
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	assert.Equal(t, "OK", resp.Code)
-}
-
-func TestUserHandler_Login_BadJSON(t *testing.T) {
-	handler := NewUserHandler(&mockUserService{})
-
-	r := gin.New()
-	r.POST("/login", handler.Login)
+	r.POST("/auth/google/callback", handler.GoogleLogin)
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/login", bytes.NewReader([]byte(`{invalid`)))
+	req := httptest.NewRequest("POST", "/auth/google/callback", bytes.NewReader([]byte(`{invalid`)))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestUserHandler_Login_ServiceError(t *testing.T) {
-	svc := &mockUserService{
-		loginFn: func(_ context.Context, _, _ string) (string, string, error) {
-			return "", "", errors.New("user not found")
-		},
-	}
-	handler := NewUserHandler(svc)
+func TestUserHandler_GoogleLogin_MissingIDToken(t *testing.T) {
+	handler := NewUserHandler(&mockUserService{}, config.GoogleOAuthConfig{})
 
 	r := gin.New()
-	r.POST("/login", handler.Login)
+	r.POST("/auth/google/callback", handler.GoogleLogin)
 
-	w := postJSON(r, "/login", map[string]string{"phone": "13800138000", "code": "1234"})
-
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
-func TestUserHandler_Register_Success(t *testing.T) {
-	svc := &mockUserService{
-		registerFn: func(_ context.Context, phone, nickname string) (*user.User, error) {
-			return &user.User{ID: uuid.New(), Phone: phone, Nickname: nickname}, nil
-		},
-	}
-	handler := NewUserHandler(svc)
-
-	r := gin.New()
-	r.POST("/register", handler.Register)
-
-	w := postJSON(r, "/register", map[string]string{"phone": "13800138000", "nickname": "Alice"})
-
-	assert.Equal(t, http.StatusCreated, w.Code)
-}
-
-func TestUserHandler_Register_MissingField(t *testing.T) {
-	handler := NewUserHandler(&mockUserService{})
-
-	r := gin.New()
-	r.POST("/register", handler.Register)
-
-	w := postJSON(r, "/register", map[string]string{"phone": "13800138000"}) // missing nickname
+	w := postJSON(r, "/auth/google/callback", map[string]string{}) // missing id_token
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -274,7 +218,7 @@ func TestUserHandler_GetProfile_Success(t *testing.T) {
 			return &user.User{ID: id, Nickname: "Bob"}, nil
 		},
 	}
-	handler := NewUserHandler(svc)
+	handler := NewUserHandler(svc, config.GoogleOAuthConfig{})
 
 	r := gin.New()
 	r.GET("/profile", func(c *gin.Context) {
@@ -289,7 +233,7 @@ func TestUserHandler_GetProfile_Success(t *testing.T) {
 }
 
 func TestUserHandler_GetProfile_NoUserID(t *testing.T) {
-	handler := NewUserHandler(&mockUserService{})
+	handler := NewUserHandler(&mockUserService{}, config.GoogleOAuthConfig{})
 
 	r := gin.New()
 	r.GET("/profile", handler.GetProfile)

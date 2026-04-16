@@ -67,6 +67,10 @@ auth:
   jwt_secret: "change-me-in-production"
   access_token_ttl: 30m
   refresh_token_ttl: 168h           # 7 days
+  google_oauth:
+    client_id: ""                    # Google Cloud Console → OAuth 2.0 Client ID
+    client_secret: ""
+    redirect_uri: "http://localhost:3001"
 
 ratelimit:
   authenticated_rpm: 60              # 已认证用户 60 次/分钟

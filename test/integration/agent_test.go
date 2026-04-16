@@ -57,22 +57,33 @@ func TestUserServiceRegisterIntegration(t *testing.T) {
 	transactor := mysqlrepo.NewTransactor(integrationDB)
 
 	svc := user.NewService(userRepo, favoriteRepo, historyRepo, transactor, integrationAuthConfig())
-	phone := fmt.Sprintf("136%08d", time.Now().UnixNano()%100000000)
+	googleID := fmt.Sprintf("google-%d", time.Now().UnixNano()%100000000)
 
-	u, err := svc.Register(ctx, phone, "tx-user")
+	info := &user.GoogleUserInfo{
+		GoogleID:  googleID,
+		Email:     googleID + "@gmail.com",
+		Name:      "tx-user",
+		AvatarURL: "",
+	}
+	access, refresh, err := svc.GoogleLogin(ctx, info)
 	require.NoError(t, err)
-	require.NotNil(t, u)
+	require.NotEmpty(t, access)
+	require.NotEmpty(t, refresh)
 
-	gotByID, err := userRepo.GetByID(ctx, u.ID)
+	// Verify via GetByGoogleID
+	gotByGID, err := userRepo.GetByGoogleID(ctx, googleID)
 	require.NoError(t, err)
-	assert.Equal(t, phone, gotByID.Phone)
+	assert.Equal(t, "tx-user", gotByGID.Nickname)
 
-	historyItems, total, err := historyRepo.ListByUser(ctx, u.ID, 0, 10)
+	gotByID, err := userRepo.GetByID(ctx, gotByGID.ID)
+	require.NoError(t, err)
+	assert.Equal(t, googleID, gotByID.GoogleID)
+
+	historyItems, total, err := historyRepo.ListByUser(ctx, gotByID.ID, 0, 10)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), total)
 	require.Len(t, historyItems, 1)
 	assert.Equal(t, "register", historyItems[0].ActionType)
-	assert.Equal(t, "用户注册", historyItems[0].Query)
 }
 
 func TestFavoriteRepositoryIntegration(t *testing.T) {

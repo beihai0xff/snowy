@@ -124,33 +124,20 @@ paths:
         '200':
           description: 成功
 
-  /auth/login:
+  /auth/google/callback:
     post:
-      summary: 登录
+      summary: Google OAuth 登录
+      description: 前端传入 Google ID Token，后端验证后签发 JWT token 对。新用户自动注册。
       tags: [Auth]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginRequest'
+              $ref: '#/components/schemas/GoogleLoginRequest'
       responses:
         '200':
           description: 成功
-
-  /auth/register:
-    post:
-      summary: 注册
-      tags: [Auth]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegisterRequest'
-      responses:
-        '201':
-          description: 注册成功
 
   /user/profile:
     get:
@@ -195,20 +182,6 @@ paths:
       responses:
         '201':
           description: 收藏成功
-
-  /auth/send-code:
-    post:
-      summary: 发送验证码
-      tags: [Auth]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SendCodeRequest'
-      responses:
-        '200':
-          description: 成功
 
   /recommendations:
     get:
@@ -306,23 +279,13 @@ components:
         context:
           type: string
 
-    LoginRequest:
+    GoogleLoginRequest:
       type: object
-      required: [phone, code]
+      required: [id_token]
       properties:
-        phone:
+        id_token:
           type: string
-        code:
-          type: string
-
-    RegisterRequest:
-      type: object
-      required: [phone, nickname]
-      properties:
-        phone:
-          type: string
-        nickname:
-          type: string
+          description: Google ID Token from Google Sign-In
 
     FavoriteRequest:
       type: object
@@ -334,12 +297,5 @@ components:
         target_id:
           type: string
         title:
-          type: string
-
-    SendCodeRequest:
-      type: object
-      required: [phone]
-      properties:
-        phone:
           type: string
 

@@ -12,6 +12,8 @@ import (
 //nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.
 type userRow struct {
 	ID          uuid.UUID `gorm:"column:id"`
+	GoogleID    string    `gorm:"column:google_id"`
+	Email       string    `gorm:"column:email"`
 	Phone       string    `gorm:"column:phone"`
 	Nickname    string    `gorm:"column:nickname"`
 	Role        user.Role `gorm:"column:role"`
@@ -30,6 +32,8 @@ func newUserRow(u *user.User) *userRow {
 
 	return &userRow{
 		ID:          u.ID,
+		GoogleID:    u.GoogleID,
+		Email:       u.Email,
 		Phone:       u.Phone,
 		Nickname:    u.Nickname,
 		Role:        u.Role,
@@ -47,6 +51,8 @@ func (r *userRow) toDomain() *user.User {
 
 	return &user.User{
 		ID:          r.ID,
+		GoogleID:    r.GoogleID,
+		Email:       r.Email,
 		Phone:       r.Phone,
 		Nickname:    r.Nickname,
 		Role:        r.Role,

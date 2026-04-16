@@ -12,6 +12,7 @@ type Repository interface {
 	Create(ctx context.Context, u *User) error
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 	GetByPhone(ctx context.Context, phone string) (*User, error)
+	GetByGoogleID(ctx context.Context, googleID string) (*User, error)
 	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
 }
 

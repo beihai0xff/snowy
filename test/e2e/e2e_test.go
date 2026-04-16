@@ -32,7 +32,7 @@ func TestE2EHealthCheck(t *testing.T) {
 		Search:  handler.NewSearchHandler(nil),
 		Physics: handler.NewPhysicsHandler(nil),
 		Biology: handler.NewBiologyHandler(nil),
-		User:    handler.NewUserHandler(nil),
+		User:    handler.NewUserHandler(nil, config.GoogleOAuthConfig{}),
 	}, noopLimiter{})
 
 	server := httptest.NewServer(router)

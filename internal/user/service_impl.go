@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -20,7 +21,6 @@ type serviceImpl struct {
 	histRepo   HistoryRepository
 	transactor irepo.Transactor
 	authCfg    config.AuthConfig
-	verifier   VerificationCodeChecker
 }
 
 // NewService 创建用户域应用服务。
@@ -31,82 +31,65 @@ func NewService(
 	transactor irepo.Transactor,
 	authCfg config.AuthConfig,
 ) Service {
-	return NewServiceWithVerifier(repo, favRepo, histRepo, transactor, authCfg, NewNoopVerificationCodeChecker())
-}
-
-// NewServiceWithVerifier 创建带验证码校验器的用户域应用服务。
-func NewServiceWithVerifier(
-	repo Repository,
-	favRepo FavoriteRepository,
-	histRepo HistoryRepository,
-	transactor irepo.Transactor,
-	authCfg config.AuthConfig,
-	verifier VerificationCodeChecker,
-) Service {
-	if verifier == nil {
-		verifier = NewNoopVerificationCodeChecker()
-	}
-
 	return &serviceImpl{
 		repo:       repo,
 		favRepo:    favRepo,
 		histRepo:   histRepo,
 		transactor: transactor,
 		authCfg:    authCfg,
-		verifier:   verifier,
 	}
 }
 
-func (s *serviceImpl) Register(ctx context.Context, phone, nickname string) (*User, error) {
-	u := &User{
-		ID:          uuid.New(),
-		Phone:       phone,
-		Nickname:    nickname,
-		Role:        RoleStudent,
-		LastLoginAt: time.Now(),
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
-	}
-	history := &HistoryItem{
-		ID:         uuid.New(),
-		UserID:     u.ID,
-		ActionType: "register",
-		Query:      "用户注册",
-		CreatedAt:  u.CreatedAt,
+// GoogleLogin 通过 Google 用户信息查找或创建用户，返回 JWT token 对。
+func (s *serviceImpl) GoogleLogin(ctx context.Context, info *GoogleUserInfo) (string, string, error) {
+	if info == nil || info.GoogleID == "" {
+		return "", "", errors.New("google user info is required")
 	}
 
-	err := s.withTransaction(ctx, func(txCtx context.Context) error {
-		if err := s.repo.Create(txCtx, u); err != nil {
-			return fmt.Errorf("create user: %w", err)
+	// 尝试用 google_id 查找已有用户
+	u, err := s.repo.GetByGoogleID(ctx, info.GoogleID)
+	if err != nil {
+		// 用户不存在 — 自动注册
+		u = &User{
+			ID:          uuid.New(),
+			GoogleID:    info.GoogleID,
+			Email:       info.Email,
+			Nickname:    info.Name,
+			AvatarURL:   info.AvatarURL,
+			Role:        RoleStudent,
+			LastLoginAt: time.Now(),
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+		history := &HistoryItem{
+			ID:         uuid.New(),
+			UserID:     u.ID,
+			ActionType: "register",
+			Query:      "Google 账号注册",
+			CreatedAt:  u.CreatedAt,
 		}
 
-		if err := s.histRepo.Add(txCtx, history); err != nil {
-			return fmt.Errorf("add register history: %w", err)
+		txErr := s.withTransaction(ctx, func(txCtx context.Context) error {
+			if createErr := s.repo.Create(txCtx, u); createErr != nil {
+				return fmt.Errorf("create user: %w", createErr)
+			}
+
+			if histErr := s.histRepo.Add(txCtx, history); histErr != nil {
+				return fmt.Errorf("add register history: %w", histErr)
+			}
+
+			return nil
+		})
+		if txErr != nil {
+			return "", "", txErr
 		}
 
-		return nil
-	})
-	if err != nil {
-		return nil, err
+		slog.InfoContext(ctx, "user registered via google", "user_id", u.ID, "email", info.Email)
 	}
 
-	slog.InfoContext(ctx, "user registered", "user_id", u.ID, "phone", phone)
-
-	return u, nil
-}
-
-func (s *serviceImpl) Login(ctx context.Context, phone, code string) (string, string, error) {
-	if err := s.verifier.Verify(ctx, phone, code); err != nil {
-		return "", "", fmt.Errorf("verify login code: %w", err)
-	}
-
-	u, err := s.repo.GetByPhone(ctx, phone)
-	if err != nil {
-		return "", "", fmt.Errorf("get user by phone: %w", err)
-	}
-
-	if err := s.repo.UpdateLastLogin(ctx, u.ID); err != nil {
-		slog.WarnContext(ctx, "update last login failed", "error", err)
+	// 更新最后登录时间
+	if updateErr := s.repo.UpdateLastLogin(ctx, u.ID); updateErr != nil {
+		slog.WarnContext(ctx, "update last login failed", "error", updateErr)
 	}
 
 	accessToken, err := s.generateToken(u, s.authCfg.AccessTokenTTL)

@@ -44,7 +44,7 @@ func TestTransactor_Transaction_CommitsAcrossRepositories(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO `users`").
-		WithArgs(u.ID, u.Phone, u.Nickname, u.Role, u.AvatarURL, u.LastLoginAt, u.CreatedAt, u.UpdatedAt).
+		WithArgs(u.ID, u.GoogleID, u.Email, u.Phone, u.Nickname, u.Role, u.AvatarURL, u.LastLoginAt, u.CreatedAt, u.UpdatedAt).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("INSERT INTO `favorites`").
 		WithArgs(fav.ID, fav.UserID, fav.TargetType, fav.TargetID, fav.Title, fav.CreatedAt).
@@ -85,7 +85,7 @@ func TestTransactor_Transaction_RollsBackOnError(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO `users`").
-		WithArgs(u.ID, u.Phone, u.Nickname, u.Role, u.AvatarURL, u.LastLoginAt, u.CreatedAt, u.UpdatedAt).
+		WithArgs(u.ID, u.GoogleID, u.Email, u.Phone, u.Nickname, u.Role, u.AvatarURL, u.LastLoginAt, u.CreatedAt, u.UpdatedAt).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectRollback()
 
@@ -122,7 +122,7 @@ func TestTransactor_Transaction_ReusesExistingTransaction(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO `users`").
-		WithArgs(u.ID, u.Phone, u.Nickname, u.Role, u.AvatarURL, u.LastLoginAt, u.CreatedAt, u.UpdatedAt).
+		WithArgs(u.ID, u.GoogleID, u.Email, u.Phone, u.Nickname, u.Role, u.AvatarURL, u.LastLoginAt, u.CreatedAt, u.UpdatedAt).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 

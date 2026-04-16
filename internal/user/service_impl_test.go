@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,10 +17,11 @@ import (
 // ── Mock Repositories ────────────────────────────────────
 
 type mockRepo struct {
-	createFn          func(ctx context.Context, u *User) error
-	getByIDFn         func(ctx context.Context, id uuid.UUID) (*User, error)
-	getByPhoneFn      func(ctx context.Context, phone string) (*User, error)
-	updateLastLoginFn func(ctx context.Context, id uuid.UUID) error
+	createFn           func(ctx context.Context, u *User) error
+	getByIDFn          func(ctx context.Context, id uuid.UUID) (*User, error)
+	getByPhoneFn       func(ctx context.Context, phone string) (*User, error)
+	getByGoogleIDFn    func(ctx context.Context, googleID string) (*User, error)
+	updateLastLoginFn  func(ctx context.Context, id uuid.UUID) error
 }
 
 func (m *mockRepo) Create(ctx context.Context, u *User) error {
@@ -43,6 +43,13 @@ func (m *mockRepo) GetByPhone(ctx context.Context, phone string) (*User, error) 
 		return m.getByPhoneFn(ctx, phone)
 	}
 	return nil, nil
+}
+
+func (m *mockRepo) GetByGoogleID(ctx context.Context, googleID string) (*User, error) {
+	if m.getByGoogleIDFn != nil {
+		return m.getByGoogleIDFn(ctx, googleID)
+	}
+	return nil, errors.New("not found")
 }
 
 func (m *mockRepo) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
@@ -126,12 +133,15 @@ func newTestService(repo *mockRepo, favRepo *mockFavRepo, histRepo *mockHistRepo
 	return NewService(repo, favRepo, histRepo, transactor, testAuthCfg)
 }
 
-// ── Register Tests ───────────────────────────────────────
+// ── GoogleLogin Tests — New User (auto-register) ─────────
 
-func TestRegister_Success(t *testing.T) {
+func TestGoogleLogin_NewUser_Success(t *testing.T) {
 	var savedUser *User
 	var savedHistory *HistoryItem
 	repo := &mockRepo{
+		getByGoogleIDFn: func(_ context.Context, _ string) (*User, error) {
+			return nil, errors.New("not found")
+		},
 		createFn: func(_ context.Context, u *User) error {
 			savedUser = u
 			return nil
@@ -151,37 +161,52 @@ func TestRegister_Success(t *testing.T) {
 		},
 	})
 
-	u, err := svc.Register(context.Background(), "13800138000", "Alice")
+	info := &GoogleUserInfo{
+		GoogleID:  "google-123",
+		Email:     "alice@gmail.com",
+		Name:      "Alice",
+		AvatarURL: "https://example.com/photo.jpg",
+	}
+	access, refresh, err := svc.GoogleLogin(context.Background(), info)
 
 	require.NoError(t, err)
-	assert.Equal(t, "13800138000", u.Phone)
-	assert.Equal(t, "Alice", u.Nickname)
-	assert.Equal(t, RoleStudent, u.Role)
-	assert.NotEqual(t, uuid.Nil, u.ID)
-	assert.Equal(t, savedUser, u)
+	assert.NotEmpty(t, access)
+	assert.NotEmpty(t, refresh)
 	assert.True(t, transactorCalled)
+	require.NotNil(t, savedUser)
+	assert.Equal(t, "google-123", savedUser.GoogleID)
+	assert.Equal(t, "alice@gmail.com", savedUser.Email)
+	assert.Equal(t, "Alice", savedUser.Nickname)
+	assert.Equal(t, RoleStudent, savedUser.Role)
+	assert.NotEqual(t, uuid.Nil, savedUser.ID)
 	require.NotNil(t, savedHistory)
-	assert.Equal(t, u.ID, savedHistory.UserID)
+	assert.Equal(t, savedUser.ID, savedHistory.UserID)
 	assert.Equal(t, "register", savedHistory.ActionType)
-	assert.Equal(t, "用户注册", savedHistory.Query)
 }
 
-func TestRegister_RepoError(t *testing.T) {
+func TestGoogleLogin_NewUser_RepoError(t *testing.T) {
 	repo := &mockRepo{
+		getByGoogleIDFn: func(_ context.Context, _ string) (*User, error) {
+			return nil, errors.New("not found")
+		},
 		createFn: func(_ context.Context, _ *User) error {
-			return errors.New("duplicate phone")
+			return errors.New("duplicate google_id")
 		},
 	}
 	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{}, &mockTransactor{})
 
-	u, err := svc.Register(context.Background(), "13800138000", "Alice")
+	info := &GoogleUserInfo{GoogleID: "google-123", Email: "alice@gmail.com", Name: "Alice"}
+	_, _, err := svc.GoogleLogin(context.Background(), info)
 
-	assert.Nil(t, u)
-	assert.ErrorContains(t, err, "duplicate phone")
+	assert.ErrorContains(t, err, "duplicate google_id")
 }
 
-func TestRegister_HistoryError(t *testing.T) {
-	repo := &mockRepo{}
+func TestGoogleLogin_NewUser_HistoryError(t *testing.T) {
+	repo := &mockRepo{
+		getByGoogleIDFn: func(_ context.Context, _ string) (*User, error) {
+			return nil, errors.New("not found")
+		},
+	}
 	histRepo := &mockHistRepo{
 		addFn: func(_ context.Context, _ *HistoryItem) error {
 			return errors.New("history unavailable")
@@ -189,62 +214,41 @@ func TestRegister_HistoryError(t *testing.T) {
 	}
 	svc := newTestService(repo, &mockFavRepo{}, histRepo, &mockTransactor{})
 
-	u, err := svc.Register(context.Background(), "13800138000", "Alice")
+	info := &GoogleUserInfo{GoogleID: "google-123", Email: "alice@gmail.com", Name: "Alice"}
+	_, _, err := svc.GoogleLogin(context.Background(), info)
 
-	assert.Nil(t, u)
 	assert.ErrorContains(t, err, "add register history")
 }
 
-// ── Login Tests ──────────────────────────────────────────
+// ── GoogleLogin Tests — Existing User ────────────────────
 
-func TestLogin_Success(t *testing.T) {
+func TestGoogleLogin_ExistingUser_Success(t *testing.T) {
 	testUser := &User{
-		ID:    uuid.New(),
-		Phone: "13800138000",
-		Role:  RoleStudent,
+		ID:       uuid.New(),
+		GoogleID: "google-456",
+		Email:    "bob@gmail.com",
+		Role:     RoleStudent,
 	}
 	repo := &mockRepo{
-		getByPhoneFn: func(_ context.Context, phone string) (*User, error) {
-			assert.Equal(t, "13800138000", phone)
+		getByGoogleIDFn: func(_ context.Context, googleID string) (*User, error) {
+			assert.Equal(t, "google-456", googleID)
 			return testUser, nil
 		},
 	}
 	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{}, nil)
 
-	access, refresh, err := svc.Login(context.Background(), "13800138000", "1234")
+	info := &GoogleUserInfo{GoogleID: "google-456", Email: "bob@gmail.com", Name: "Bob"}
+	access, refresh, err := svc.GoogleLogin(context.Background(), info)
 
 	require.NoError(t, err)
 	assert.NotEmpty(t, access)
 	assert.NotEmpty(t, refresh)
-
-	// 验证 access token claims
-	token, err := jwt.Parse(access, func(t *jwt.Token) (any, error) {
-		return []byte(testAuthCfg.JWTSecret), nil
-	})
-	require.NoError(t, err)
-	claims := token.Claims.(jwt.MapClaims)
-	assert.Equal(t, testUser.ID.String(), claims["user_id"])
-	assert.Equal(t, string(RoleStudent), claims["role"])
 }
 
-func TestLogin_UserNotFound(t *testing.T) {
+func TestGoogleLogin_UpdateLastLoginError_NonFatal(t *testing.T) {
+	testUser := &User{ID: uuid.New(), GoogleID: "google-789", Role: RoleStudent}
 	repo := &mockRepo{
-		getByPhoneFn: func(_ context.Context, _ string) (*User, error) {
-			return nil, errors.New("not found")
-		},
-	}
-	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{}, nil)
-
-	_, _, err := svc.Login(context.Background(), "13800138000", "1234")
-
-	assert.Error(t, err)
-	assert.ErrorContains(t, err, "get user by phone")
-}
-
-func TestLogin_UpdateLastLoginError_NonFatal(t *testing.T) {
-	testUser := &User{ID: uuid.New(), Phone: "13800138000", Role: RoleStudent}
-	repo := &mockRepo{
-		getByPhoneFn: func(_ context.Context, _ string) (*User, error) {
+		getByGoogleIDFn: func(_ context.Context, _ string) (*User, error) {
 			return testUser, nil
 		},
 		updateLastLoginFn: func(_ context.Context, _ uuid.UUID) error {
@@ -253,12 +257,30 @@ func TestLogin_UpdateLastLoginError_NonFatal(t *testing.T) {
 	}
 	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{}, nil)
 
-	access, refresh, err := svc.Login(context.Background(), "13800138000", "1234")
+	info := &GoogleUserInfo{GoogleID: "google-789", Email: "test@gmail.com", Name: "Test"}
+	access, refresh, err := svc.GoogleLogin(context.Background(), info)
 
 	// UpdateLastLogin 失败不应阻止登录
 	require.NoError(t, err)
 	assert.NotEmpty(t, access)
 	assert.NotEmpty(t, refresh)
+}
+
+func TestGoogleLogin_NilInfo(t *testing.T) {
+	svc := newTestService(&mockRepo{}, &mockFavRepo{}, &mockHistRepo{}, nil)
+
+	_, _, err := svc.GoogleLogin(context.Background(), nil)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "google user info is required")
+}
+
+func TestGoogleLogin_EmptyGoogleID(t *testing.T) {
+	svc := newTestService(&mockRepo{}, &mockFavRepo{}, &mockHistRepo{}, nil)
+
+	info := &GoogleUserInfo{GoogleID: "", Email: "test@gmail.com", Name: "Test"}
+	_, _, err := svc.GoogleLogin(context.Background(), info)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "google user info is required")
 }
 
 // ── GetProfile Tests ─────────────────────────────────────

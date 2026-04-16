@@ -78,10 +78,9 @@ type BiologyAnalyzeReq struct {
 
 // ── User ─────────────────────────────────────────────────
 
-// LoginReq 登录请求。
-type LoginReq struct {
-	Phone string `binding:"required" json:"phone"`
-	Code  string `binding:"required" json:"code"`
+// GoogleLoginReq Google OAuth 登录请求 — 前端用 Google ID token 换取本平台 JWT。
+type GoogleLoginReq struct {
+	IDToken string `binding:"required" json:"id_token"`
 }
 
 // LoginResp 登录响应。
@@ -90,22 +89,11 @@ type LoginResp struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-// RegisterReq 注册请求。
-type RegisterReq struct {
-	Phone    string `binding:"required" json:"phone"`
-	Nickname string `binding:"required" json:"nickname"`
-}
-
 // FavoriteReq 收藏请求。
 type FavoriteReq struct {
 	TargetType string `binding:"required,oneof=search physics biology" json:"target_type"`
 	TargetID   string `binding:"required"                              json:"target_id"`
 	Title      string `binding:"required"                              json:"title"`
-}
-
-// SendCodeReq 发送验证码请求。
-type SendCodeReq struct {
-	Phone string `binding:"required,min=5,max=20" json:"phone"`
 }
 
 // RecommendationItem 首页推荐条目。

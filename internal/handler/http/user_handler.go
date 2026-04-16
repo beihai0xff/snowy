@@ -1,6 +1,8 @@
 package http
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -8,23 +10,26 @@ import (
 
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
+	"github.com/beihai0xff/snowy/internal/pkg/config"
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
 // UserHandler 用户 HTTP Handler。
 // 参考技术方案 §17.7 & §18A。
 type UserHandler struct {
-	userSvc user.Service
+	userSvc   user.Service
+	googleCfg config.GoogleOAuthConfig
 }
 
 // NewUserHandler 创建 UserHandler。
-func NewUserHandler(userSvc user.Service) *UserHandler {
-	return &UserHandler{userSvc: userSvc}
+func NewUserHandler(userSvc user.Service, googleCfg config.GoogleOAuthConfig) *UserHandler {
+	return &UserHandler{userSvc: userSvc, googleCfg: googleCfg}
 }
 
-// Login POST /api/v1/auth/login — 手机号+验证码登录。
-func (h *UserHandler) Login(c *gin.Context) {
-	var req dto.LoginReq
+// GoogleLogin POST /api/v1/auth/google/callback — Google OAuth 登录。
+// 前端传入 Google ID Token，后端验证后签发 JWT。
+func (h *UserHandler) GoogleLogin(c *gin.Context) {
+	var req dto.GoogleLoginReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
@@ -32,10 +37,18 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 
-	access, refresh, err := h.userSvc.Login(c.Request.Context(), req.Phone, req.Code)
+	info, err := h.verifyGoogleIDToken(req.IDToken)
 	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusUnauthorized, common.Fail(common.ErrUnauthorized.WithMessage("登录失败"), reqID))
+		c.JSON(http.StatusUnauthorized, common.Fail(common.ErrUnauthorized.WithMessage("Google 登录验证失败"), reqID))
+
+		return
+	}
+
+	access, refresh, err := h.userSvc.GoogleLogin(c.Request.Context(), info)
+	if err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
 
 		return
 	}
@@ -46,25 +59,46 @@ func (h *UserHandler) Login(c *gin.Context) {
 	}))
 }
 
-// Register POST /api/v1/auth/register — 注册。
-func (h *UserHandler) Register(c *gin.Context) {
-	var req dto.RegisterReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
-
-		return
-	}
-
-	u, err := h.userSvc.Register(c.Request.Context(), req.Phone, req.Nickname)
+// verifyGoogleIDToken 验证 Google ID Token 并提取用户信息。
+// 通过 Google tokeninfo 端点验证 token 的有效性和签发者。
+func (h *UserHandler) verifyGoogleIDToken(idToken string) (*user.GoogleUserInfo, error) {
+	resp, err := http.Get("https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken)
 	if err != nil {
-		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
+		return nil, fmt.Errorf("verify google token: %w", err)
+	}
+	defer resp.Body.Close()
 
-		return
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("google token verification failed: status %d", resp.StatusCode)
 	}
 
-	c.JSON(http.StatusCreated, common.Success(u))
+	var payload struct {
+		Sub           string `json:"sub"`
+		Email         string `json:"email"`
+		EmailVerified string `json:"email_verified"`
+		Name          string `json:"name"`
+		Picture       string `json:"picture"`
+		Aud           string `json:"aud"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return nil, fmt.Errorf("decode google token payload: %w", err)
+	}
+
+	// 验证 audience 匹配
+	if h.googleCfg.ClientID != "" && payload.Aud != h.googleCfg.ClientID {
+		return nil, fmt.Errorf("google token audience mismatch: got %s", payload.Aud)
+	}
+
+	if payload.Sub == "" {
+		return nil, fmt.Errorf("google token missing sub claim")
+	}
+
+	return &user.GoogleUserInfo{
+		GoogleID:  payload.Sub,
+		Email:     payload.Email,
+		Name:      payload.Name,
+		AvatarURL: payload.Picture,
+	}, nil
 }
 
 // GetProfile GET /api/v1/user/profile — 获取当前用户资料。
@@ -150,20 +184,6 @@ func (h *UserHandler) ListFavorites(c *gin.Context) {
 		PageSize: 20,
 		Items:    items,
 	}))
-}
-
-// SendCode POST /api/v1/auth/send-code — 发送验证码。
-func (h *UserHandler) SendCode(c *gin.Context) {
-	var req dto.SendCodeReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
-
-		return
-	}
-
-	// 当前为开发阶段，直接返回成功，不实际发送验证码。
-	c.JSON(http.StatusOK, common.Success(gin.H{"sent": true}))
 }
 
 // GetRecommendations GET /api/v1/recommendations — 首页推荐数据。
