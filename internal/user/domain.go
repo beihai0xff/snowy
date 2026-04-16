@@ -4,10 +4,14 @@
 package user
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+// ErrUserNotFound 用户不存在。
+var ErrUserNotFound = errors.New("user not found")
 
 // Role 用户角色。
 type Role string

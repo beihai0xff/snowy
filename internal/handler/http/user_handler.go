@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -62,7 +63,9 @@ func (h *UserHandler) GoogleLogin(c *gin.Context) {
 // verifyGoogleIDToken 验证 Google ID Token 并提取用户信息。
 // 通过 Google tokeninfo 端点验证 token 的有效性和签发者。
 func (h *UserHandler) verifyGoogleIDToken(idToken string) (*user.GoogleUserInfo, error) {
-	resp, err := http.Get("https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken)
+	verifyURL := "https://oauth2.googleapis.com/tokeninfo?id_token=" + url.QueryEscape(idToken)
+
+	resp, err := http.Get(verifyURL) //nolint:gosec // URL is constructed from a constant base + user-supplied token that is query-escaped.
 	if err != nil {
 		return nil, fmt.Errorf("verify google token: %w", err)
 	}
@@ -84,8 +87,12 @@ func (h *UserHandler) verifyGoogleIDToken(idToken string) (*user.GoogleUserInfo,
 		return nil, fmt.Errorf("decode google token payload: %w", err)
 	}
 
-	// 验证 audience 匹配
-	if h.googleCfg.ClientID != "" && payload.Aud != h.googleCfg.ClientID {
+	// 验证 audience 匹配 — ClientID 必须配置
+	if h.googleCfg.ClientID == "" {
+		return nil, fmt.Errorf("google oauth client_id not configured")
+	}
+
+	if payload.Aud != h.googleCfg.ClientID {
 		return nil, fmt.Errorf("google token audience mismatch: got %s", payload.Aud)
 	}
 

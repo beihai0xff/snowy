@@ -48,7 +48,12 @@ func (s *serviceImpl) GoogleLogin(ctx context.Context, info *GoogleUserInfo) (st
 
 	// 尝试用 google_id 查找已有用户
 	u, err := s.repo.GetByGoogleID(ctx, info.GoogleID)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrUserNotFound) {
+		// 数据库查询失败 — 不是"用户不存在"
+		return "", "", fmt.Errorf("lookup google user: %w", err)
+	}
+
+	if errors.Is(err, ErrUserNotFound) {
 		// 用户不存在 — 自动注册
 		u = &User{
 			ID:          uuid.New(),

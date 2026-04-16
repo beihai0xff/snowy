@@ -132,8 +132,8 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <div ref={googleBtnRef} />
           </div>
-        ) : (
-          /* Fallback when Google Client ID is not configured (dev mode) */
+        ) : process.env.NODE_ENV === 'development' ? (
+          /* Fallback when Google Client ID is not configured — only in development */
           <>
             <Divider>开发模式</Divider>
             <Button
@@ -149,6 +149,10 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
               开发环境未配置 NEXT_PUBLIC_GOOGLE_CLIENT_ID
             </Text>
           </>
+        ) : (
+          <Text type="warning" style={{ display: 'block' }}>
+            Google 登录未配置，请联系管理员
+          </Text>
         )}
       </div>
     </Modal>

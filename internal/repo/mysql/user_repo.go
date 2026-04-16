@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -56,6 +57,10 @@ func (r *userRepo) GetByGoogleID(ctx context.Context, googleID string) (*user.Us
 
 	err := dbFromContext(ctx, r.db).Where("google_id = ?", googleID).Take(row).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, user.ErrUserNotFound
+		}
+
 		return nil, fmt.Errorf("get user by google_id: %w", err)
 	}
 

@@ -49,7 +49,7 @@ func (m *mockRepo) GetByGoogleID(ctx context.Context, googleID string) (*User, e
 	if m.getByGoogleIDFn != nil {
 		return m.getByGoogleIDFn(ctx, googleID)
 	}
-	return nil, errors.New("not found")
+	return nil, ErrUserNotFound
 }
 
 func (m *mockRepo) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
@@ -140,7 +140,7 @@ func TestGoogleLogin_NewUser_Success(t *testing.T) {
 	var savedHistory *HistoryItem
 	repo := &mockRepo{
 		getByGoogleIDFn: func(_ context.Context, _ string) (*User, error) {
-			return nil, errors.New("not found")
+			return nil, ErrUserNotFound
 		},
 		createFn: func(_ context.Context, u *User) error {
 			savedUser = u
@@ -187,7 +187,7 @@ func TestGoogleLogin_NewUser_Success(t *testing.T) {
 func TestGoogleLogin_NewUser_RepoError(t *testing.T) {
 	repo := &mockRepo{
 		getByGoogleIDFn: func(_ context.Context, _ string) (*User, error) {
-			return nil, errors.New("not found")
+			return nil, ErrUserNotFound
 		},
 		createFn: func(_ context.Context, _ *User) error {
 			return errors.New("duplicate google_id")
@@ -204,7 +204,7 @@ func TestGoogleLogin_NewUser_RepoError(t *testing.T) {
 func TestGoogleLogin_NewUser_HistoryError(t *testing.T) {
 	repo := &mockRepo{
 		getByGoogleIDFn: func(_ context.Context, _ string) (*User, error) {
-			return nil, errors.New("not found")
+			return nil, ErrUserNotFound
 		},
 	}
 	histRepo := &mockHistRepo{
@@ -281,6 +281,20 @@ func TestGoogleLogin_EmptyGoogleID(t *testing.T) {
 	_, _, err := svc.GoogleLogin(context.Background(), info)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "google user info is required")
+}
+
+func TestGoogleLogin_DBError(t *testing.T) {
+	repo := &mockRepo{
+		getByGoogleIDFn: func(_ context.Context, _ string) (*User, error) {
+			return nil, errors.New("db connection refused")
+		},
+	}
+	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{}, nil)
+
+	info := &GoogleUserInfo{GoogleID: "google-fail", Email: "fail@gmail.com", Name: "Fail"}
+	_, _, err := svc.GoogleLogin(context.Background(), info)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "lookup google user")
 }
 
 // ── GetProfile Tests ─────────────────────────────────────

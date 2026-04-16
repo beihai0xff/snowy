@@ -14,7 +14,7 @@ const mysqlTableOptions = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4
 
 type userSchema struct {
 	ID          uuid.UUID `gorm:"column:id;type:char(36);primaryKey"`
-	GoogleID    string    `gorm:"column:google_id;type:varchar(128);not null;uniqueIndex:uk_users_google_id;default:''"`
+	GoogleID    string    `gorm:"column:google_id;type:varchar(128);not null;index:idx_users_google_id;default:''"`
 	Email       string    `gorm:"column:email;type:varchar(255);not null;default:''"`
 	Phone       string    `gorm:"column:phone;type:varchar(20);not null;default:''"`
 	Nickname    string    `gorm:"column:nickname;type:varchar(64);not null;default:''"`

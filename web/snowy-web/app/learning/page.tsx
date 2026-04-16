@@ -175,7 +175,7 @@ export default function LearningPage() {
             <Avatar size={64} style={{ backgroundColor: '#1677ff' }} icon={<UserOutlined />} />
             <div>
               <Title level={4} style={{ margin: 0 }}>{profile.nickname}</Title>
-              <Text type="secondary">{profile.email}</Text>
+              <Text type="secondary">{profile.email || profile.nickname}</Text>
               <div style={{ marginTop: 4 }}>
                 <Tag color="blue">{profile.role}</Tag>
                 <Text type="secondary" style={{ fontSize: 12 }}>
