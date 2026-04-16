@@ -102,3 +102,24 @@ type FavoriteReq struct {
 	TargetID   string `binding:"required"                              json:"target_id"`
 	Title      string `binding:"required"                              json:"title"`
 }
+
+// SendCodeReq 发送验证码请求。
+type SendCodeReq struct {
+	Phone string `binding:"required" json:"phone"`
+}
+
+// RecommendationItem 首页推荐条目。
+type RecommendationItem struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Category    string `json:"category"` // search / physics / biology
+	Icon        string `json:"icon,omitempty"`
+}
+
+// RecommendationsResp 首页推荐响应。
+type RecommendationsResp struct {
+	HotTopics      []RecommendationItem `json:"hot_topics"`
+	PhysicsModels  []RecommendationItem `json:"physics_models"`
+	BiologyTopics  []RecommendationItem `json:"biology_topics"`
+}

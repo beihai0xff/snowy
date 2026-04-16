@@ -49,7 +49,11 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 	{
 		auth.POST("/login", h.User.Login)
 		auth.POST("/register", h.User.Register)
+		auth.POST("/send-code", h.User.SendCode)
 	}
+
+	// ── 首页推荐（无需认证）─────────────────────────────
+	v1.GET("/recommendations", h.User.GetRecommendations)
 
 	// ── Agent 接口 ─────────────────────────────────────
 	agent := v1.Group("/agent")
@@ -88,6 +92,7 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 		user.GET("/user/profile", h.User.GetProfile)
 		user.GET("/history", h.User.GetHistory)
 		user.POST("/favorites", h.User.AddFavorite)
+		user.GET("/favorites", h.User.ListFavorites)
 	}
 
 	return r
