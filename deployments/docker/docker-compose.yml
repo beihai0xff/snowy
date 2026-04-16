@@ -233,6 +233,22 @@ services:
         condition: service_healthy
     command: ["--config", "configs/config.docker.yaml"]
 
+  # ──────────────────────────────────────────────
+  # Snowy Web — 前端 Nginx 服务
+  # ──────────────────────────────────────────────
+  snowy-web:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.web
+    image: snowy-web:latest
+    container_name: snowy-web
+    restart: unless-stopped
+    ports:
+      - "3001:80"
+    depends_on:
+      snowy-api:
+        condition: service_healthy
+
 volumes:
   mysql_data:
     driver: local

@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Snowy Web 前端
 
-## Getting Started
+面向高中生的 AIGC 学习平台 — 知识检索、物理建模、生物建模。
 
-First, run the development server:
+## 技术栈
+
+- **框架**: Next.js 16 + TypeScript
+- **UI**: Ant Design 6 + @ant-design/icons
+- **状态管理**: Zustand
+- **图表**: ECharts (echarts-for-react)
+- **流程图**: React Flow (@xyflow/react)
+- **部署**: 静态导出 + Nginx Docker 容器
+
+## 页面结构
+
+| 路由 | 页面 | 说明 |
+|------|------|------|
+| `/` | 首页 | 搜索入口、推荐卡片、快捷入口 |
+| `/search` | 知识检索 | 搜索、筛选、结果、引用、关联问题 |
+| `/physics` | 物理建模 | 题目解析、推导步骤、2D 图表、参数调节 |
+| `/biology` | 生物建模 | 概念识别、过程拆解、结构图/流程图 |
+| `/learning` | 学习中心 | 用户信息、历史记录、收藏内容 |
+
+## 本地开发
 
 ```bash
+# 安装依赖
+npm install
+
+# 启动开发服务器 (localhost:3000)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# 或从项目根目录
+make web-dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 构建
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# 静态导出到 out/
+npm run build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# 或从项目根目录
+make web-build
+```
 
-## Learn More
+## Docker 部署
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# 从项目根目录构建前端镜像
+make docker-build-web
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# 或使用 docker compose 启动全部服务
+make docker-up
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+前端容器通过 Nginx 反向代理 `/api/` 到 `snowy-api:8080`，访问地址 `http://localhost:3001`。
 
-## Deploy on Vercel
+## API 对接
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+API 客户端位于 `lib/api.ts`，统一处理：
+- Token 注入 (Bearer JWT)
+- 响应解包 (`{code, message, data, request_id}`)
+- 错误映射
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+环境变量 `NEXT_PUBLIC_API_BASE` 可覆盖 API 基础路径（默认 `/api/v1`）。
+
