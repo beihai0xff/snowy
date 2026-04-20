@@ -3,11 +3,8 @@
 set -euo pipefail
 
 echo "▸ Starting infrastructure..."
-make docker-up
-
-echo "▸ Running GORM migrations..."
-make migrate-up || true
+make bootstrap
 
 echo "▸ Starting API server..."
-make run-api
+exec make run-api
 

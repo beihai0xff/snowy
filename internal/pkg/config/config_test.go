@@ -1,9 +1,12 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDatabaseConfig_DSN(t *testing.T) {
@@ -50,4 +53,23 @@ func TestServerConfig_Addr(t *testing.T) {
 		cfg := ServerConfig{Host: tt.host, Port: tt.port}
 		assert.Equal(t, tt.want, cfg.Addr())
 	}
+}
+
+func TestLoad_EnvOverride(t *testing.T) {
+	t.Setenv("SNOWY_DATABASE_HOST", "127.0.0.1")
+	t.Setenv("SNOWY_REDIS_ADDR", "127.0.0.1:6379")
+
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(`database:
+  host: "localhost"
+  port: 3306
+redis:
+  addr: "localhost:6379"
+`), 0o600))
+
+	cfg, err := Load(configPath)
+	require.NoError(t, err)
+
+	assert.Equal(t, "127.0.0.1", cfg.Database.Host)
+	assert.Equal(t, "127.0.0.1:6379", cfg.Redis.Addr)
 }

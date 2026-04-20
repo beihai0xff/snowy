@@ -71,11 +71,34 @@ snowy/
 - Docker & Docker Compose
 - Make
 
-### 1. 启动基础设施
+### 1. 初始化本地开发环境（推荐）
+
+```bash
+make bootstrap
+```
+
+该命令会自动完成以下步骤：
+
+- 下载 Go 依赖
+- 启动基础设施容器
+- 等待 `MySQL` / `Redis` / `OpenSearch` / `MinIO` 健康检查通过
+- 自动执行 `GORM migration`
+
+其中 `make bootstrap` 本质上等价于依次执行：`make deps` → `make docker-up`。
+
+### 2. 仅启动基础设施
 
 ```bash
 make docker-up
 ```
+
+该命令现在会自动完成以下步骤：
+
+- 启动基础设施容器
+- 等待 `MySQL` / `Redis` / `OpenSearch` / `MinIO` 健康检查通过
+- 自动执行 `GORM migration`
+
+注意：`make docker-up` 只会启动基础设施相关容器，不会自动启动 `snowy-api` / `snowy-worker` / `snowy-web` 应用容器。
 
 将启动以下服务：
 
@@ -85,15 +108,10 @@ make docker-up
 | Redis | `localhost:6379` |
 | OpenSearch | `localhost:9200` |
 | OpenSearch Dashboards | `localhost:5601` |
+| MinIO API | `localhost:9000` |
 | MinIO Console | `localhost:9001` |
 | Prometheus | `localhost:9090` |
 | Grafana | `localhost:3000` |
-
-### 2. 执行数据库迁移
-
-```bash
-make migrate-up
-```
 
 ### 3. 编译 & 运行
 
@@ -101,25 +119,29 @@ make migrate-up
 # 编译全部
 make build
 
-# 本地运行 API 服务
-make run-api
-
-# 本地运行 Worker 服务
-make run-worker
-
-# 一键开发（启动基础设施 + 运行 API）
+# 一键开发（启动基础设施 + 本地运行 API）
 make dev
 ```
+
+说明：
+
+- `make dev` 会先执行 `make bootstrap`（下载依赖 + 启动基础设施 + 迁移），再本地运行 API 服务
 
 ### 4. 构建 Docker 镜像
 
 ```bash
-# 构建 api + worker 镜像
+# 构建 api + worker + web 镜像
 make docker-build
 
-# 以容器方式运行（自动加入基础设施网络）
-make docker-run-api
+# 通过 docker compose 一键启动 API / Worker / Web
+make docker-run
 ```
+
+说明：
+
+- `make docker-run` 会一次启动 `snowy-api` / `snowy-worker` / `snowy-web`
+- 该目标会先确保基础设施已启动、健康检查通过，并完成 MySQL migration
+- 应用容器通过 Docker Compose 网络以服务名（`mysql` / `redis` / `opensearch` / `minio`）访问基础设施
 
 ### 5. 查看全部 Make 目标
 

@@ -1,14 +1,5 @@
 # ============================================================
-#  Snowy Makefile
-#  参考技术方案 §7 工程结构 & §6 技术栈选型
-#
-#  用法:
-#    make help          — 查看所有可用目标
-#    make build         — 编译全部 Go 二进制
-#    make test          — 运行测试
-#    make docker-up     — 启动基础设施 (MySQL/Redis/OpenSearch/MinIO/...)
-#    make docker-build  — 构建应用 Docker 镜像
-#    make run-api       — 本地运行 API 服务
+#  Snowy Makefile — run `make help` for available targets
 # ============================================================
 
 # ── 项目元信息 ──────────────────────────────────────────────
@@ -34,6 +25,7 @@ LDFLAGS        := -s -w \
                   -X main.Commit=$(COMMIT)
 GOTEST_FLAGS   := -race -count=1 -timeout 120s
 TEST_DEPS_SERVICES := mysql redis opensearch minio
+INFRA_SERVICES := mysql redis opensearch opensearch-dashboards minio minio-init prometheus grafana
 
 # ── Docker 参数 ─────────────────────────────────────────────
 DOCKER_COMPOSE := docker compose -f $(DEPLOY_DIR)/docker-compose.yml -p $(PROJECT_NAME)
@@ -47,9 +39,10 @@ GOLANGCI_CONFIG := $(ROOT_DIR)/.golangci.yml
 GOLANGCI_FMT_CMD := golangci-lint fmt -c $(GOLANGCI_CONFIG)
 GOLANGCI_RUN_CMD := golangci-lint run -c $(GOLANGCI_CONFIG) ./...
 MYSQL_MIGRATE_CMD := $(GO) run ./cmd/migrate -config $(CONFIG_DIR)/config.yaml
+WAIT_FOR_CONTAINER := bash $(ROOT_DIR)/scripts/wait-for-container.sh
 
 # ── 数据库 (本地开发默认值) ─────────────────────────────────
-DB_HOST        ?= localhost
+DB_HOST        ?= 127.0.0.1
 DB_PORT        ?= 3306
 DB_USER        ?= snowy
 DB_PASSWORD    ?= snowy_secret
@@ -167,13 +160,19 @@ test-deps-down:
 #  Docker — 基础设施 (docker-compose)
 # ============================================================
 
-.PHONY: docker-up docker-down docker-ps docker-logs docker-clean
+.PHONY: docker-up docker-down docker-ps docker-logs docker-clean bootstrap
 
-## docker-up: 启动全部基础设施 (MySQL/Redis/OpenSearch/MinIO/Prometheus/Grafana)
+## docker-up: 启动基础设施并等待健康检查通过后自动执行 GORM migration
 docker-up:
 	@echo "$(CYAN)▸ Starting infrastructure...$(RESET)"
-	$(DOCKER_COMPOSE) up -d
-	@echo "$(CYAN)✓ Infrastructure is up$(RESET)"
+	$(DOCKER_COMPOSE) up -d $(INFRA_SERVICES)
+	@echo "$(CYAN)▸ Waiting for infrastructure health checks...$(RESET)"
+	@$(WAIT_FOR_CONTAINER) snowy-mysql 90 2
+	@$(WAIT_FOR_CONTAINER) snowy-redis 60 2
+	@$(WAIT_FOR_CONTAINER) snowy-opensearch 120 2
+	@$(WAIT_FOR_CONTAINER) snowy-minio 60 2
+	@$(MAKE) migrate-up
+	@echo "$(CYAN)✓ Infrastructure is healthy and MySQL schema is migrated$(RESET)"
 	@echo ""
 	@echo "  MySQL      : localhost:3306"
 	@echo "  Redis      : localhost:6379"
@@ -194,7 +193,7 @@ docker-down:
 docker-ps:
 	$(DOCKER_COMPOSE) ps
 
-## docker-logs: 查看基础设施日志 (用法: make docker-logs SVC=redis)
+## docker-logs: 查看基础设施日志（示例 make docker-logs SVC=redis）
 docker-logs:
 	$(DOCKER_COMPOSE) logs -f $(SVC)
 
@@ -204,11 +203,14 @@ docker-clean:
 	$(DOCKER_COMPOSE) down -v --remove-orphans
 	@echo "$(YELLOW)✓ Infrastructure destroyed$(RESET)"
 
+## bootstrap: 下载依赖并启动基础设施，等待健康后自动迁移
+bootstrap: deps docker-up
+
 # ============================================================
 #  Docker — 应用镜像构建 & 运行
 # ============================================================
 
-.PHONY: docker-build docker-build-api docker-build-worker docker-build-web docker-run-api docker-run-worker docker-push
+.PHONY: docker-build docker-build-api docker-build-worker docker-build-web docker-run docker-push
 
 ## docker-build: 构建全部应用 Docker 镜像 (api + worker + web)
 docker-build: docker-build-api docker-build-worker docker-build-web
@@ -244,31 +246,15 @@ docker-build-web:
 		$(ROOT_DIR)
 	@echo "$(CYAN)✓ $(PROJECT_NAME)-web:latest$(RESET)"
 
-## docker-run-api: 以容器方式运行 API 服务 (连接本地基础设施)
-docker-run-api:
-	@echo "$(CYAN)▸ Running snowy-api container...$(RESET)"
-	docker run --rm -it \
-		--name snowy-api \
-		--network $(PROJECT_NAME)_default \
-		-p 8080:8080 \
-		-e DATABASE_URL="mysql://$(DB_USER):$(DB_PASSWORD)@tcp(snowy-mysql:3306)/$(DB_NAME)" \
-		-e REDIS_ADDR="snowy-redis:6379" \
-		-e OPENSEARCH_URL="http://snowy-opensearch:9200" \
-		-e MINIO_ENDPOINT="snowy-minio:9000" \
-		$(PROJECT_NAME)-api:latest
-
-## docker-run-worker: 以容器方式运行 Worker 服务 (连接本地基础设施)
-docker-run-worker:
-	@echo "$(CYAN)▸ Running snowy-worker container...$(RESET)"
-	docker run --rm -it \
-		--name snowy-worker \
-		--network $(PROJECT_NAME)_default \
-		-p 8081:8081 \
-		-e DATABASE_URL="mysql://$(DB_USER):$(DB_PASSWORD)@tcp(snowy-mysql:3306)/$(DB_NAME)" \
-		-e REDIS_ADDR="snowy-redis:6379" \
-		-e OPENSEARCH_URL="http://snowy-opensearch:9200" \
-		-e MINIO_ENDPOINT="snowy-minio:9000" \
-		$(PROJECT_NAME)-worker:latest
+## docker-run: 通过 docker compose 一键启动 API / Worker / Web（会先确保基础设施与迁移完成）
+docker-run: docker-up
+	@echo "$(GREEN)▸ Starting API, Worker, and Web services...$(RESET)"
+	$(DOCKER_COMPOSE) up -d snowy-api snowy-worker snowy-web
+	@echo "$(GREEN)✓ Services are running$(RESET)"
+	@echo ""
+	@echo "  API    : http://localhost:8080"
+	@echo "  Worker : http://localhost:3001"
+	@echo "  Web    : http://localhost:3000"
 
 ## docker-push: 推送应用镜像到远端仓库 (需设置 DOCKER_REG)
 docker-push:
@@ -282,28 +268,13 @@ endif
 #  Run — 本地开发运行
 # ============================================================
 
-.PHONY: run-api run-worker dev web-dev web-build
+.PHONY: dev web-dev web-build
 
-## run-api: 本地运行 API 服务 (需先 make docker-up 启动基础设施)
-run-api: build-api
-	@echo "$(GREEN)▸ Running snowy-api locally...$(RESET)"
-	DATABASE_URL="$(DATABASE_URL)" \
-	REDIS_ADDR="localhost:6379" \
-	OPENSEARCH_URL="http://localhost:9200" \
-	MINIO_ENDPOINT="localhost:9000" \
-	$(BIN_DIR)/snowy-api
 
-## run-worker: 本地运行 Worker 服务 (需先 make docker-up 启动基础设施)
-run-worker: build-worker
-	@echo "$(GREEN)▸ Running snowy-worker locally...$(RESET)"
-	DATABASE_URL="$(DATABASE_URL)" \
-	REDIS_ADDR="localhost:6379" \
-	OPENSEARCH_URL="http://localhost:9200" \
-	MINIO_ENDPOINT="localhost:9000" \
-	$(BIN_DIR)/snowy-worker
-
-## dev: 启动基础设施 + 本地运行 API 服务 (一键开发)
-dev: docker-up run-api
+## dev: 一键开发（先 make bootstrap，再本地运行 API 服务）
+dev: bootstrap
+	@echo "$(GREEN)▸ Running API service locally...$(RESET)"
+	$(GO) run $(CMD_DIR)/api
 
 ## web-dev: 启动前端开发服务器 (localhost:3000)
 web-dev:
@@ -325,10 +296,15 @@ web-build:
 ## migrate-up: 使用 GORM 初始化 / 同步 MySQL Schema
 migrate-up:
 	@echo "$(GREEN)▸ Running GORM migrations...$(RESET)"
+	SNOWY_DATABASE_HOST="$(DB_HOST)" \
+	SNOWY_DATABASE_PORT="$(DB_PORT)" \
+	SNOWY_DATABASE_USER="$(DB_USER)" \
+	SNOWY_DATABASE_PASSWORD="$(DB_PASSWORD)" \
+	SNOWY_DATABASE_NAME="$(DB_NAME)" \
 	$(MYSQL_MIGRATE_CMD)
 
-## migrate-reset: 重建 Docker MySQL 后重新应用 GORM Schema
-migrate-reset: docker-down docker-up migrate-up
+## migrate-reset: 重启基础设施并重新应用 GORM Schema
+migrate-reset: docker-down docker-up
 
 # ============================================================
 #  Code Generation
@@ -345,7 +321,7 @@ generate:
 #  Dependencies
 # ============================================================
 
-.PHONY: deps tidy vendor
+.PHONY: deps tidy
 
 ## deps: 下载 Go 依赖
 deps:
@@ -356,11 +332,6 @@ deps:
 tidy:
 	@echo "$(GREEN)▸ Tidying modules...$(RESET)"
 	$(GO) mod tidy
-
-## vendor: 创建 vendor 目录
-vendor:
-	@echo "$(GREEN)▸ Vendoring dependencies...$(RESET)"
-	$(GO) mod vendor
 
 # ============================================================
 #  Tools Installation

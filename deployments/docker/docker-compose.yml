@@ -32,9 +32,10 @@ services:
       --default-authentication-plugin=mysql_native_password
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "snowy", "-psnowy_secret"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 12
+      start_period: 20s
 
   # ──────────────────────────────────────────────
   # Redis — 缓存 / 会话上下文 / 限流计数 / Asynq 队列

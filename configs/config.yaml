@@ -8,7 +8,7 @@ server:
   shutdown_timeout: 10s
 
 database:
-  host: "localhost"
+  host: "127.0.0.1"
   port: 3306
   user: "snowy"
   password: "snowy_secret"
@@ -21,20 +21,20 @@ database:
   conn_max_lifetime: 30m
 
 redis:
-  addr: "localhost:6379"
+  addr: "127.0.0.1:6379"
   password: ""
   db: 0
   pool_size: 20
 
 opensearch:
   addresses:
-    - "http://localhost:9200"
+    - "http://127.0.0.1:9200"
   username: "admin"
   password: "admin"
   insecure_skip_verify: true
 
 minio:
-  endpoint: "localhost:9000"
+  endpoint: "127.0.0.1:9000"
   access_key: "minioadmin"
   secret_key: "minioadmin"
   bucket: "snowy"
@@ -83,7 +83,7 @@ token_budget:
   per_user_daily: 204800
 
 observability:
-  otel_endpoint: "localhost:4317"
+  otel_endpoint: "127.0.0.1:4317"
   prometheus_path: "/metrics"
   log_level: "info"                  # debug / info / warn / error
   log_format: "json"                 # json / text

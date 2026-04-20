@@ -9,7 +9,7 @@ server:
   shutdown_timeout: 10s
 
 database:
-  host: "snowy-mysql"
+  host: "mysql"
   port: 3306
   user: "snowy"
   password: "snowy_secret"
@@ -22,20 +22,20 @@ database:
   conn_max_lifetime: 30m
 
 redis:
-  addr: "snowy-redis:6379"
+  addr: "redis:6379"
   password: ""
   db: 0
   pool_size: 20
 
 opensearch:
   addresses:
-    - "http://snowy-opensearch:9200"
+    - "http://opensearch:9200"
   username: "admin"
   password: "admin"
   insecure_skip_verify: true
 
 minio:
-  endpoint: "snowy-minio:9000"
+  endpoint: "minio:9000"
   access_key: "snowy_admin"
   secret_key: "snowy_minio_secret"
   bucket: "snowy"

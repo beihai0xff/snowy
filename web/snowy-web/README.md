@@ -50,7 +50,7 @@ make web-build
 # 从项目根目录构建前端镜像
 make docker-build-web
 
-# 或使用 docker compose 启动全部服务
+# 或先从项目根目录启动后端依赖（会等待 MySQL healthy 并自动迁移）
 make docker-up
 ```
 

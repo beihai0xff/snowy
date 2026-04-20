@@ -12,8 +12,10 @@ vendor/
 *.swp
 *.swo
 
-# Frontend (独立构建)
-web/
+# Frontend（默认忽略，仅为 Web 镜像放行 snowy-web）
+web/*
+!web/snowy-web/
+!web/snowy-web/**
 
 # Test & Docs
 test/
