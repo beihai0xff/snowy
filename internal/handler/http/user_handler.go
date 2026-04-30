@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -25,7 +26,7 @@ func NewUserHandler(userSvc user.Service) *UserHandler {
 
 // GetProfile GET /api/v1/user/profile — 获取当前用户资料。
 func (h *UserHandler) GetProfile(c *gin.Context) {
-	uid, ok := resolveUserID(c)
+	uid, ok := h.resolveUserID(c)
 	if !ok {
 		return
 	}
@@ -41,9 +42,44 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, common.Success(profile))
 }
 
+func (h *UserHandler) ensureDefaultUser(ctx *gin.Context, uid uuid.UUID) bool {
+	if h.userSvc == nil {
+		return true
+	}
+
+	_, err := h.userSvc.GetProfile(ctx.Request.Context(), uid)
+	if err == nil {
+		return true
+	}
+
+	if uid.String() != common.DefaultUserID {
+		reqID := common.RequestIDFromContext(ctx.Request.Context())
+		ctx.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
+		return false
+	}
+
+	usr, ok := h.userSvc.(interface {
+		EnsureAnonymousUser(context.Context) (*user.User, error)
+	})
+	if !ok {
+		reqID := common.RequestIDFromContext(ctx.Request.Context())
+		ctx.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
+		return false
+	}
+
+	_, ensureErr := usr.EnsureAnonymousUser(ctx.Request.Context())
+	if ensureErr != nil {
+		reqID := common.RequestIDFromContext(ctx.Request.Context())
+		ctx.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(ensureErr.Error()), reqID))
+		return false
+	}
+
+	return true
+}
+
 // resolveUserID 从 context 中获取 userID 并解析为 uuid.UUID，
 // 若 context 中无 userID 则使用默认匿名用户。
-func resolveUserID(c *gin.Context) (uuid.UUID, bool) {
+func (h *UserHandler) resolveUserID(c *gin.Context) (uuid.UUID, bool) {
 	userID := common.UserIDFromContext(c.Request.Context())
 	if userID == "" {
 		userID = common.DefaultUserID
@@ -57,12 +93,16 @@ func resolveUserID(c *gin.Context) (uuid.UUID, bool) {
 		return uuid.Nil, false
 	}
 
+	if !h.ensureDefaultUser(c, uid) {
+		return uuid.Nil, false
+	}
+
 	return uid, true
 }
 
 // GetHistory GET /api/v1/history — 历史记录。
 func (h *UserHandler) GetHistory(c *gin.Context) {
-	uid, ok := resolveUserID(c)
+	uid, ok := h.resolveUserID(c)
 	if !ok {
 		return
 	}
@@ -85,7 +125,7 @@ func (h *UserHandler) GetHistory(c *gin.Context) {
 
 // ListFavorites GET /api/v1/favorites — 收藏列表。
 func (h *UserHandler) ListFavorites(c *gin.Context) {
-	uid, ok := resolveUserID(c)
+	uid, ok := h.resolveUserID(c)
 	if !ok {
 		return
 	}
@@ -142,7 +182,7 @@ func (h *UserHandler) AddFavorite(c *gin.Context) {
 		return
 	}
 
-	uid, ok := resolveUserID(c)
+	uid, ok := h.resolveUserID(c)
 	if !ok {
 		return
 	}

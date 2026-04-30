@@ -22,7 +22,7 @@ type ModelInfo struct {
 }
 
 // Router 模型路由接口。
-// 路由规则：默认走主模型(gpt5)，失败/超时/校验失败/预算超限 时切换备选(gemini3)。
+// 路由规则：默认走配置中的主模型；失败/超时/校验失败/预算超限时切换到配置中的备选模型。
 type Router interface {
 	// Route 根据任务类型路由到合适的模型。
 	Route(ctx context.Context, taskType TaskType) (*ModelInfo, error)

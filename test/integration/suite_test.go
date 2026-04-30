@@ -36,12 +36,6 @@ var (
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-	if strings.TrimSpace(os.Getenv("SNOWY_OPENSEARCH_INDEX")) == "" {
-		_ = os.Setenv("SNOWY_OPENSEARCH_INDEX", "snowy-content-integration")
-	}
-	if strings.TrimSpace(os.Getenv("SNOWY_OPENSEARCH_VECTOR_DIM")) == "" {
-		_ = os.Setenv("SNOWY_OPENSEARCH_VECTOR_DIM", "4")
-	}
 
 	db, err := mysqlrepo.NewDB(integrationDatabaseConfig())
 	if err != nil {
@@ -85,12 +79,6 @@ func TestMain(m *testing.M) {
 		closeIntegrationDB(integrationDB)
 		os.Exit(1)
 	}
-	if err := resetOpenSearch(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to reset opensearch state for integration tests: %v\n", err)
-		_ = integrationRedis.Close()
-		closeIntegrationDB(integrationDB)
-		os.Exit(1)
-	}
 	if err := resetMinIO(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to reset minio state for integration tests: %v\n", err)
 		_ = integrationRedis.Close()
@@ -101,7 +89,6 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	_ = resetMinIO(ctx)
-	_ = resetOpenSearch(ctx)
 	_ = resetRedis(ctx)
 	_ = integrationRedis.Close()
 	closeIntegrationDB(integrationDB)

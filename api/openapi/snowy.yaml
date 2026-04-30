@@ -2,7 +2,7 @@ openapi: "3.1.0"
 info:
   title: Snowy API
   description: |
-    Snowy AIGC 学习平台 API — 面向高中生的知识检索、物理建模、生物建模。
+    Snowy AIGC 学习平台 API — 面向高中生的知识检索、物理 / 3D 场景代码生成渲染、生物建模。
     参考技术方案 §17。
   version: "0.1.0"
 
@@ -84,7 +84,7 @@ paths:
 
   /modeling/physics/analyze:
     post:
-      summary: 物理解析
+      summary: 物理 / 3D 场景解析
       tags: [Physics]
       requestBody:
         required: true
@@ -96,16 +96,16 @@ paths:
         '200':
           description: 成功
 
-  /modeling/physics/simulate:
+  /modeling/render/generate:
     post:
-      summary: 物理调参
-      tags: [Physics]
+      summary: 前端渲染代码生成
+      tags: [Render]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PhysicsSimulateRequest'
+              $ref: '#/components/schemas/RenderGenerateRequest'
       responses:
         '200':
           description: 成功
@@ -230,17 +230,21 @@ components:
           type: string
         context:
           type: string
-
-    PhysicsSimulateRequest:
-      type: object
-      required: [model_type, parameters]
-      properties:
-        model_type:
+        target_scene:
           type: string
-        parameters:
+          enum: [physics_2d, physics_3d, auto]
+
+    RenderGenerateRequest:
+      type: object
+      required: [scene_spec]
+      properties:
+        scene_spec:
           type: object
-          additionalProperties:
-            type: number
+        context:
+          type: string
+        render_mode:
+          type: string
+          enum: [react_iframe, html_iframe]
 
     BiologyAnalyzeRequest:
       type: object

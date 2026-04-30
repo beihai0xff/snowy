@@ -16,7 +16,7 @@ const { Header, Content } = Layout;
 const menuItems = [
   { key: '/', icon: <HomeOutlined />, label: '首页' },
   { key: '/search', icon: <SearchOutlined />, label: '知识检索' },
-  { key: '/physics', icon: <ExperimentOutlined />, label: '物理建模' },
+  { key: '/physics', icon: <ExperimentOutlined />, label: '物理 / 3D 场景' },
   { key: '/biology', icon: <BranchesOutlined />, label: '生物建模' },
   { key: '/learning', icon: <BookOutlined />, label: '学习中心' },
 ];

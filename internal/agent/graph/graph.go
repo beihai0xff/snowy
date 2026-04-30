@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -17,6 +18,8 @@ import (
 	"github.com/beihai0xff/snowy/internal/agent/policy"
 	agentrouter "github.com/beihai0xff/snowy/internal/agent/router"
 	"github.com/beihai0xff/snowy/internal/agent/tool"
+	biologydomain "github.com/beihai0xff/snowy/internal/modeling/biology/domain"
+	physicsdomain "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 	searchdomain "github.com/beihai0xff/snowy/internal/repo/search"
@@ -39,6 +42,7 @@ type Builder struct {
 	messageRepo        nodepkg.MessageRepository
 	searchTool         *tool.SearchTool
 	physicsAnalyzeTool *tool.PhysicsAnalyzeTool
+	renderCodeTool     *tool.RenderCodeTool
 	biologyAnalyzeTool *tool.BiologyAnalyzeTool
 	citationTool       *tool.CitationTool
 	callbacks          []callback.NodeCallback
@@ -68,6 +72,10 @@ func WithSearchTool(searchTool *tool.SearchTool) Option {
 
 func WithPhysicsAnalyzeTool(physicsTool *tool.PhysicsAnalyzeTool) Option {
 	return func(b *Builder) { b.physicsAnalyzeTool = physicsTool }
+}
+
+func WithRenderCodeTool(renderTool *tool.RenderCodeTool) Option {
+	return func(b *Builder) { b.renderCodeTool = renderTool }
 }
 
 func WithBiologyAnalyzeTool(biologyTool *tool.BiologyAnalyzeTool) Option {
@@ -383,6 +391,32 @@ func (b *Builder) runPhysicsTool(ctx context.Context, state *nodepkg.State) erro
 
 	state.ToolOutputs["physics"] = output
 
+	model, ok := output.(*physicsdomain.PhysicsModel)
+	if !ok || model == nil || model.SceneSpec == nil {
+		return fmt.Errorf("physics analyze output missing scene spec")
+	}
+
+	if b.renderCodeTool == nil {
+		return errors.New("render code tool is nil")
+	}
+
+	renderOutput, err := b.runToolCall(
+		ctx,
+		state,
+		b.renderCodeTool.Name(),
+		func(runCtx context.Context) (any, error) {
+			return b.renderCodeTool.Run(runCtx, tool.RenderCodeInput{
+				SceneSpec:  model.SceneSpec,
+				RenderMode: string(model.SceneSpec.RenderMode),
+			})
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	state.ToolOutputs["render"] = renderOutput
+
 	return nil
 }
 
@@ -407,6 +441,32 @@ func (b *Builder) runBiologyTool(ctx context.Context, state *nodepkg.State) erro
 	}
 
 	state.ToolOutputs["biology"] = output
+
+	model, ok := output.(*biologydomain.BiologyModel)
+	if !ok || model == nil || model.SceneSpec == nil {
+		return nil
+	}
+
+	if b.renderCodeTool == nil {
+		return errors.New("render code tool is nil")
+	}
+
+	renderOutput, err := b.runToolCall(
+		ctx,
+		state,
+		b.renderCodeTool.Name(),
+		func(runCtx context.Context) (any, error) {
+			return b.renderCodeTool.Run(runCtx, tool.RenderCodeInput{
+				SceneSpec:  model.SceneSpec,
+				RenderMode: string(model.SceneSpec.RenderMode),
+			})
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	state.ToolOutputs["render"] = renderOutput
 
 	return nil
 }
@@ -452,17 +512,61 @@ func (b *Builder) runToolCall(
 	run func(context.Context) (any, error),
 ) (any, error) {
 	state.ToolCalls = append(state.ToolCalls, agent.ToolCall{Tool: toolName, Status: toolStatusRunning})
+	sendStreamEvent(state, agent.SSEEvent{Event: agent.SSEEventToolCall, Data: agent.ToolCall{Tool: toolName, Status: toolStatusRunning}})
+
+	stopHeartbeat := startToolHeartbeat(ctx, state, toolName)
+	defer stopHeartbeat()
 
 	output, err := run(ctx)
 	if err != nil {
 		state.ToolCalls[len(state.ToolCalls)-1].Status = toolStatusFailed
+		sendStreamEvent(state, agent.SSEEvent{Event: agent.SSEEventToolCall, Data: agent.ToolCall{Tool: toolName, Status: toolStatusFailed}})
 
 		return nil, err
 	}
 
 	state.ToolCalls[len(state.ToolCalls)-1].Status = toolStatusSuccess
+	sendStreamEvent(state, agent.SSEEvent{Event: agent.SSEEventToolCall, Data: agent.ToolCall{Tool: toolName, Status: toolStatusSuccess}})
 
 	return output, nil
+}
+
+func startToolHeartbeat(ctx context.Context, state *nodepkg.State, toolName string) func() {
+	if state == nil || !state.Stream || state.Events == nil {
+		return func() {}
+	}
+
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-done:
+				return
+			case <-ticker.C:
+				sendStreamEvent(state, agent.SSEEvent{
+					Event: agent.SSEEventHeartbeat,
+					Data:  map[string]any{"tool": toolName, "status": toolStatusRunning},
+				})
+			}
+		}
+	}()
+
+	return func() { close(done) }
+}
+
+func sendStreamEvent(state *nodepkg.State, event agent.SSEEvent) {
+	if state == nil || !state.Stream || state.Events == nil {
+		return
+	}
+
+	select {
+	case state.Events <- event:
+	default:
+	}
 }
 
 func graphState(current any, label string) (*nodepkg.State, error) {

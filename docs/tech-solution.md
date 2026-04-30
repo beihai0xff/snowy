@@ -14,15 +14,16 @@
 ### 2.1 项目目标
 Snowy 面向高中生打造一款 Web 端 AIGC 学习平台，首发能力覆盖：
 - 高中知识检索
-- 高中物理建模（推导 + 2D 图表 + 参数调节）
+- 高中物理 / 3D 场景建模（推导说明 + 前端代码生成 + 浏览器渲染 + 参数调节）
 - 高中生物建模（概念识别 + 关系抽取 + 过程拆解 + 实验变量分析）
 
 ### 2.2 技术目标
-围绕首发范围“知识检索 + 物理建模 + 生物建模”，构建一套以 Go 为核心后端的前后端分离系统，实现：
+围绕首发范围“知识检索 + 物理 / 3D 场景建模 + 生物建模”，构建一套以 Go 为核心后端的前后端分离系统，实现：
 - 统一索引课本与考纲、题库与讲义；
 - 基于 RAG 的高可信知识检索；
 - 基于 Agent 编排的大模型推理与工具调用；
-- 基于规则校验与结构化输出的物理推导；
+- 基于大模型生成受限前端代码，用于物理 / 3D 场景演示；
+- 基于代码白名单、AST 校验与浏览器沙箱的安全渲染；
 - 基于关系抽取、流程表达的生物建模；
 - 基于多模型路由的稳定性、质量与成本平衡；
 - 基于 monorepo 的前后端协同研发与统一交付。
@@ -30,7 +31,8 @@ Snowy 面向高中生打造一款 Web 端 AIGC 学习平台，首发能力覆盖
 ### 2.3 非目标
 当前阶段不纳入：
 - 原生移动端 App
-- 3D 可视化
+- 自研物理引擎
+- 自研通用 3D 建模编辑器
 - 复杂动画仿真引擎
 - 教师完整运营后台
 - 长周期个性化推荐系统
@@ -40,22 +42,20 @@ Snowy 面向高中生打造一款 Web 端 AIGC 学习平台，首发能力覆盖
 ## 3. 技术原则
 
 1. **引用优先**：所有回答优先基于检索结果，不允许无依据生成。
-2. **结构化优先**：检索结果、推导步骤、图表协议、关系图协议统一结构化输出。
+2. **协议优先**：检索结果、推导步骤、Render Manifest、关系图协议统一结构化输出。
 3. **Agent 可控优先**：工具调用、模型路由、上下文管理、回退逻辑必须可观测、可审计。
-4. **规则 + 模型协同**：大模型负责理解和生成，规则引擎负责校验和收敛。
+4. **模型生成 + 规则约束协同**：大模型负责理解与生成前端代码，规则引擎负责 AST、依赖白名单、危险 API 与结构合法性校验。
 5. **前后端分离**：前后端独立开发、独立部署，但放在同一 git repo。
 6. **Go 社区标准优先**：遵循 `cmd`、`internal`、`api`、`configs`、`web` 等常见结构。
-7. **可扩展优先**：为后续动画仿真、生物动态过程仿真、教师后台留扩展接口。
+7. **可扩展优先**：为后续更复杂 3D 场景、动画仿真、生物动态过程仿真留扩展接口。
 8. **生产可治理优先**：优先使用成熟、稳定、便于排障的基础设施与组件。
-
----
 
 ## 4. 技术调研与选型结论
 
 ## 4.1 Go 实现 Agent 服务的可行性结论
 Snowy 的 Agent 服务需要解决的问题不是“通用聊天”，而是：
 - 识别用户意图；
-- 编排知识检索、物理建模、生物建模等工具；
+- 编排知识检索、物理 / 3D 场景生成、生物建模等工具；
 - 管理多轮会话上下文；
 - 对接多模型供应商；
 - 执行结构化输出校验与回退；
@@ -213,6 +213,7 @@ Snowy 采用前后端分离架构，但前端与后端代码放在同一个 git 
 graph TB
     subgraph 前端层
         SnowyWeb["学生 Web 端<br/>(React / Next.js)"]
+        PreviewSandbox["Browser Preview Sandbox<br/>(iframe + postMessage)<br/>代码挂载 · 生命周期 · 错误回传"]
     end
 
     subgraph API接入层
@@ -238,7 +239,7 @@ graph TB
 
     subgraph 领域服务层
         SearchSvc["Search Service<br/>查询理解 · 多路召回 · 重排"]
-        PhysicsSvc["Physics Modeling<br/>条件抽取 · 推导 · 计算 · 图表"]
+        PhysicsSvc["Physics / Scene Service<br/>条件抽取 · 推导说明 · 代码生成 · Render Manifest"]
         BiologySvc["Biology Modeling<br/>概念识别 · 关系抽取 · 过程拆解"]
         UserSvc["User Service<br/>登录态 · 历史 · 收藏"]
         ContentSvc["Content Ingestion<br/>导入 · 清洗 · 切片 · 建索引"]
@@ -250,6 +251,7 @@ graph TB
         SearchAdapter["Search Adapter"]
         StorageAdapter["Storage Adapter"]
         CacheAdapter["Cache Adapter"]
+        CodeGuard["Code Guard<br/>AST 校验 · 依赖白名单 · 危险 API 检测"]
     end
 
     subgraph 数据与检索层
@@ -260,6 +262,8 @@ graph TB
     end
 
     SnowyWeb -->|"HTTP / SSE"| Gateway
+    SnowyWeb --> PreviewSandbox
+    PreviewSandbox -.->|"渲染状态 / 错误"| SnowyWeb
     Gateway --> AgentService
     Gateway --> UserSvc
 
@@ -272,6 +276,8 @@ graph TB
     SearchSvc --> EmbAdapter
     ContentSvc --> EmbAdapter
     ContentSvc --> SearchAdapter
+    PhysicsSvc --> CodeGuard
+    PhysicsSvc --> StorageAdapter
 
     LLMAdapter -.->|"OpenAI / Gemini API"| ExtLLM((外部 LLM))
     EmbAdapter -.->|"Embedding API"| ExtLLM
@@ -289,8 +295,8 @@ graph TB
 整体分层如下：
 
 1. **前端层**
-   - 学生 Web 端
-   - 负责页面渲染、交互状态、图表渲染、关系图/流程图渲染
+   - 学生 Web 端 + 浏览器预览沙箱运行时
+   - 负责页面渲染、交互状态、生成代码挂载、预览隔离、关系图/流程图渲染
 
 2. **API 接入层**
    - API Gateway / BFF
@@ -302,7 +308,7 @@ graph TB
 
 4. **领域服务层**
    - Search Service
-   - Physics Modeling Service
+   - Physics / Scene Service
    - Biology Modeling Service
    - User Service
    - Content Ingestion Service
@@ -313,6 +319,7 @@ graph TB
    - Search Adapter
    - Storage Adapter
    - Cache Adapter
+   - Code Guard
 
 6. **数据与检索层**
    - MySQL
@@ -438,7 +445,7 @@ graph TB
 
 用于：
 - 原始内容文件
-- 图表快照
+- 渲染代码包与预览快照
 - 结构图导出文件
 - 异步生成中间产物
 
@@ -450,7 +457,7 @@ graph TB
 用途：
 - 高复杂度推理
 - 结构化输出
-- 物理推导
+- 物理 / 3D 场景代码生成
 - 生物关系抽取
 
 ### 6.3.2 备选模型
@@ -481,7 +488,9 @@ graph TB
 - TypeScript
 - React / Next.js
 - Zustand
-- ECharts / Recharts（物理图表）
+- Browser Sandbox Runtime（iframe + postMessage）
+- Monaco Editor（可选，用于查看生成代码）
+- Three.js / SVG / Canvas / 原生 HTML（受控白名单依赖，当前应用镜像默认不内置 ECharts）
 - React Flow / AntV X6（生物关系图 / 流程图）
 
 ### 6.4.1 SSR 策略
@@ -540,11 +549,12 @@ snowy/
       query/
 
     modeling/
-      physics/                 # 物理建模域
+      physics/                 # 物理 / 3D 场景代码生成域
         service/
         domain/
-        calculator/
-        renderer/
+        prompt/
+        validator/
+        sandbox/
       biology/                 # 生物建模域
         service/
         domain/
@@ -613,7 +623,7 @@ snowy/
 - `cmd/worker`：异步任务 worker 启动入口
 - `internal/agent`：Agent 编排逻辑核心
 - `internal/search`：检索业务实现
-- `internal/modeling/physics`：物理建模实现
+- `internal/modeling/physics`：物理 / 3D 场景代码生成与渲染协议实现
 - `internal/modeling/biology`：生物建模实现
 - `api/openapi`：前后端共享 API 契约
 - `web/snowy-web`：前端独立应用
@@ -703,14 +713,15 @@ snowy/
 - 引用拼装
 - 检索日志记录
 
-## 9.4 Physics Modeling Service
+## 9.4 Physics / Scene Service
 职责：
 - 条件抽取
-- 模型识别
-- 推导步骤生成
-- 数值计算
-- 图表协议生成
-- 参数校验
+- 场景/模型识别
+- 推导说明生成
+- 前端代码生成
+- Render Manifest 组装
+- 代码安全校验
+- 参数 schema 生成
 
 ## 9.5 Biology Modeling Service
 职责：
@@ -781,11 +792,11 @@ flowchart TD
         S4 -->|失败| S6["Fallback gemini3"] --> S5
     end
 
-    subgraph PhysicsBranch ["物理建模链路"]
-        P1["PhysicsAnalyzeTool<br/>条件抽取"] --> P2["构造物理模板 Prompt"]
+    subgraph PhysicsBranch ["物理 / 3D 场景链路"]
+        P1["PhysicsAnalyzeTool<br/>条件抽取 / 场景识别"] --> P2["构造前端代码生成 Prompt"]
         P2 --> P3["调用主模型 gpt5"]
-        P3 --> P4{"公式 & 结构校验"}
-        P4 -->|通过| P5["数值计算 +<br/>图表协议生成"]
+        P3 --> P4{"代码安全 & 结构校验"}
+        P4 -->|通过| P5["Render Manifest +<br/>浏览器渲染代码"]
         P4 -->|失败| P6["Fallback gemini3"] --> P5
     end
 
@@ -812,7 +823,7 @@ flowchart TD
 内置工具建议包括：
 - `SearchTool`
 - `PhysicsAnalyzeTool`
-- `PhysicsSimulateTool`
+- `RenderCodeTool`
 - `BiologyAnalyzeTool`
 - `CitationTool`
 - `HistoryTool`
@@ -874,12 +885,12 @@ graph LR
         Intent -->|"biology"| BT["BioToolNode<br/>(eino/tool)"]
 
         ST --> RAG["RAGNode<br/>(ChatModel + Retriever)"]
-        PT --> PhyModel["PhysicsModelNode<br/>(ChatModel + 规则校验)"]
+        PT --> RenderCode["RenderCodeNode<br/>(ChatModel + 代码/安全校验)"]
         BT --> BioSearch["BioSearchNode<br/>(Retriever)"]
         BioSearch --> BioModel["BioModelNode<br/>(ChatModel + 关系校验)"]
 
         RAG --> Validate["ValidateNode<br/>(Schema 校验)"]
-        PhyModel --> Validate
+        RenderCode --> Validate
         BioModel --> Validate
 
         Validate -->|"pass"| Assemble["AssembleNode<br/>(结果组装)"]
@@ -911,6 +922,7 @@ graph LR
 | `IntentNode` | `eino/model` ChatModel + Structured Output | 半自研（Prompt 自写） |
 | `SearchToolNode` / `PhysicsToolNode` / `BioToolNode` | `eino/tool` | 直接使用，工具实现自研 |
 | `RAGNode` | `eino/model` + `eino/retriever` | 直接使用 |
+| `RenderCodeNode` | `eino/model` + 自定义代码校验器 | 半自研 |
 | `ValidateNode` | 自定义 Lambda | 业务自研 |
 | `FallbackNode` | `eino/model` + 自定义路由 | 半自研 |
 | `AssembleNode` | 自定义 Lambda | 业务自研 |
@@ -931,15 +943,15 @@ graph LR
 8. 若主模型失败或质量不足，切换 `gemini3`；
 9. 返回 `answer + citations + knowledge_tags + related_questions + confidence`。
 
-## 11.2 物理建模链路
-1. 前端提交题目文本或问题描述；
-2. Agent 判断为 `physics`；
-3. Physics Modeling Service 抽取条件、单位、已知/未知量；
-4. Agent 基于物理模板组织 prompt；
-5. 模型输出推导草案；
-6. Physics Modeling Service 做结构校验和公式校验；
-7. 计算模块生成数值结果与 2D 图表协议；
-8. 用户调节参数时，优先走计算链路，不重复调用大模型。
+## 11.2 物理 / 3D 场景建模链路
+1. 前端提交题目文本、场景描述或建模目标；
+2. Agent 判断为 `physics`（含物理 / 3D 场景模式）；
+3. Physics / Scene Service 抽取条件、单位、已知/未知量与交互参数；
+4. Search Service 可选召回相关课本、公式或示意内容作为 grounding；
+5. Agent 基于渲染 DSL、依赖白名单、沙箱限制组织 prompt；
+6. 模型输出推导说明、Render Manifest 与前端代码包；
+7. Code Guard 做 AST、依赖白名单、危险 API 与结构校验；
+8. 前端浏览器沙箱挂载代码并渲染；参数变化优先通过 props 更新，必要时再触发代码再生成。
 
 ## 11.3 生物建模链路
 1. 前端提交知识点描述、过程问题或实验题；
@@ -1076,7 +1088,7 @@ graph LR
    - 输出结构校验失败；
    - 预算阈值超限；
 3. 高风险场景必须做领域校验：
-   - 物理推导；
+   - 物理 / 3D 场景代码生成；
    - 生物关系抽取；
    - 实验变量识别。
 
@@ -1088,7 +1100,7 @@ graph LR
 
 ## 14.4 路由伪代码
 ```text
-if task_type in [search_answer, physics_derivation, biology_modeling]:
+if task_type in [search_answer, physics_rendering, biology_modeling]:
     try gpt5
     validate schema
     validate citations
@@ -1103,65 +1115,81 @@ else:
 
 ---
 
-## 15. 物理建模设计
+## 15. 物理 / 3D 场景代码生成设计
 
 ## 15.1 目标
-将自然语言题目转为结构化物理模型，并生成可校验、可渲染、可调参的结果。
+将自然语言题目、物理过程或 3D 场景描述转为可解释、可校验、可渲染的前端代码，并在浏览器沙箱中安全运行。
 
 ## 15.2 分层
-1. 语义层：理解题意
-2. 规则层：识别物理模型与公式
-3. 推理层：生成推导步骤
-4. 计算层：计算数值结果
-5. 可视化层：输出图表协议
+1. 语义层：理解题意、场景目标与交互要求
+2. 知识层：补充课本 / 公式 / 概念 grounding
+3. 生成层：生成推导说明、Render Manifest 与前端代码
+4. 校验层：执行 schema、AST、依赖白名单、危险 API 校验
+5. 运行层：在 iframe 沙箱中挂载并渲染代码
+6. 交互层：参数调节、错误回传、再生成
 
 ## 15.3 输出协议
 ```json
 {
-  "model_type": "projectile_motion",
+  "scene_type": "physics_projectile",
+  "render_mode": "react_iframe",
   "conditions": [
     {"name": "v0", "value": 20, "unit": "m/s"}
   ],
   "steps": [
     {
       "index": 1,
-      "title": "建立水平方向位移公式",
-      "content": "x = v0 * t"
+      "title": "建立水平位移关系",
+      "content": "忽略空气阻力时，水平方向满足 x = v0 * t"
     }
   ],
+  "render_manifest": {
+    "entry": "App.tsx",
+    "framework": "react",
+    "sandbox": "iframe",
+    "dependencies": ["native-html", "canvas"],
+    "props_schema": [
+      {"name": "v0", "type": "number", "default": 20, "min": 0, "max": 60, "step": 1}
+    ]
+  },
+  "code_bundle": {
+    "App.tsx": "...",
+    "styles.css": "..."
+  },
   "result_summary": "...",
   "warnings": ["忽略空气阻力"]
 }
 ```
 
-## 15.4 2D 图表协议
+## 15.4 浏览器渲染协议
 ```json
 {
-  "chart_type": "line",
-  "title": "位移-时间图像",
-  "x_axis": {"label": "t", "unit": "s"},
-  "y_axis": {"label": "x", "unit": "m"},
-  "series": [
-    {
-      "name": "位移",
-      "data": [[0, 0], [1, 20], [2, 40]]
-    }
-  ]
+  "sandbox": "iframe",
+  "mount_selector": "#snowy-preview-root",
+  "allowed_apis": ["requestAnimationFrame", "setTimeout", "postMessage"],
+  "blocked_apis": ["fetch", "XMLHttpRequest", "localStorage", "document.cookie"],
+  "lifecycle": {
+    "boot_timeout_ms": 5000,
+    "dispose_on_route_leave": true
+  },
+  "initial_props": {
+    "v0": 20
+  }
 }
 ```
 
-## 15.5 参数调节
-后端返回参数 schema：
-- 参数名
-- 默认值
-- 最小值
-- 最大值
-- 步长
-- 单位
+协议要求：
+- 代码必须以单入口组件形式输出；
+- 仅允许使用白名单依赖（如 Three.js、原生 Canvas / SVG / HTML；应用镜像默认优先原生实现）；
+- 禁止访问网络、Cookie、本地存储及宿主 DOM 敏感接口；
+- 所有渲染错误必须通过 `postMessage` 回传宿主页面；
+- 前端需保留“查看代码 / 重新生成 / 回退静态解释”兜底能力。
 
-调参优先走轻量计算接口，而非重复请求 LLM。
-
----
+## 15.5 参数调节与再生成
+- 参数变化优先走浏览器本地 props 更新，不必每次重新请求 LLM；
+- 当用户切换场景类型、交互结构或依赖集合时，才触发代码再生成；
+- 首次生成失败时回退到备选模型或静态解释 + 参数卡片；
+- 对 3D 场景，优先约束为轻量 WebGL / Three.js 模板，不引入通用建模编辑器能力。
 
 ## 16. 生物建模设计
 
@@ -1265,11 +1293,11 @@ else:
 ## 17.2 搜索接口
 `POST /api/v1/search/query`
 
-## 17.3 物理解析接口
+## 17.3 物理 / 3D 场景解析接口
 `POST /api/v1/modeling/physics/analyze`
 
-## 17.4 物理调参接口
-`POST /api/v1/modeling/physics/simulate`
+## 17.4 前端渲染代码生成接口
+`POST /api/v1/modeling/render/generate`
 
 ## 17.5 生物建模解析接口
 `POST /api/v1/modeling/biology/analyze`
@@ -1303,17 +1331,22 @@ data: {"doc_id": "doc_001", "snippet": "...", "score": 0.95}
 event: tool_call
 data: {"tool": "SearchTool", "status": "completed"}
 
-event: chart
-data: {"chart_type": "line", "title": "位移-时间图像", ...}
+event: render_code
+data: {"entry": "App.tsx", "files": ["App.tsx", "styles.css"], "render_mode": "react_iframe"}
+
+event: preview
+data: {"status": "ready", "sandbox": "iframe"}
 
 event: done
-data: {"confidence": 0.92, "token_usage": {"input": 1200, "output": 800}}
+data: {"confidence": 0.92, "token_usage": {"input": 1200, "output": 800}, "preview_ready": true}
 ```
 
 设计要点：
 - 每个 event 必须包含 `event` 类型和 `data` JSON 负载；
 - `done` 事件标志流结束，携带完整元数据；
-- 前端根据 event 类型渐进渲染不同区域；
+- `render_code` 事件用于向前端下发可挂载的 Render Manifest / 代码元数据；
+- `preview` 事件表示浏览器沙箱可开始挂载或已完成首帧渲染；
+- 前端根据 event 类型渐进渲染解释区、代码区、预览区；
 - 非流式模式直接返回完整 JSON 响应。
 
 ## 17.9 统一错误码体系
@@ -1339,6 +1372,8 @@ data: {"confidence": 0.92, "token_usage": {"input": 1200, "output": 800}}
 | `MODEL_TIMEOUT` | 504 | 大模型调用超时 |
 | `MODEL_UNAVAILABLE` | 503 | 大模型服务不可用 |
 | `SCHEMA_VALIDATION_FAILED` | 502 | 模型输出结构校验失败 |
+| `RENDER_VALIDATION_FAILED` | 502 | 生成代码未通过安全校验 |
+| `SANDBOX_RUNTIME_ERROR` | 200 | 浏览器沙箱运行失败（业务正常，附带降级内容） |
 | `LOW_CONFIDENCE` | 200 | 结果可信度不足（业务正常，附带提示） |
 | `CONDITION_INSUFFICIENT` | 200 | 题干条件不足，需补充 |
 | `RATE_LIMITED` | 429 | 请求频率超限 |
@@ -1346,6 +1381,7 @@ data: {"confidence": 0.92, "token_usage": {"input": 1200, "output": 800}}
 
 前端展示策略：
 - `LOW_CONFIDENCE`、`SEARCH_NO_RESULT`、`CONDITION_INSUFFICIENT`：展示友好提示 + 降级内容；
+- `RENDER_VALIDATION_FAILED`、`SANDBOX_RUNTIME_ERROR`：展示静态解释、错误原因与“重新生成”按钮；
 - `MODEL_TIMEOUT`、`MODEL_UNAVAILABLE`：展示"服务繁忙"提示 + 重试按钮；
 - `RATE_LIMITED`：展示"请求过于频繁"提示。
 
@@ -1361,6 +1397,7 @@ data: {"confidence": 0.92, "token_usage": {"input": 1200, "output": 800}}
 - `content_chunks`
 - `physics_models`
 - `physics_runs`
+- `render_artifacts`
 - `biology_models`
 - `biology_runs`
 - `concept_graph_snapshots`
@@ -1374,7 +1411,9 @@ data: {"confidence": 0.92, "token_usage": {"input": 1200, "output": 800}}
 - `content_documents`：原始文档元信息
 - `content_chunks`：切片内容与索引字段
 - `search_logs`：检索行为日志
-- `physics_runs`：物理建模运行结果
+- `physics_models`：物理 / 3D 场景规范与语义分析结果
+- `physics_runs`：物理 / 3D 代码生成运行结果
+- `render_artifacts`：可渲染代码包、Render Manifest 与预览快照
 - `biology_runs`：生物建模运行结果
 - `concept_graph_snapshots`：关系图/流程图快照
 - `agent_sessions`：Agent 会话
@@ -1544,7 +1583,8 @@ data: {"confidence": 0.92, "token_usage": {"input": 1200, "output": 800}}
 - 模型回退率
 - Tool 调用成功率
 - 引用覆盖率
-- 图表刷新耗时
+- 浏览器预览刷新耗时
+- 代码安全校验失败率
 - 生物关系抽取成功率
 - 流程图渲染成功率
 - Token 消耗（input / output / total，按模型、按用户、按全局）
@@ -1580,6 +1620,7 @@ Snowy 首发阶段推荐采用：
 - **GORM + go-sql-driver/mysql 作为数据库访问方案**
 - **Redis + Asynq 作为缓存与异步任务机制**
 - **OpenSearch 作为统一检索引擎**
+- **Browser Sandbox Runtime（iframe + postMessage）作为前端代码渲染容器**
 - **`gpt5` 主推理、`gemini3` 备选**
 - **OpenAI `text-embedding-3-large` 作为首选 Embedding 模型**
 - **JWT 鉴权 + Redis 滑动窗口限流**

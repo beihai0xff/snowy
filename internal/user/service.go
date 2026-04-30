@@ -20,8 +20,12 @@ type Service interface {
 	GoogleLogin(ctx context.Context, info *GoogleUserInfo) (accessToken, refreshToken string, err error)
 	// GetProfile 获取用户资料。
 	GetProfile(ctx context.Context, userID uuid.UUID) (*User, error)
+	// EnsureAnonymousUser 确保默认匿名用户存在。
+	EnsureAnonymousUser(ctx context.Context) (*User, error)
 	// GetHistory 获取历史记录。
 	GetHistory(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*HistoryItem, int64, error)
+	// AddHistory 添加历史记录。
+	AddHistory(ctx context.Context, item *HistoryItem) error
 	// AddFavorite 添加收藏。
 	AddFavorite(ctx context.Context, fav *Favorite) error
 	// ListFavorites 列出收藏。

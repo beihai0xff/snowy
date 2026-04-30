@@ -9,17 +9,24 @@ import (
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
 	biologysvc "github.com/beihai0xff/snowy/internal/modeling/biology/service"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
+	"github.com/beihai0xff/snowy/internal/user"
 )
 
 // BiologyHandler 生物建模 HTTP Handler。
 // 参考技术方案 §17.5。
 type BiologyHandler struct {
 	biologySvc biologysvc.BiologyService
+	userSvc    user.Service
 }
 
 // NewBiologyHandler 创建 BiologyHandler。
-func NewBiologyHandler(biologySvc biologysvc.BiologyService) *BiologyHandler {
-	return &BiologyHandler{biologySvc: biologySvc}
+func NewBiologyHandler(biologySvc biologysvc.BiologyService, userSvc ...user.Service) *BiologyHandler {
+	var svc user.Service
+	if len(userSvc) > 0 {
+		svc = userSvc[0]
+	}
+
+	return &BiologyHandler{biologySvc: biologySvc, userSvc: svc}
 }
 
 // Analyze POST /api/v1/modeling/biology/analyze — 生物建模解析。
@@ -40,5 +47,6 @@ func (h *BiologyHandler) Analyze(c *gin.Context) {
 		return
 	}
 
+	recordHistory(c, h.userSvc, "biology", req.Question)
 	c.JSON(http.StatusOK, common.Success(result))
 }

@@ -14,3 +14,31 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+.snowy-markdown .snowy-math-inline {
+  display: inline-flex;
+  align-items: baseline;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  vertical-align: -0.12em;
+}
+
+.snowy-markdown .snowy-math-block {
+  margin: 12px 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.snowy-markdown .snowy-math-block .katex-display {
+  margin: 0;
+}
+
+.snowy-markdown .snowy-markdown-divider {
+  height: 1px;
+  margin: 14px 0;
+  background: #f0f0f0;
+}

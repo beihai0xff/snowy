@@ -1,0 +1,3 @@
+The browser 'snowy-verify' is not open, please run open first
+
+  playwright-cli -s=snowy-verify open [params]

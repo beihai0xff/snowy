@@ -3,6 +3,8 @@
 // 参考技术方案 §16。
 package domain
 
+import physicsdomain "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
+
 // Concept 生物概念实体，参考技术方案 §16.3。
 type Concept struct {
 	Name string `json:"name"`
@@ -54,11 +56,12 @@ type DiagramSpec struct {
 
 // BiologyModel 生物建模完整结果，参考技术方案 §16.3。
 type BiologyModel struct {
-	Topic               string               `json:"topic"`
-	Concepts            []Concept            `json:"concepts"`
-	Relations           []Relation           `json:"relations"`
-	ProcessSteps        []ProcessStep        `json:"process_steps"`
-	ExperimentVariables *ExperimentVariables `json:"experiment_variables,omitempty"`
-	Diagram             *DiagramSpec         `json:"diagram,omitempty"`
-	ResultSummary       string               `json:"result_summary"`
+	Topic               string                   `json:"topic"`
+	Concepts            []Concept                `json:"concepts"`
+	Relations           []Relation               `json:"relations"`
+	ProcessSteps        []ProcessStep            `json:"process_steps"`
+	ExperimentVariables *ExperimentVariables     `json:"experiment_variables,omitempty"`
+	Diagram             *DiagramSpec             `json:"diagram,omitempty"`
+	SceneSpec           *physicsdomain.SceneSpec `json:"scene_spec,omitempty"`
+	ResultSummary       string                   `json:"result_summary"`
 }

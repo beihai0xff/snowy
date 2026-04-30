@@ -9,17 +9,24 @@ import (
 	"github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 	physicssvc "github.com/beihai0xff/snowy/internal/modeling/physics/service"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
+	"github.com/beihai0xff/snowy/internal/user"
 )
 
 // PhysicsHandler 物理建模 HTTP Handler。
 // 参考技术方案 §17.3 & §17.4。
 type PhysicsHandler struct {
 	physicsSvc physicssvc.PhysicsService
+	userSvc    user.Service
 }
 
 // NewPhysicsHandler 创建 PhysicsHandler。
-func NewPhysicsHandler(physicsSvc physicssvc.PhysicsService) *PhysicsHandler {
-	return &PhysicsHandler{physicsSvc: physicsSvc}
+func NewPhysicsHandler(physicsSvc physicssvc.PhysicsService, userSvc ...user.Service) *PhysicsHandler {
+	var svc user.Service
+	if len(userSvc) > 0 {
+		svc = userSvc[0]
+	}
+
+	return &PhysicsHandler{physicsSvc: physicsSvc, userSvc: svc}
 }
 
 // Analyze POST /api/v1/modeling/physics/analyze — 物理解析。
@@ -40,6 +47,7 @@ func (h *PhysicsHandler) Analyze(c *gin.Context) {
 		return
 	}
 
+	recordHistory(c, h.userSvc, "physics", req.Question)
 	c.JSON(http.StatusOK, common.Success(result))
 }
 

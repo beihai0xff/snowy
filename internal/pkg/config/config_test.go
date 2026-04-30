@@ -73,3 +73,65 @@ redis:
 	assert.Equal(t, "127.0.0.1", cfg.Database.Host)
 	assert.Equal(t, "127.0.0.1:6379", cfg.Redis.Addr)
 }
+
+func TestLoad_LLMEnvOverride(t *testing.T) {
+	t.Setenv("SNOWY_LLM_PRIMARY_PROVIDER", "mimo")
+	t.Setenv("SNOWY_LLM_PRIMARY_MODEL_PROVIDER", "mimo-env")
+	t.Setenv("SNOWY_LLM_PRIMARY_MODEL", "mimo-env-model")
+	t.Setenv("SNOWY_LLM_PRIMARY_MODEL_NAME", "mimo-env-model-name")
+	t.Setenv("SNOWY_LLM_PRIMARY_BASE_URL", "https://llm.example.test/v1")
+	t.Setenv("SNOWY_LLM_PRIMARY_BASEURL", "https://llm-baseurl.example.test/v1")
+	t.Setenv("SNOWY_LLM_FALLBACK_PROVIDER", "openai")
+	t.Setenv("SNOWY_LLM_FALLBACK_MODEL", "fallback-env-model")
+	t.Setenv("SNOWY_LLM_FALLBACK_BASE_URL", "https://fallback.example.test/v1")
+
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(`llm:
+  primary:
+    provider: "openai"
+    model_provider: "openai"
+    model: "file-model"
+    base_url: "https://file.example.test/v1"
+  fallback:
+    provider: "google"
+    model: "file-fallback-model"
+    base_url: "https://file-fallback.example.test/v1"
+`), 0o600))
+
+	cfg, err := Load(configPath)
+	require.NoError(t, err)
+
+	assert.Equal(t, "mimo", cfg.LLM.Primary.Provider)
+	assert.Equal(t, "mimo-env", cfg.LLM.Primary.ModelProvider)
+	assert.Equal(t, "mimo-env-model", cfg.LLM.Primary.Model)
+	assert.Equal(t, "mimo-env-model-name", cfg.LLM.Primary.EffectiveModel())
+	assert.Equal(t, "https://llm.example.test/v1", cfg.LLM.Primary.BaseURL)
+	assert.Equal(t, "https://llm-baseurl.example.test/v1", cfg.LLM.Primary.EffectiveBaseURL())
+	assert.Equal(t, "openai", cfg.LLM.Fallback.Provider)
+	assert.Equal(t, "fallback-env-model", cfg.LLM.Fallback.Model)
+	assert.Equal(t, "https://fallback.example.test/v1", cfg.LLM.Fallback.BaseURL)
+}
+
+func TestModelProviderConfig_EffectiveAliases(t *testing.T) {
+	cfg := ModelProviderConfig{
+		Model:               " file-model ",
+		ModelName:           " alias-model ",
+		BaseURL:             " https://file.example.test/v1 ",
+		BaseURLNoUnderscore: " https://alias.example.test/v1 ",
+	}
+
+	assert.Equal(t, "alias-model", cfg.EffectiveModel())
+	assert.Equal(t, "https://alias.example.test/v1", cfg.EffectiveBaseURL())
+}
+
+func TestEmbeddingConfig_EffectiveAliases(t *testing.T) {
+	cfg := EmbeddingConfig{
+		Model:               " file-embedding ",
+		ModelName:           " alias-embedding ",
+		BaseURL:             " https://file-embedding.example.test/v1 ",
+		BaseURLNoUnderscore: " https://alias-embedding.example.test/v1 ",
+	}
+
+	assert.Equal(t, "alias-embedding", cfg.EffectiveModel())
+	assert.Equal(t, "https://alias-embedding.example.test/v1", cfg.EffectiveBaseURL())
+}

@@ -58,7 +58,7 @@ func (a *StreamResponseAggregator) Response() *ChatResponse {
 
 func (a *StreamResponseAggregator) consumeIncrementalEvent(event SSEEvent) {
 	switch event.Event {
-	case SSEEventThinking, SSEEventDone:
+	case SSEEventThinking, SSEEventHeartbeat, SSEEventDone:
 	case SSEEventContent:
 		content, ok := stringValue(event.Data, "content", "text", "answer")
 		if ok {
@@ -74,7 +74,7 @@ func (a *StreamResponseAggregator) consumeIncrementalEvent(event SSEEvent) {
 		if ok {
 			a.upsertToolCall(toolCall)
 		}
-	case SSEEventChart, SSEEventDiagram:
+	case SSEEventDiagram, SSEEventRenderCode, SSEEventPreview:
 		if a.response.StructuredPayload == nil {
 			a.response.StructuredPayload = event.Data
 		}

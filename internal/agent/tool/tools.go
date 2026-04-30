@@ -34,9 +34,9 @@ type PhysicsAnalyzeInput struct {
 	SessionContext string
 }
 
-type PhysicsSimulateInput struct {
-	ModelType  physicsdomain.ModelType
-	Parameters map[string]float64
+type RenderCodeInput struct {
+	SceneSpec  *physicsdomain.SceneSpec
+	RenderMode string
 }
 
 type BiologyAnalyzeInput struct {
@@ -60,8 +60,10 @@ func NewSearchTool(searchService searchdomain.Service) *SearchTool {
 	return &SearchTool{searchService: searchService}
 }
 
-func (t *SearchTool) Name() string        { return "SearchTool" }
-func (t *SearchTool) Description() string { return "执行知识检索，返回多路召回结果" }
+func (t *SearchTool) Name() string { return "SearchTool" }
+func (t *SearchTool) Description() string {
+	return "直接调用大模型回答知识点问题，返回兼容 SearchResponse 的结构化结果"
+}
 func (t *SearchTool) Run(ctx context.Context, input any) (any, error) {
 	request, ok := input.(SearchInput)
 	if !ok {
@@ -85,8 +87,10 @@ func NewPhysicsAnalyzeTool(physicsService physicssvc.PhysicsService) *PhysicsAna
 	return &PhysicsAnalyzeTool{physicsService: physicsService}
 }
 
-func (t *PhysicsAnalyzeTool) Name() string        { return "PhysicsAnalyzeTool" }
-func (t *PhysicsAnalyzeTool) Description() string { return "抽取物理条件并识别物理模型" }
+func (t *PhysicsAnalyzeTool) Name() string { return "PhysicsAnalyzeTool" }
+func (t *PhysicsAnalyzeTool) Description() string {
+	return "抽取物理条件、识别场景并生成 scene_spec"
+}
 func (t *PhysicsAnalyzeTool) Run(ctx context.Context, input any) (any, error) {
 	request, ok := input.(PhysicsAnalyzeInput)
 	if !ok {
@@ -100,20 +104,22 @@ func (t *PhysicsAnalyzeTool) Run(ctx context.Context, input any) (any, error) {
 	return t.physicsService.Analyze(ctx, request.Question, request.SessionContext)
 }
 
-// PhysicsSimulateTool 物理模拟工具。
-type PhysicsSimulateTool struct {
+// RenderCodeTool 前端渲染代码生成工具。
+type RenderCodeTool struct {
 	physicsService physicssvc.PhysicsService
 }
 
-// NewPhysicsSimulateTool 创建物理模拟工具。
-func NewPhysicsSimulateTool(physicsService physicssvc.PhysicsService) *PhysicsSimulateTool {
-	return &PhysicsSimulateTool{physicsService: physicsService}
+// NewRenderCodeTool 创建前端代码生成工具。
+func NewRenderCodeTool(physicsService physicssvc.PhysicsService) *RenderCodeTool {
+	return &RenderCodeTool{physicsService: physicsService}
 }
 
-func (t *PhysicsSimulateTool) Name() string        { return "PhysicsSimulateTool" }
-func (t *PhysicsSimulateTool) Description() string { return "执行物理数值计算并生成图表" }
-func (t *PhysicsSimulateTool) Run(ctx context.Context, input any) (any, error) {
-	request, ok := input.(PhysicsSimulateInput)
+func (t *RenderCodeTool) Name() string { return "RenderCodeTool" }
+func (t *RenderCodeTool) Description() string {
+	return "根据 scene_spec 生成浏览器可渲染的前端代码包"
+}
+func (t *RenderCodeTool) Run(ctx context.Context, input any) (any, error) {
+	request, ok := input.(RenderCodeInput)
 	if !ok {
 		return nil, fmt.Errorf("%s: invalid input type %T", t.Name(), input)
 	}
@@ -121,8 +127,11 @@ func (t *PhysicsSimulateTool) Run(ctx context.Context, input any) (any, error) {
 	if t.physicsService == nil {
 		return nil, fmt.Errorf("%s: physics service is nil", t.Name())
 	}
+	if request.SceneSpec == nil {
+		return nil, fmt.Errorf("%s: scene spec is nil", t.Name())
+	}
 
-	return t.physicsService.Simulate(ctx, request.ModelType, request.Parameters)
+	return t.physicsService.GenerateRender(ctx, request.SceneSpec, request.RenderMode)
 }
 
 // BiologyAnalyzeTool 生物分析工具。

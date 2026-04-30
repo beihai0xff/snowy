@@ -31,6 +31,7 @@ func TestE2EHealthCheck(t *testing.T) {
 		Agent:   handler.NewAgentHandler(nil, nil, nil, nil),
 		Search:  handler.NewSearchHandler(nil),
 		Physics: handler.NewPhysicsHandler(nil),
+		Render:  handler.NewRenderHandler(nil),
 		Biology: handler.NewBiologyHandler(nil),
 		User:    handler.NewUserHandler(nil),
 	}, noopLimiter{})

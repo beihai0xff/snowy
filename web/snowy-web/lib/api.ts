@@ -110,11 +110,12 @@ export interface SearchResponse {
   confidence: number;
 }
 
-// ── Physics ──────────────────────────────────────────────
+// ── Physics / Render ─────────────────────────────────────
 
 export interface PhysicsAnalyzeReq {
   question: string;
   context?: string;
+  target_scene?: string;
 }
 
 export interface Condition {
@@ -139,22 +140,33 @@ export interface ParameterSchema {
   unit: string;
 }
 
-export interface AxisSpec {
-  label: string;
-  unit: string;
-}
-
-export interface SeriesSpec {
-  name: string;
-  data: number[][];
-}
-
-export interface ChartSpec {
-  chart_type: string;
+export interface SceneSpec {
+  scene_type: string;
   title: string;
-  x_axis: AxisSpec;
-  y_axis: AxisSpec;
-  series: SeriesSpec[];
+  summary?: string;
+  render_mode?: 'html_iframe' | 'react_iframe';
+  default_props?: Record<string, number>;
+}
+
+export interface RenderManifest {
+  entry: string;
+  framework: string;
+  sandbox: string;
+  render_mode: 'html_iframe' | 'react_iframe';
+  mount_selector: string;
+  dependencies?: string[];
+  allowed_apis?: string[];
+  blocked_apis?: string[];
+  initial_props?: Record<string, number>;
+}
+
+export interface RenderArtifact {
+  scene_type: string;
+  render_mode: 'html_iframe' | 'react_iframe';
+  render_manifest: RenderManifest;
+  code_bundle: Record<string, string>;
+  result_summary: string;
+  warnings?: string[];
 }
 
 export interface PhysicsModel {
@@ -163,19 +175,14 @@ export interface PhysicsModel {
   steps: DerivationStep[];
   result_summary: string;
   warnings?: string[];
-  chart?: ChartSpec;
   parameters?: ParameterSchema[];
+  scene_spec?: SceneSpec;
 }
 
-export interface PhysicsSimulateReq {
-  model_type: string;
-  parameters: Record<string, number>;
-}
-
-export interface ComputeResult {
-  values: Record<string, number>;
-  chart: ChartSpec;
-  warnings?: string[];
+export interface RenderGenerateReq {
+  scene_spec: SceneSpec;
+  context?: string;
+  render_mode?: 'html_iframe' | 'react_iframe';
 }
 
 // ── Biology ──────────────────────────────────────────────
@@ -234,6 +241,7 @@ export interface BiologyModel {
   process_steps: ProcessStep[];
   experiment_variables?: ExperimentVariables;
   diagram?: DiagramSpec;
+  scene_spec?: SceneSpec;
   result_summary: string;
 }
 
@@ -263,6 +271,28 @@ export interface SessionResp {
   created_at: string;
 }
 
+export interface SSEMessage {
+  event: string;
+  data: unknown;
+}
+
+export interface AgentChatStreamOptions {
+  signal?: AbortSignal;
+  onOpen?: () => void;
+  onError?: (error: Error) => void;
+  onDone?: () => void;
+}
+
+export interface AgentPhysicsPayload {
+  analysis?: PhysicsModel;
+  render_artifact?: RenderArtifact;
+}
+
+export interface AgentBiologyPayload {
+  analysis?: BiologyModel;
+  render_artifact?: RenderArtifact;
+}
+
 // ── HTTP helpers ─────────────────────────────────────────
 
 async function request<T>(
@@ -274,12 +304,33 @@ async function request<T>(
     ...(options.headers as Record<string, string>),
   };
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch (error) {
+    throw new Error(error instanceof Error ? `网络请求失败：${error.message}` : '网络请求失败');
+  }
 
-  const json: APIResponse<T> = await res.json();
+  const text = await res.text();
+  let json: APIResponse<T> | null = null;
+  try {
+    json = text ? JSON.parse(text) as APIResponse<T> : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    const message = json?.message || text || `HTTP ${res.status}`;
+    throw new Error(`请求失败：${message}`);
+  }
+
+  if (!json) {
+    throw new Error(text ? `响应不是合法 JSON：${text.slice(0, 160)}` : '响应为空');
+  }
+
   if (json.code !== 'OK') {
     throw new Error(json.message || 'API Error');
   }
@@ -306,12 +357,12 @@ export const api = {
   searchQuery: (data: SearchQueryReq) =>
     request<SearchResponse>('/search/query', { method: 'POST', body: JSON.stringify(data) }),
 
-  // Physics
+  // Physics / Render
   physicsAnalyze: (data: PhysicsAnalyzeReq) =>
     request<PhysicsModel>('/modeling/physics/analyze', { method: 'POST', body: JSON.stringify(data) }),
 
-  physicsSimulate: (data: PhysicsSimulateReq) =>
-    request<ComputeResult>('/modeling/physics/simulate', { method: 'POST', body: JSON.stringify(data) }),
+  renderGenerate: (data: RenderGenerateReq) =>
+    request<RenderArtifact>('/modeling/render/generate', { method: 'POST', body: JSON.stringify(data) }),
 
   // Biology
   biologyAnalyze: (data: BiologyAnalyzeReq) =>
@@ -324,3 +375,83 @@ export const api = {
   createSession: (mode: string) =>
     request<SessionResp>('/agent/sessions', { method: 'POST', body: JSON.stringify({ mode }) }),
 };
+
+export async function agentChatStream(
+  data: ChatReq,
+  onEvent: (event: SSEMessage) => void,
+  options: AgentChatStreamOptions = {},
+): Promise<void> {
+  try {
+    const res = await fetch(`${API_BASE}/agent/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify(data),
+      signal: options.signal,
+    });
+
+    if (!res.ok || !res.body) {
+      const text = await res.text().catch(() => '');
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+
+    options.onOpen?.();
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    const flush = (chunk: string) => {
+      const lines = chunk.replace(/\r\n/g, '\n').split('\n');
+      let eventName = 'message';
+      const dataLines: string[] = [];
+
+      for (const line of lines) {
+        if (!line || line.startsWith(':')) continue;
+        if (line.startsWith('event:')) {
+          eventName = line.slice(6).trim();
+        } else if (line.startsWith('data:')) {
+          dataLines.push(line.slice(5).trimStart());
+        }
+      }
+
+      const raw = dataLines.join('\n');
+      let payload: unknown = raw;
+      try {
+        payload = raw ? JSON.parse(raw) : null;
+      } catch {
+        payload = raw;
+      }
+
+      onEvent({ event: eventName, data: payload });
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+
+      let normalizedBuffer = buffer.replace(/\r\n/g, '\n');
+      let idx = normalizedBuffer.indexOf('\n\n');
+      while (idx >= 0) {
+        const chunk = normalizedBuffer.slice(0, idx).trim();
+        normalizedBuffer = normalizedBuffer.slice(idx + 2);
+        if (chunk) flush(chunk);
+        idx = normalizedBuffer.indexOf('\n\n');
+      }
+      buffer = normalizedBuffer;
+
+      if (done) {
+        const rest = buffer.trim();
+        if (rest) flush(rest);
+        options.onDone?.();
+        break;
+      }
+    }
+  } catch (error) {
+    const normalized = error instanceof Error ? error : new Error('SSE stream failed');
+    options.onError?.(normalized);
+    throw normalized;
+  }
+}

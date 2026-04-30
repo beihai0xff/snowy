@@ -9,6 +9,7 @@ import (
 	"github.com/beihai0xff/snowy/internal/modeling/biology/domain"
 	experimentanalyzer "github.com/beihai0xff/snowy/internal/modeling/biology/experiment"
 	diagrambuilder "github.com/beihai0xff/snowy/internal/modeling/biology/graph"
+	physicsdomain "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 )
 
 type serviceImpl struct {
@@ -54,15 +55,93 @@ func (s *serviceImpl) Analyze(
 		return nil, fmt.Errorf("build biology diagram: %w", err)
 	}
 
+	steps := processSteps(topic)
+
 	return &domain.BiologyModel{
 		Topic:               topic,
 		Concepts:            concepts,
 		Relations:           relations,
-		ProcessSteps:        processSteps(topic),
+		ProcessSteps:        steps,
 		ExperimentVariables: variables,
 		Diagram:             diagram,
+		SceneSpec:           buildBiologySceneSpec(topic, concepts, relations, steps, variables),
 		ResultSummary:       fmt.Sprintf("已识别主题 %s，并抽取 %d 个概念、%d 条关系。", topic, len(concepts), len(relations)),
 	}, nil
+}
+
+func buildBiologySceneSpec(
+	topic string,
+	concepts []domain.Concept,
+	relations []domain.Relation,
+	steps []domain.ProcessStep,
+	variables *domain.ExperimentVariables,
+) *physicsdomain.SceneSpec {
+	sceneType := "biology_concept_flow"
+	title := "生物概念动态演示"
+	summary := "将概念、关系和过程步骤转化为浏览器中的粒子流、阶段面板和动态关系网络。"
+
+	switch topic {
+	case "photosynthesis":
+		sceneType = "biology_photosynthesis_3d"
+		title = "光合作用 3D 动态演示"
+		summary = "用叶绿体舞台、光子粒子和 CO₂/H₂O/O₂/糖分子流动展示光合作用过程。"
+	case "cellular_respiration", "enzyme_activity":
+		sceneType = "biology_cell_process_3d"
+		title = "细胞过程 3D 可视化演示"
+		summary = "用细胞膜、细胞器、变量标签和物质运输路径展示细胞层面的动态机制。"
+	}
+
+	props := map[string]float64{
+		"concept_count":   float64(len(concepts)),
+		"relation_count":  float64(len(relations)),
+		"step_count":      float64(len(steps)),
+		"animation_speed": 1,
+	}
+	if variables != nil {
+		props["independent_count"] = float64(len(variables.Independent))
+		props["dependent_count"] = float64(len(variables.Dependent))
+		props["controlled_count"] = float64(len(variables.Controlled))
+	}
+
+	return &physicsdomain.SceneSpec{
+		SceneType:    sceneType,
+		Title:        title,
+		Summary:      summary + " 概念：" + conceptNames(concepts) + "。过程：" + stepTitles(steps) + "。",
+		RenderMode:   physicsdomain.RenderModeHTMLIframe,
+		DefaultProps: props,
+	}
+}
+
+func conceptNames(concepts []domain.Concept) string {
+	if len(concepts) == 0 {
+		return "核心概念"
+	}
+	names := make([]string, 0, len(concepts))
+	for _, concept := range concepts {
+		if strings.TrimSpace(concept.Name) != "" {
+			names = append(names, concept.Name)
+		}
+	}
+	if len(names) == 0 {
+		return "核心概念"
+	}
+	return strings.Join(names, "、")
+}
+
+func stepTitles(steps []domain.ProcessStep) string {
+	if len(steps) == 0 {
+		return "概念提取、关系建立"
+	}
+	titles := make([]string, 0, len(steps))
+	for _, step := range steps {
+		if strings.TrimSpace(step.Title) != "" {
+			titles = append(titles, step.Title)
+		}
+	}
+	if len(titles) == 0 {
+		return "概念提取、关系建立"
+	}
+	return strings.Join(titles, " → ")
 }
 
 func inferTopic(text string) string {

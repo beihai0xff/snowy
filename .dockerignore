@@ -31,3 +31,15 @@ Thumbs.db
 deployments/docker/docker-compose.yml
 deployments/docker/prometheus.yml
 
+
+# Local runtime artifacts
+output/
+web/snowy-web/node_modules/
+web/snowy-web/.next/
+web/snowy-web/out/
+
+# Extra build context pruning
+web/snowy-web/node_modules/**
+web/snowy-web/.next/**
+web/snowy-web/out/**
+output/**

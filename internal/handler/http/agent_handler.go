@@ -12,6 +12,7 @@ import (
 	"github.com/beihai0xff/snowy/internal/agent"
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
+	"github.com/beihai0xff/snowy/internal/user"
 )
 
 // AgentHandler Agent 会话 HTTP Handler。
@@ -21,6 +22,7 @@ type AgentHandler struct {
 	writeSvc    agent.WriteService
 	sessionRepo agent.SessionRepository
 	messageRepo agent.MessageRepository
+	userSvc     user.Service
 }
 
 // NewAgentHandler 创建 AgentHandler。
@@ -29,12 +31,19 @@ func NewAgentHandler(
 	writeSvc agent.WriteService,
 	sessionRepo agent.SessionRepository,
 	messageRepo agent.MessageRepository,
+	userSvc ...user.Service,
 ) *AgentHandler {
+	var svc user.Service
+	if len(userSvc) > 0 {
+		svc = userSvc[0]
+	}
+
 	return &AgentHandler{
 		agentSvc:    agentSvc,
 		writeSvc:    writeSvc,
 		sessionRepo: sessionRepo,
 		messageRepo: messageRepo,
+		userSvc:     svc,
 	}
 }
 
@@ -67,8 +76,9 @@ func (h *AgentHandler) Chat(c *gin.Context) {
 
 	resp, err := h.agentSvc.Chat(c.Request.Context(), chatReq)
 	if err != nil {
+		slog.Warn("create session failed", "error", err)
 		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
 
 		return
 	}
@@ -83,17 +93,13 @@ func (h *AgentHandler) Chat(c *gin.Context) {
 			Response:  resp,
 		})
 		if persistErr != nil {
-			reqID := common.RequestIDFromContext(c.Request.Context())
-			c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
-
-			return
-		}
-
-		if persisted != nil && persisted.Session != nil {
+			slog.Warn("persist conversation failed", "error", persistErr)
+		} else if persisted != nil && persisted.Session != nil {
 			c.Header("X-Session-ID", persisted.Session.ID.String())
 		}
 	}
 
+	recordAgentHistory(c, h.userSvc, resp.Mode, req.Message)
 	c.JSON(http.StatusOK, common.Success(resp))
 }
 
@@ -262,6 +268,10 @@ func (h *AgentHandler) chatStream(c *gin.Context, req *dto.ChatReq) {
 	if persisted != nil && persisted.Session != nil {
 		c.Header("X-Session-ID", persisted.Session.ID.String())
 	}
+
+	if response := aggregator.Response(); response != nil {
+		recordAgentHistory(c, h.userSvc, response.Mode, chatReq.Message)
+	}
 }
 
 func parseOptionalUUID(raw string) uuid.UUID {
@@ -297,4 +307,15 @@ func shouldSkipStreamPersistence(
 	requestErr error,
 ) bool {
 	return disconnected || streamErr != nil || !aggregator.Done() || !hasWriteService || requestErr != nil
+}
+
+func recordAgentHistory(c *gin.Context, userSvc user.Service, mode agent.Mode, query string) {
+	switch mode {
+	case agent.ModeSearch:
+		recordHistory(c, userSvc, "search", query)
+	case agent.ModePhysics:
+		recordHistory(c, userSvc, "physics", query)
+	case agent.ModeBiology:
+		recordHistory(c, userSvc, "biology", query)
+	}
 }

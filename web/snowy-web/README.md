@@ -1,13 +1,13 @@
 # Snowy Web 前端
 
-面向高中生的 AIGC 学习平台 — 知识检索、物理建模、生物建模。
+面向高中生的 AIGC 学习平台 — 知识检索、物理 / 3D 场景代码生成渲染、生物建模。
 
 ## 技术栈
 
 - **框架**: Next.js 16 + TypeScript
 - **UI**: Ant Design 6 + @ant-design/icons
 - **状态管理**: Zustand
-- **图表**: ECharts (echarts-for-react)
+- **浏览器渲染**: iframe Sandbox + 受控 React / Canvas / SVG 运行时
 - **流程图**: React Flow (@xyflow/react)
 - **部署**: 静态导出 + Nginx Docker 容器
 
@@ -17,7 +17,7 @@
 |------|------|------|
 | `/` | 首页 | 搜索入口、推荐卡片、快捷入口 |
 | `/search` | 知识检索 | 搜索、筛选、结果、引用、关联问题 |
-| `/physics` | 物理建模 | 题目解析、推导步骤、2D 图表、参数调节 |
+| `/physics` | 物理建模 | 题目解析、推导步骤、前端代码生成、浏览器渲染、参数调节 |
 | `/biology` | 生物建模 | 概念识别、过程拆解、结构图/流程图 |
 | `/learning` | 学习中心 | 用户信息、历史记录、收藏内容 |
 

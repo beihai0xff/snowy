@@ -5,6 +5,7 @@ package llm
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // Request LLM 调用请求。
@@ -57,6 +58,28 @@ type Provider interface {
 	EstimateCost(ctx context.Context, req *Request) (*Cost, error)
 	// Name 返回供应商名称。
 	Name() string
+}
+
+// ConfiguredProvider 暴露 Provider 从配置加载的模型元信息。
+//
+// 该接口是可选接口，避免测试桩和第三方 Provider 必须实现；调用方可在需要把
+// configured model 显式传入 Request 时按需断言。模型名称、base_url、
+// model_provider 等运行参数必须来自配置，而不是 Provider 内部硬编码默认值。
+type ConfiguredProvider interface {
+	ConfiguredModel() string
+	ConfiguredBaseURL() string
+	ConfiguredModelProvider() string
+}
+
+// NewUnsupportedProvider 创建一个显式不可用的 Provider，用于配置缺失或未知 provider 时
+// 保持调用链可降级，而不是静默切到某个硬编码默认厂商。
+func NewUnsupportedProvider(name string) Provider {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "unconfigured"
+	}
+
+	return unsupportedProvider{name: name}
 }
 
 type unsupportedProvider struct {

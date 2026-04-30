@@ -3,11 +3,18 @@
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Input, Card, Tag, Typography, Space, Spin, Alert, Select, Row, Col, List, Empty, Button, message } from 'antd';
-import { SearchOutlined, StarOutlined, ExperimentOutlined, BranchesOutlined } from '@ant-design/icons';
+import { SearchOutlined, StarOutlined, ExperimentOutlined, BranchesOutlined, ReloadOutlined } from '@ant-design/icons';
 import { api, type SearchResponse, type FavoriteReq } from '@/lib/api';
+import MarkdownText from '@/components/common/MarkdownText';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 const { Search } = Input;
+
+const searchExamples = [
+  '牛顿第二定律的适用条件是什么？',
+  '光合作用中光照强度如何影响有机物积累？',
+  '平抛运动 2 秒后的轨迹怎么分析？',
+];
 
 function SearchPageInner() {
   const searchParams = useSearchParams();
@@ -15,20 +22,27 @@ function SearchPageInner() {
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [result, setResult] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
   const [subject, setSubject] = useState<string | undefined>();
   const [grade, setGrade] = useState<string | undefined>();
 
   const handleSearch = useCallback(async (value: string) => {
-    if (!value.trim()) return;
+    const text = value.trim();
+    if (!text) return;
+
     setLoading(true);
+    setErrorText(null);
     try {
       const res = await api.searchQuery({
-        query: value,
+        query: text,
         filters: { subject, grade },
       });
-      if (res.data) setResult(res.data);
-    } catch {
-      message.error('检索失败，请稍后重试');
+      setResult(res.data ?? null);
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : '检索失败，请稍后重试';
+      setErrorText(messageText);
+      setResult(null);
+      message.error(messageText);
     } finally {
       setLoading(false);
     }
@@ -52,10 +66,29 @@ function SearchPageInner() {
     try {
       await api.addFavorite(req);
       message.success('收藏成功');
-    } catch {
-      message.error('收藏失败');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '收藏失败');
     }
   };
+
+  const renderEmptyActions = () => (
+    <Space direction="vertical" align="center" size="middle">
+      <Text type="secondary">输入问题开始检索，或先试一个示例。</Text>
+      <Space wrap>
+        {searchExamples.map((item) => (
+          <Button
+            key={item}
+            onClick={() => {
+              setQuery(item);
+              handleSearch(item);
+            }}
+          >
+            试试：{item}
+          </Button>
+        ))}
+      </Space>
+    </Space>
+  );
 
   return (
     <div>
@@ -105,6 +138,21 @@ function SearchPageInner() {
         </Row>
       </Card>
 
+      {errorText && !loading && (
+        <Alert
+          type="error"
+          showIcon
+          message="检索请求失败"
+          description={errorText}
+          action={(
+            <Button size="small" icon={<ReloadOutlined />} onClick={() => handleSearch(query)}>
+              重试
+            </Button>
+          )}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
       {/* Loading */}
       {loading && (
         <div style={{ textAlign: 'center', padding: 40 }}><Spin size="large" tip="正在检索..." /></div>
@@ -127,7 +175,7 @@ function SearchPageInner() {
               }
               style={{ marginBottom: 16 }}
             >
-              <Paragraph style={{ fontSize: 15, lineHeight: 1.8 }}>{result.answer}</Paragraph>
+              <MarkdownText content={result.answer} />
               {result.knowledge_tags && result.knowledge_tags.length > 0 && (
                 <Space wrap style={{ marginTop: 8 }}>
                   {result.knowledge_tags.map((tag, i) => (
@@ -158,7 +206,7 @@ function SearchPageInner() {
             {result.confidence < 0.5 && (
               <Alert
                 message="结果可信度不足"
-                description="建议更换关键词或补充更多条件"
+                description="建议更换关键词、补充更多条件，或跳转到物理/生物建模继续分析。"
                 type="warning"
                 showIcon
                 style={{ marginBottom: 16 }}
@@ -210,8 +258,8 @@ function SearchPageInner() {
         </Row>
       )}
 
-      {!loading && !result && (
-        <Empty description="输入问题开始检索" style={{ paddingTop: 60 }} />
+      {!loading && !result && !errorText && (
+        <Empty description={renderEmptyActions()} style={{ paddingTop: 60 }} />
       )}
     </div>
   );

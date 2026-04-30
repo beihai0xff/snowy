@@ -100,12 +100,33 @@ type MinIOConfig struct {
 
 // ModelProviderConfig 单个模型供应商配置。
 type ModelProviderConfig struct {
-	Provider   string        `mapstructure:"provider"`
-	Model      string        `mapstructure:"model"`
-	APIKey     string        `mapstructure:"api_key"`
-	BaseURL    string        `mapstructure:"base_url"`
-	Timeout    time.Duration `mapstructure:"timeout"`
-	MaxRetries int           `mapstructure:"max_retries"`
+	Provider            string        `mapstructure:"provider"`
+	ModelProvider       string        `mapstructure:"model_provider"`
+	Model               string        `mapstructure:"model"`
+	ModelName           string        `mapstructure:"model_name"`
+	APIKey              string        `mapstructure:"api_key"`
+	BaseURL             string        `mapstructure:"base_url"`
+	BaseURLNoUnderscore string        `mapstructure:"baseurl"`
+	Timeout             time.Duration `mapstructure:"timeout"`
+	MaxRetries          int           `mapstructure:"max_retries"`
+}
+
+// EffectiveModel 返回最终模型名，兼容 model_name 与 model 两种配置键。
+func (m ModelProviderConfig) EffectiveModel() string {
+	if modelName := strings.TrimSpace(m.ModelName); modelName != "" {
+		return modelName
+	}
+
+	return strings.TrimSpace(m.Model)
+}
+
+// EffectiveBaseURL 返回最终模型服务地址，兼容 baseurl 与 base_url 两种配置键。
+func (m ModelProviderConfig) EffectiveBaseURL() string {
+	if baseURL := strings.TrimSpace(m.BaseURLNoUnderscore); baseURL != "" {
+		return baseURL
+	}
+
+	return strings.TrimSpace(m.BaseURL)
 }
 
 // LLMConfig 大模型配置（主 + 备选）。
@@ -116,11 +137,31 @@ type LLMConfig struct {
 
 // EmbeddingConfig Embedding 模型配置。
 type EmbeddingConfig struct {
-	Provider   string `mapstructure:"provider"`
-	Model      string `mapstructure:"model"`
-	APIKey     string `mapstructure:"api_key"`
-	BaseURL    string `mapstructure:"base_url"`
-	Dimensions int    `mapstructure:"dimensions"`
+	Provider            string `mapstructure:"provider"`
+	Model               string `mapstructure:"model"`
+	ModelName           string `mapstructure:"model_name"`
+	APIKey              string `mapstructure:"api_key"`
+	BaseURL             string `mapstructure:"base_url"`
+	BaseURLNoUnderscore string `mapstructure:"baseurl"`
+	Dimensions          int    `mapstructure:"dimensions"`
+}
+
+// EffectiveModel 返回最终 Embedding 模型名，兼容 model_name 与 model 两种配置键。
+func (e EmbeddingConfig) EffectiveModel() string {
+	if modelName := strings.TrimSpace(e.ModelName); modelName != "" {
+		return modelName
+	}
+
+	return strings.TrimSpace(e.Model)
+}
+
+// EffectiveBaseURL 返回最终 Embedding 服务地址，兼容 baseurl 与 base_url 两种配置键。
+func (e EmbeddingConfig) EffectiveBaseURL() string {
+	if baseURL := strings.TrimSpace(e.BaseURLNoUnderscore); baseURL != "" {
+		return baseURL
+	}
+
+	return strings.TrimSpace(e.BaseURL)
 }
 
 // AuthConfig 鉴权配置。
@@ -169,6 +210,9 @@ func Load(configPath string) (*Config, error) {
 	v.SetEnvPrefix("SNOWY")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
+	if err := bindEnvironment(v); err != nil {
+		return nil, err
+	}
 
 	if err := v.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("read config: %w", err)
@@ -180,4 +224,41 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+func bindEnvironment(v *viper.Viper) error {
+	keys := []string{
+		"llm.primary.provider",
+		"llm.primary.model_provider",
+		"llm.primary.model",
+		"llm.primary.model_name",
+		"llm.primary.api_key",
+		"llm.primary.base_url",
+		"llm.primary.baseurl",
+		"llm.primary.timeout",
+		"llm.primary.max_retries",
+		"llm.fallback.provider",
+		"llm.fallback.model_provider",
+		"llm.fallback.model",
+		"llm.fallback.model_name",
+		"llm.fallback.api_key",
+		"llm.fallback.base_url",
+		"llm.fallback.baseurl",
+		"llm.fallback.timeout",
+		"llm.fallback.max_retries",
+		"embedding.provider",
+		"embedding.model",
+		"embedding.model_name",
+		"embedding.api_key",
+		"embedding.base_url",
+		"embedding.baseurl",
+		"embedding.dimensions",
+	}
+	for _, key := range keys {
+		if err := v.BindEnv(key); err != nil {
+			return fmt.Errorf("bind env %s: %w", key, err)
+		}
+	}
+
+	return nil
 }

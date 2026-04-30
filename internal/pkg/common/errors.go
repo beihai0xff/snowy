@@ -53,6 +53,16 @@ var (
 		Message:    "模型输出结构校验失败",
 		HTTPStatus: http.StatusBadGateway,
 	}
+	ErrRenderValidationFailed = &AppError{
+		Code:       "RENDER_VALIDATION_FAILED",
+		Message:    "生成代码未通过安全校验",
+		HTTPStatus: http.StatusBadGateway,
+	}
+	ErrSandboxRuntime = &AppError{
+		Code:       "SANDBOX_RUNTIME_ERROR",
+		Message:    "浏览器沙箱运行失败",
+		HTTPStatus: http.StatusOK,
+	}
 	ErrLowConfidence         = &AppError{Code: "LOW_CONFIDENCE", Message: "结果可信度不足", HTTPStatus: http.StatusOK}
 	ErrConditionInsufficient = &AppError{
 		Code:       "CONDITION_INSUFFICIENT",

@@ -12,6 +12,7 @@ type Handlers struct {
 	Agent   *AgentHandler
 	Search  *SearchHandler
 	Physics *PhysicsHandler
+	Render  *RenderHandler
 	Biology *BiologyHandler
 	User    *UserHandler
 }
@@ -70,6 +71,11 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 		{
 			physics.POST("/analyze", h.Physics.Analyze)
 			physics.POST("/simulate", h.Physics.Simulate)
+		}
+
+		render := modeling.Group("/render")
+		{
+			render.POST("/generate", h.Render.Generate)
 		}
 
 		biology := modeling.Group("/biology")

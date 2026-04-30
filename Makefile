@@ -24,8 +24,8 @@ LDFLAGS        := -s -w \
                   -X main.BuildTime=$(BUILD_TIME) \
                   -X main.Commit=$(COMMIT)
 GOTEST_FLAGS   := -race -count=1 -timeout 120s
-TEST_DEPS_SERVICES := mysql redis opensearch minio
-INFRA_SERVICES := mysql redis opensearch opensearch-dashboards minio minio-init prometheus grafana
+TEST_DEPS_SERVICES := mysql redis minio
+INFRA_SERVICES := mysql redis minio minio-init prometheus grafana
 
 # ── Docker 参数 ─────────────────────────────────────────────
 DOCKER_COMPOSE := docker compose -f $(DEPLOY_DIR)/docker-compose.yml -p $(PROJECT_NAME)
@@ -104,7 +104,7 @@ test-unit:
 	@echo "$(GREEN)▸ Running unit tests...$(RESET)"
 	$(GO) test $(GOTEST_FLAGS) ./internal/...
 
-## test-integration: 启动 MySQL/Redis/OpenSearch/MinIO Docker 依赖并运行集成测试
+## test-integration: 启动 MySQL/Redis/MinIO Docker 依赖并运行集成测试
 test-integration:
 	@echo "$(GREEN)▸ Running integration tests with Docker dependencies...$(RESET)"
 	@bash ./scripts/test.sh --integration
@@ -145,12 +145,12 @@ vet:
 	@echo "$(GREEN)▸ Running vet...$(RESET)"
 	$(GO) vet ./...
 
-## test-deps-up: 启动测试所需 Docker 依赖 (MySQL/Redis/OpenSearch/MinIO)
+## test-deps-up: 启动测试所需 Docker 依赖 (MySQL/Redis/MinIO)
 test-deps-up:
 	@echo "$(CYAN)▸ Starting test dependencies: $(TEST_DEPS_SERVICES)...$(RESET)"
 	$(DOCKER_COMPOSE) up -d $(TEST_DEPS_SERVICES)
 
-## test-deps-down: 停止测试所需 Docker 依赖 (MySQL/Redis/OpenSearch/MinIO)
+## test-deps-down: 停止测试所需 Docker 依赖 (MySQL/Redis/MinIO)
 test-deps-down:
 	@echo "$(YELLOW)▸ Stopping test dependencies: $(TEST_DEPS_SERVICES)...$(RESET)"
 	-$(DOCKER_COMPOSE) stop $(TEST_DEPS_SERVICES)
@@ -169,15 +169,12 @@ docker-up:
 	@echo "$(CYAN)▸ Waiting for infrastructure health checks...$(RESET)"
 	@$(WAIT_FOR_CONTAINER) snowy-mysql 90 2
 	@$(WAIT_FOR_CONTAINER) snowy-redis 60 2
-	@$(WAIT_FOR_CONTAINER) snowy-opensearch 120 2
 	@$(WAIT_FOR_CONTAINER) snowy-minio 60 2
 	@$(MAKE) migrate-up
 	@echo "$(CYAN)✓ Infrastructure is healthy and MySQL schema is migrated$(RESET)"
 	@echo ""
 	@echo "  MySQL      : localhost:3306"
 	@echo "  Redis      : localhost:6379"
-	@echo "  OpenSearch : localhost:9200"
-	@echo "  OS Dashboard: localhost:5601"
 	@echo "  MinIO API  : localhost:9000"
 	@echo "  MinIO Console: localhost:9001"
 	@echo "  Prometheus : localhost:9090"
@@ -210,7 +207,7 @@ bootstrap: deps docker-up
 #  Docker — 应用镜像构建 & 运行
 # ============================================================
 
-.PHONY: docker-build docker-build-api docker-build-worker docker-build-web docker-run docker-push
+.PHONY: docker-build docker-build-api docker-build-worker docker-build-web docker-run docker-smoke docker-push
 
 ## docker-build: 构建全部应用 Docker 镜像 (api + worker + web)
 docker-build: docker-build-api docker-build-worker docker-build-web
@@ -248,13 +245,22 @@ docker-build-web:
 
 ## docker-run: 通过 docker compose 一键启动 API / Worker / Web（会先确保基础设施与迁移完成）
 docker-run: docker-up
+	@if [ -z "$${MIMO_API_KEY:-}" ] && [ -z "$${SNOWY_LLM_PRIMARY_API_KEY:-}" ]; then \
+		echo "$(YELLOW)✗ MIMO_API_KEY or SNOWY_LLM_PRIMARY_API_KEY is required for real MiMo LLM calls.$(RESET)"; \
+		echo "  Usage: MIMO_API_KEY='<runtime only>' make docker-run"; \
+		exit 1; \
+	fi
 	@echo "$(GREEN)▸ Starting API, Worker, and Web services...$(RESET)"
 	$(DOCKER_COMPOSE) up -d snowy-api snowy-worker snowy-web
 	@echo "$(GREEN)✓ Services are running$(RESET)"
 	@echo ""
 	@echo "  API    : http://localhost:8080"
-	@echo "  Worker : http://localhost:3001"
-	@echo "  Web    : http://localhost:3000"
+	@echo "  Worker : http://localhost:8081"
+	@echo "  Web    : http://localhost:3001"
+
+## docker-smoke: 纯 Docker 运行态冒烟检查
+docker-smoke:
+	@bash ./scripts/docker-smoke.sh
 
 ## docker-push: 推送应用镜像到远端仓库 (需设置 DOCKER_REG)
 docker-push:

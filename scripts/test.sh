@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# 运行测试：默认单元测试；--integration 时自动拉起 MySQL/Redis/OpenSearch/MinIO Docker 依赖后执行集成测试。
+# 运行测试：默认单元测试；--integration 时自动拉起 MySQL/Redis/MinIO Docker 依赖后执行集成测试。
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILE="$ROOT_DIR/deployments/docker/docker-compose.yml"
 PROJECT_NAME="${PROJECT_NAME:-snowy}"
 DOCKER_COMPOSE=(docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME")
-TEST_DEPS=(mysql redis opensearch minio)
+TEST_DEPS=(mysql redis minio)
 RUN_INTEGRATION=false
 KEEP_DEPS=false
 
@@ -64,7 +64,6 @@ if [[ "$RUN_INTEGRATION" == "true" ]]; then
 
   wait_for_container "snowy-mysql"
   wait_for_container "snowy-redis"
-  wait_for_container "snowy-opensearch" 90 2
   wait_for_container "snowy-minio"
 
   echo "▸ Running integration tests..."

@@ -18,12 +18,12 @@ func NewStaticRouter(cfg config.LLMConfig) Router {
 	return &staticRouter{
 		primary: ModelInfo{
 			Provider:  normalizeProvider(cfg.Primary.Provider),
-			Model:     cfg.Primary.Model,
+			Model:     cfg.Primary.EffectiveModel(),
 			IsPrimary: true,
 		},
 		fallback: ModelInfo{
 			Provider:  normalizeProvider(cfg.Fallback.Provider),
-			Model:     cfg.Fallback.Model,
+			Model:     cfg.Fallback.EffectiveModel(),
 			IsPrimary: false,
 		},
 	}

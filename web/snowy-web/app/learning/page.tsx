@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, Typography, Tabs, List, Tag, Empty, Spin, Button, Space, message } from 'antd';
+import { Alert, Card, Typography, Tabs, List, Tag, Empty, Spin, Button, Space, message } from 'antd';
 import {
   BookOutlined,
   HistoryOutlined,
@@ -10,6 +10,7 @@ import {
   SearchOutlined,
   ExperimentOutlined,
   BranchesOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { api, type HistoryItem, type Favorite } from '@/lib/api';
 
@@ -27,32 +28,44 @@ const actionTypeColor: Record<string, string> = {
   biology: 'purple',
 };
 
+const starterActions = [
+  { label: '去检索', path: '/search', icon: <SearchOutlined /> },
+  { label: '物理建模', path: '/physics', icon: <ExperimentOutlined /> },
+  { label: '生物建模', path: '/biology', icon: <BranchesOutlined /> },
+];
+
 export default function LearningPage() {
   const router = useRouter();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorText, setErrorText] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [historyRes, favRes] = await Promise.all([
-          api.getHistory(),
-          api.listFavorites(),
-        ]);
-        if (historyRes.data) setHistory(historyRes.data.items || []);
-        if (favRes.data) setFavorites(favRes.data.items || []);
-      } catch {
-        message.error('加载数据失败');
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setErrorText(null);
+    try {
+      const [historyRes, favRes] = await Promise.all([
+        api.getHistory(),
+        api.listFavorites(),
+      ]);
+      setHistory(historyRes.data?.items || []);
+      setFavorites(favRes.data?.items || []);
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : '加载数据失败';
+      setErrorText(messageText);
+      message.error(messageText);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>;
+    return <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" tip="正在加载学习记录..." /></div>;
   }
 
   const handleHistoryClick = (item: HistoryItem) => {
@@ -79,12 +92,29 @@ export default function LearningPage() {
     }
   };
 
+  const emptyActions = (description: string) => (
+    <Empty
+      description={(
+        <Space direction="vertical" align="center" size="middle">
+          <Text type="secondary">{description}</Text>
+          <Space wrap>
+            {starterActions.map((item) => (
+              <Button key={item.path} icon={item.icon} onClick={() => router.push(item.path)}>
+                {item.label}
+              </Button>
+            ))}
+          </Space>
+        </Space>
+      )}
+    />
+  );
+
   const tabItems = [
     {
       key: 'history',
       label: <><HistoryOutlined /> 历史记录</>,
       children: history.length === 0 ? (
-        <Empty description="暂无历史记录" />
+        emptyActions('暂无历史记录。完成一次搜索、物理建模或生物建模后会自动记录。')
       ) : (
         <List
           dataSource={history}
@@ -99,10 +129,10 @@ export default function LearningPage() {
               ]}
             >
               <List.Item.Meta
-                avatar={actionTypeIcon[item.action_type]}
+                avatar={actionTypeIcon[item.action_type] || <HistoryOutlined />}
                 title={item.query}
                 description={
-                  <Tag color={actionTypeColor[item.action_type]}>{item.action_type}</Tag>
+                  <Tag color={actionTypeColor[item.action_type] || 'default'}>{item.action_type}</Tag>
                 }
               />
             </List.Item>
@@ -114,7 +144,7 @@ export default function LearningPage() {
       key: 'favorites',
       label: <><StarOutlined /> 收藏内容</>,
       children: favorites.length === 0 ? (
-        <Empty description="暂无收藏" />
+        emptyActions('暂无收藏。搜索、物理建模、生物建模结果页可点击收藏。')
       ) : (
         <List
           dataSource={favorites}
@@ -132,7 +162,7 @@ export default function LearningPage() {
                 avatar={<StarOutlined style={{ color: '#faad14' }} />}
                 title={item.title}
                 description={
-                  <Tag color={actionTypeColor[item.target_type]}>{item.target_type}</Tag>
+                  <Tag color={actionTypeColor[item.target_type] || 'default'}>{item.target_type}</Tag>
                 }
               />
             </List.Item>
@@ -146,12 +176,29 @@ export default function LearningPage() {
     <div>
       <Title level={3}><BookOutlined /> 学习中心</Title>
 
+      {errorText && (
+        <Alert
+          type="error"
+          showIcon
+          message="学习记录加载失败"
+          description={errorText}
+          action={(
+            <Button size="small" icon={<ReloadOutlined />} onClick={loadData}>
+              重试
+            </Button>
+          )}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
       {/* Quick Navigation */}
       <Card style={{ marginBottom: 16 }}>
-        <Space>
-          <Button onClick={() => router.push('/search')}>去检索</Button>
-          <Button onClick={() => router.push('/physics')}>物理建模</Button>
-          <Button onClick={() => router.push('/biology')}>生物建模</Button>
+        <Space wrap>
+          {starterActions.map((item) => (
+            <Button key={item.path} icon={item.icon} onClick={() => router.push(item.path)}>
+              {item.label}
+            </Button>
+          ))}
         </Space>
       </Card>
 

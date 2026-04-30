@@ -53,3 +53,18 @@ func TestStreamResponseAggregator_DoneOverridesResponse(t *testing.T) {
 	require.Len(t, resp.ToolCalls, 1)
 	assert.Equal(t, "Calculator", resp.ToolCalls[0].Tool)
 }
+
+func TestStreamResponseAggregator_IgnoresHeartbeat(t *testing.T) {
+	agg := NewStreamResponseAggregator(ModePhysics)
+
+	require.NoError(t, agg.Consume(SSEEvent{Event: SSEEventToolCall, Data: map[string]any{"tool": "RenderCodeTool", "status": "running"}}))
+	require.NoError(t, agg.Consume(SSEEvent{Event: SSEEventHeartbeat, Data: map[string]any{"tool": "RenderCodeTool", "status": "running"}}))
+	require.NoError(t, agg.Consume(SSEEvent{Event: SSEEventContent, Data: "生成中"}))
+
+	resp := agg.Response()
+	require.NotNil(t, resp)
+	assert.Equal(t, "生成中", resp.Answer)
+	require.Len(t, resp.ToolCalls, 1)
+	assert.Equal(t, "RenderCodeTool", resp.ToolCalls[0].Tool)
+	assert.Equal(t, "running", resp.ToolCalls[0].Status)
+}

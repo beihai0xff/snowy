@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/beihai0xff/snowy/internal/repo/embedding"
+	"github.com/beihai0xff/snowy/internal/repo/llm"
 )
 
 const (
@@ -18,11 +19,24 @@ const (
 )
 
 type serviceImpl struct {
-	repo      Repository
-	parser    QueryParser
-	ranker    ResultRanker
-	embedding embedding.Provider
-	logs      LogRepository
+	repo        Repository
+	parser      QueryParser
+	ranker      ResultRanker
+	embedding   embedding.Provider
+	logs        LogRepository
+	primaryLLM  llm.Provider
+	fallbackLLM llm.Provider
+}
+
+// Option 配置 Search Service 的可选依赖。
+type Option func(*serviceImpl)
+
+// WithLLMProviders 配置知识点问答的大模型直答 provider。
+func WithLLMProviders(primary, fallback llm.Provider) Option {
+	return func(s *serviceImpl) {
+		s.primaryLLM = primary
+		s.fallbackLLM = fallback
+	}
 }
 
 // NewService 创建知识检索服务实现。
@@ -32,18 +46,26 @@ func NewService(
 	ranker ResultRanker,
 	embeddingProvider embedding.Provider,
 	logs LogRepository,
+	opts ...Option,
 ) Service {
 	if logs == nil {
 		logs = noopLogRepository{}
 	}
 
-	return &serviceImpl{
+	svc := &serviceImpl{
 		repo:      repo,
 		parser:    parser,
 		ranker:    ranker,
 		embedding: embeddingProvider,
 		logs:      logs,
 	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
+
+	return svc
 }
 
 func (s *serviceImpl) Query(ctx context.Context, q *Query) (*Response, error) {
@@ -51,37 +73,317 @@ func (s *serviceImpl) Query(ctx context.Context, q *Query) (*Response, error) {
 		return nil, errors.New("query text is empty")
 	}
 
-	if err := s.validateDependencies(); err != nil {
-		return nil, err
-	}
-
 	start := time.Now()
 
-	parsed, err := s.parser.Parse(q.Text)
+	parsed, err := s.parseQuery(q.Text)
 	if err != nil {
 		return nil, fmt.Errorf("parse query: %w", err)
+	}
+
+	if s.hasLLMProvider() {
+		response, directErr := s.queryWithLLM(ctx, q, parsed)
+		if directErr != nil {
+			response = fallbackResponse(q, parsed, fmt.Errorf("llm direct answer: %w", directErr))
+		}
+		s.saveLog(ctx, q.Text, 1, start, nil)
+
+		return response, nil
+	}
+
+	if err := s.validateDependencies(); err != nil {
+		return nil, err
 	}
 
 	s.attachEmbedding(ctx, q, parsed)
 
 	results, total, err := s.repo.Search(ctx, parsed, q.Filters, defaultSearchOffset, defaultSearchLimit)
 	if err != nil {
-		return nil, fmt.Errorf("search repository: %w", err)
+		response := fallbackResponse(q, parsed, fmt.Errorf("search repository: %w", err))
+		s.saveLog(ctx, q.Text, 0, start, nil)
+
+		return response, nil
 	}
 
 	ranked := s.ranker.Rank(ctx, results, parsed)
 	response := assembleResponse(ranked)
 
-	if s.logs != nil {
-		_ = s.logs.SaveLog(ctx, &Log{
-			QueryText:   q.Text,
-			ResultCount: int(total),
-			LatencyMS:   int(time.Since(start).Milliseconds()),
-			TopScore:    topScore(ranked),
-		})
-	}
+	s.saveLog(ctx, q.Text, int(total), start, ranked)
 
 	return response, nil
+}
+
+func (s *serviceImpl) parseQuery(raw string) (*ParsedQuery, error) {
+	if s.parser == nil {
+		cleaned := strings.TrimSpace(raw)
+		return &ParsedQuery{Original: cleaned, Keywords: []string{cleaned}, Entities: []string{cleaned}, Intent: "explain"}, nil
+	}
+
+	return s.parser.Parse(raw)
+}
+
+func (s *serviceImpl) hasLLMProvider() bool {
+	return s.primaryLLM != nil || s.fallbackLLM != nil
+}
+
+func (s *serviceImpl) queryWithLLM(ctx context.Context, q *Query, parsed *ParsedQuery) (*Response, error) {
+	providers := []llm.Provider{s.primaryLLM, s.fallbackLLM}
+	failures := make([]string, 0, len(providers))
+	for _, provider := range providers {
+		if provider == nil {
+			continue
+		}
+
+		response, err := provider.Generate(ctx, &llm.Request{
+			Model: providerConfiguredModel(provider),
+			Messages: []llm.Message{
+				{Role: "system", Content: knowledgeAnswerSystemPrompt()},
+				{Role: "user", Content: buildKnowledgeAnswerUserPrompt(q, parsed)},
+			},
+			MaxTokens:   2048,
+			Temperature: 0.35,
+		})
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %v", provider.Name(), err))
+			continue
+		}
+
+		answer := strings.TrimSpace(response.Content)
+		if answer == "" {
+			failures = append(failures, fmt.Sprintf("%s: empty response", provider.Name()))
+			continue
+		}
+
+		return assembleLLMResponse(q, parsed, answer, provider.Name()), nil
+	}
+
+	if len(failures) == 0 {
+		return nil, errors.New("no llm provider configured")
+	}
+
+	return nil, errors.New(strings.Join(failures, "; "))
+}
+
+func providerConfiguredModel(provider llm.Provider) string {
+	if configured, ok := provider.(llm.ConfiguredProvider); ok {
+		return configured.ConfiguredModel()
+	}
+
+	return ""
+}
+
+func knowledgeAnswerSystemPrompt() string {
+	return strings.TrimSpace(`你是 Snowy 学习平台的高中知识点讲解老师，负责直接调用大模型能力回答学生问题，不使用 RAG 检索结果。
+
+回答原则：
+1. 直接回答用户问题，默认使用中文；如果用户指定语言，跟随用户。
+2. 面向高中生，表达清晰、准确、可操作；先给结论，再解释关键概念、公式/机制、典型例子。
+3. 不编造教材页码、论文、链接或“检索到的资料”。没有检索上下文时不要声称来自某个文档。
+4. 如果题目信息不足，先说明缺失条件，再给出通用判断方法或可继续追问的问题。
+5. 对物理、化学、数学问题保留必要公式和单位；对生物问题强调概念、过程、变量和因果关系。
+6. 不展示隐藏推理或长篇思维链；可以展示面向学生的简洁步骤。
+7. 结尾给 2-3 个“下一步可以问”的具体问题，帮助学生继续学习。
+
+推荐回答结构：
+- 结论：一句话直接回答。
+- 关键点：3-5 条解释核心知识。
+- 例子/应用：给一个简短例子、题型提示或实验场景。
+- 易错点：列出常见误解。
+- 你还可以继续问：列出相关追问。`)
+}
+
+func buildKnowledgeAnswerUserPrompt(q *Query, parsed *ParsedQuery) string {
+	var builder strings.Builder
+	builder.WriteString("请直接回答这个知识点问题，不要进行数据库检索，不要输出 JSON。\n")
+	builder.WriteString("当前日期：")
+	builder.WriteString(time.Now().Format("2006-01-02"))
+	builder.WriteString("\n")
+	builder.WriteString("问题：")
+	builder.WriteString(strings.TrimSpace(q.Text))
+	builder.WriteString("\n")
+	if strings.TrimSpace(q.Filters.Subject) != "" {
+		builder.WriteString("学科：")
+		builder.WriteString(q.Filters.Subject)
+		builder.WriteString("\n")
+	}
+	if strings.TrimSpace(q.Filters.Grade) != "" {
+		builder.WriteString("年级：")
+		builder.WriteString(q.Filters.Grade)
+		builder.WriteString("\n")
+	}
+	if parsed != nil {
+		if parsed.Intent != "" {
+			builder.WriteString("问题意图：")
+			builder.WriteString(parsed.Intent)
+			builder.WriteString("\n")
+		}
+		if len(parsed.Entities) > 0 {
+			builder.WriteString("识别到的关键词：")
+			builder.WriteString(strings.Join(parsed.Entities, "、"))
+			builder.WriteString("\n")
+		}
+	}
+	builder.WriteString("回答要具体，不要只给定义；如果涉及公式，请说明符号含义和适用条件。")
+
+	return builder.String()
+}
+
+func assembleLLMResponse(q *Query, parsed *ParsedQuery, answer, providerName string) *Response {
+	return &Response{
+		Answer:           answer,
+		KnowledgeTags:    buildKnowledgeTags(q, parsed, providerName),
+		Citations:        []Citation{},
+		RelatedQuestions: buildDirectRelatedQuestions(q, parsed),
+		Confidence:       directAnswerConfidence(answer),
+	}
+}
+
+func buildKnowledgeTags(q *Query, parsed *ParsedQuery, providerName string) []string {
+	tags := make([]string, 0, 8)
+	seen := map[string]struct{}{}
+	add := func(tag string) {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			return
+		}
+		if _, ok := seen[tag]; ok {
+			return
+		}
+		seen[tag] = struct{}{}
+		tags = append(tags, tag)
+	}
+
+	add("大模型直答")
+	if providerName != "" {
+		add(providerName)
+	}
+	if q != nil {
+		add(q.Filters.Subject)
+		add(q.Filters.Grade)
+	}
+	if parsed != nil {
+		add(intentLabel(parsed.Intent))
+		for _, entity := range parsed.Entities {
+			add(entity)
+			if len(tags) >= 8 {
+				return tags
+			}
+		}
+	}
+
+	return tags
+}
+
+func intentLabel(intent string) string {
+	switch intent {
+	case "definition":
+		return "概念定义"
+	case "reason":
+		return "原因解释"
+	case "method":
+		return "方法步骤"
+	case "explain":
+		return "知识点讲解"
+	default:
+		return intent
+	}
+}
+
+func buildDirectRelatedQuestions(q *Query, parsed *ParsedQuery) []RelatedQuestion {
+	text := "这个知识点"
+	if q != nil && strings.TrimSpace(q.Text) != "" {
+		text = strings.TrimSpace(q.Text)
+	}
+
+	questions := []RelatedQuestion{
+		{ID: "llm-direct-summary", Title: fmt.Sprintf("用一句话总结：%s", truncateRunes(text, 28))},
+		{ID: "llm-direct-mistakes", Title: "这个知识点有哪些常见易错点？"},
+		{ID: "llm-direct-example", Title: "给我一道相关例题并逐步讲解"},
+	}
+	if q != nil {
+		switch strings.TrimSpace(q.Filters.Subject) {
+		case "physics":
+			questions = append(questions, RelatedQuestion{ID: "physics-modeling", Title: "用物理建模把这个问题可视化"})
+		case "biology":
+			questions = append(questions, RelatedQuestion{ID: "biology-modeling", Title: "用生物建模生成概念图"})
+		}
+	}
+	if parsed != nil && parsed.Intent == "definition" {
+		questions = append(questions, RelatedQuestion{ID: "llm-direct-compare", Title: "把这个概念和相近概念做对比"})
+	}
+
+	return questions
+}
+
+func directAnswerConfidence(answer string) float64 {
+	lower := strings.ToLower(answer)
+	if strings.Contains(answer, "不确定") || strings.Contains(answer, "无法判断") || strings.Contains(lower, "uncertain") {
+		return 0.62
+	}
+
+	return 0.82
+}
+
+func truncateRunes(text string, limit int) string {
+	runes := []rune(strings.TrimSpace(text))
+	if len(runes) <= limit {
+		return string(runes)
+	}
+
+	return string(runes[:limit]) + "…"
+}
+
+func fallbackResponse(q *Query, parsed *ParsedQuery, cause error) *Response {
+	text := "这个问题"
+	if q != nil && strings.TrimSpace(q.Text) != "" {
+		text = strings.TrimSpace(q.Text)
+	}
+
+	tags := []string{"本地兜底", "知识检索"}
+	if q != nil && strings.TrimSpace(q.Filters.Subject) != "" {
+		tags = append(tags, q.Filters.Subject)
+	}
+	if parsed != nil && parsed.Intent != "" {
+		tags = append(tags, parsed.Intent)
+	}
+
+	answer := fmt.Sprintf("当前大模型知识问答暂时不可用。你可以围绕“%s”补充学科、章节、已知条件，或稍后重试。", text)
+	if cause != nil && strings.Contains(cause.Error(), "search repository") {
+		answer = fmt.Sprintf("当前知识索引暂时不可用或没有命中结果。你可以围绕“%s”补充学科、章节、已知条件，或直接跳转到物理/生物建模继续分析。", text)
+	}
+	if cause != nil {
+		answer += " 诊断信息：" + cause.Error()
+	}
+
+	return &Response{
+		Answer:        answer,
+		KnowledgeTags: tags,
+		Citations: []Citation{
+			{
+				DocID:      "local-fallback",
+				SourceType: "fallback",
+				Snippet:    "OpenSearch 无可用命中时返回的本地兜底说明。",
+				Score:      0.15,
+			},
+		},
+		RelatedQuestions: []RelatedQuestion{
+			{ID: "physics-modeling", Title: "用物理建模继续分析这个问题"},
+			{ID: "biology-modeling", Title: "用生物建模继续分析这个问题"},
+		},
+		Confidence: 0.15,
+	}
+}
+
+func (s *serviceImpl) saveLog(ctx context.Context, queryText string, total int, start time.Time, results []Result) {
+	if s.logs == nil {
+		return
+	}
+
+	_ = s.logs.SaveLog(ctx, &Log{
+		QueryText:   queryText,
+		ResultCount: total,
+		LatencyMS:   int(time.Since(start).Milliseconds()),
+		TopScore:    topScore(results),
+	})
 }
 
 func assembleResponse(results []Result) *Response {

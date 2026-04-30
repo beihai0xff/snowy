@@ -1,8 +1,8 @@
 # ❄️ Snowy
 
-**Snowy** 是一款面向高中生的 Web 端 AIGC 学习平台。基于 RAG 检索增强生成与 Agent 智能编排，为学生提供高可信度的知识问答、物理推导建模与生物概念建模能力。
+**Snowy** 是一款面向高中生的 Web 端 AIGC 学习平台。基于 RAG 检索增强生成与 Agent 智能编排，为学生提供高可信度的知识问答、物理 / 3D 场景代码生成渲染与生物概念建模能力。
 
-> 首发聚焦：**知识检索** + **物理建模**（推导 + 2D 图表 + 参数调节）+ **生物建模**（概念识别 + 关系抽取 + 过程拆解）
+> 首发聚焦：**知识检索** + **物理 / 3D 场景建模**（推导说明 + 前端代码生成 + 浏览器渲染 + 参数调节）+ **生物建模**（概念识别 + 关系抽取 + 过程拆解）
 
 ---
 
@@ -11,7 +11,7 @@
 | 能力 | 说明 |
 |---|---|
 | 🔍 **知识检索** | 统一索引课本、考纲、题库与讲义；基于 RAG 的高可信知识问答 |
-| 📐 **物理建模** | 条件抽取 → 公式推导 → 数值计算 → 2D 图表 → 参数调节 |
+| 📐 **物理 / 3D 场景建模** | 条件抽取 → 推导说明 → 前端代码生成 → 浏览器沙箱渲染 → 参数调节 |
 | 🧬 **生物建模** | 概念识别 → 关系抽取 → 过程拆解 → 实验变量分析 → 结构图/流程图 |
 | 🤖 **Agent 编排** | 基于 Eino Graph 的意图识别、工具调用、多模型路由与结构化输出 |
 | 🔄 **多模型路由** | `gpt5` 主推理、`gemini3` 备选，自动回退与成本管控 |
@@ -46,7 +46,7 @@ snowy/
     user/                 # 用户服务
     content/              # 内容入库域
     modeling/
-      physics/            # 物理建模域
+      physics/            # 物理 / 场景代码生成域
       biology/            # 生物建模域
     handler/http/         # HTTP Handler 层
     repo/                 # 基础设施层（MySQL / Redis / LLM / Embedding / OpenSearch / Storage）
@@ -134,14 +134,15 @@ make dev
 make docker-build
 
 # 通过 docker compose 一键启动 API / Worker / Web
-make docker-run
+MIMO_API_KEY='<runtime only>' make docker-run
 ```
 
 说明：
 
 - `make docker-run` 会一次启动 `snowy-api` / `snowy-worker` / `snowy-web`
 - 该目标会先确保基础设施已启动、健康检查通过，并完成 MySQL migration
-- 应用容器通过 Docker Compose 网络以服务名（`mysql` / `redis` / `opensearch` / `minio`）访问基础设施
+- 大模型运行参数从 `configs/config*.yaml` 的 `llm.primary/fallback` 读取，也可用环境变量覆盖：`SNOWY_LLM_PRIMARY_BASE_URL` / `SNOWY_LLM_PRIMARY_BASEURL`、`SNOWY_LLM_PRIMARY_MODEL` / `SNOWY_LLM_PRIMARY_MODEL_NAME`、`SNOWY_LLM_PRIMARY_MODEL_PROVIDER`、`SNOWY_LLM_FALLBACK_BASE_URL`、`SNOWY_LLM_FALLBACK_MODEL` 等；密钥仅运行时注入（如 `MIMO_API_KEY` 或 `SNOWY_LLM_PRIMARY_API_KEY`），不要写入仓库
+- 应用容器通过 Docker Compose 网络以服务名（`mysql` / `redis` / `minio`）访问基础设施
 
 ### 5. 查看全部 Make 目标
 
@@ -216,7 +217,7 @@ SNOWY_MINIO_BUCKET=snowy
 | 文档 | 说明 |
 |---|---|
 | [产品需求文档 (PRD)](./docs/prd.md) | 产品目标、MVP 范围、核心功能、页面流程、接口边界、指标体系与里程碑 |
-| [技术方案](./docs/tech-solution.md) | 系统架构、Agent 编排、RAG 检索、多模型路由、物理/生物建模、数据库设计、可观测性 |
+| [技术方案](./docs/tech-solution.md) | 系统架构、Agent 编排、RAG 检索、多模型路由、物理 / 3D 代码生成渲染、生物建模、数据库设计、可观测性 |
 
 ---
 

@@ -77,16 +77,30 @@ func assembleSearchResponse(mode agent.Mode, toolOutputs map[string]any) (*agent
 }
 
 func assemblePhysicsResponse(mode agent.Mode, toolOutputs map[string]any) (*agent.ChatResponse, error) {
-	response, ok := toolOutputs["physics"].(*physicsmodel.PhysicsModel)
-	if !ok || response == nil {
+	model, ok := toolOutputs["physics"].(*physicsmodel.PhysicsModel)
+	if !ok || model == nil {
 		return nil, fmt.Errorf("no tool output available for mode %s", mode)
+	}
+
+	artifact, _ := toolOutputs["render"].(*physicsmodel.RenderArtifact)
+	payload := map[string]any{
+		"analysis": model,
+	}
+	if artifact != nil {
+		payload["render_artifact"] = artifact
+	}
+
+	answer := model.ResultSummary
+	if artifact != nil && artifact.ResultSummary != "" {
+		answer = artifact.ResultSummary
 	}
 
 	return &agent.ChatResponse{
 		Mode:              mode,
-		Answer:            response.ResultSummary,
-		StructuredPayload: response,
-		Confidence:        0.82,
+		Answer:            answer,
+		StructuredPayload: payload,
+		Confidence:        0.88,
+		NextActions:       []string{"可在前端直接挂载 render_artifact 并通过 postMessage 调整参数"},
 	}, nil
 }
 
@@ -96,10 +110,24 @@ func assembleBiologyResponse(mode agent.Mode, toolOutputs map[string]any) (*agen
 		return nil, fmt.Errorf("no tool output available for mode %s", mode)
 	}
 
+	artifact, _ := toolOutputs["render"].(*physicsmodel.RenderArtifact)
+	payload := map[string]any{
+		"analysis": response,
+	}
+	if artifact != nil {
+		payload["render_artifact"] = artifact
+	}
+
+	answer := response.ResultSummary
+	if artifact != nil && artifact.ResultSummary != "" {
+		answer = artifact.ResultSummary
+	}
+
 	return &agent.ChatResponse{
 		Mode:              mode,
-		Answer:            response.ResultSummary,
-		StructuredPayload: response,
-		Confidence:        0.8,
+		Answer:            answer,
+		StructuredPayload: payload,
+		Confidence:        0.84,
+		NextActions:       []string{"可查看生物动态演示页，也可继续查看概念图谱和实验变量分析"},
 	}, nil
 }

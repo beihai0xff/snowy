@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/beihai0xff/snowy/internal/agent"
+	biologydomain "github.com/beihai0xff/snowy/internal/modeling/biology/domain"
+	physicsdomain "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
 	"github.com/beihai0xff/snowy/internal/repo/search"
 	"github.com/beihai0xff/snowy/internal/user"
@@ -30,6 +32,7 @@ func init() {
 type mockUserService struct {
 	getProfileFn    func(ctx context.Context, userID uuid.UUID) (*user.User, error)
 	getHistoryFn    func(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*user.HistoryItem, int64, error)
+	addHistoryFn    func(ctx context.Context, item *user.HistoryItem) error
 	addFavoriteFn   func(ctx context.Context, fav *user.Favorite) error
 	listFavoritesFn func(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*user.Favorite, int64, error)
 }
@@ -42,12 +45,27 @@ func (m *mockUserService) GetProfile(ctx context.Context, userID uuid.UUID) (*us
 	return m.getProfileFn(ctx, userID)
 }
 
+func (m *mockUserService) EnsureAnonymousUser(ctx context.Context) (*user.User, error) {
+	if m.getProfileFn != nil {
+		return m.getProfileFn(ctx, uuid.MustParse(common.DefaultUserID))
+	}
+	return &user.User{ID: uuid.MustParse(common.DefaultUserID), Nickname: "Anonymous"}, nil
+}
+
 func (m *mockUserService) GetHistory(
 	ctx context.Context,
 	userID uuid.UUID,
 	offset, limit int,
 ) ([]*user.HistoryItem, int64, error) {
 	return m.getHistoryFn(ctx, userID, offset, limit)
+}
+
+func (m *mockUserService) AddHistory(ctx context.Context, item *user.HistoryItem) error {
+	if m.addHistoryFn == nil {
+		return nil
+	}
+
+	return m.addHistoryFn(ctx, item)
 }
 
 func (m *mockUserService) AddFavorite(ctx context.Context, fav *user.Favorite) error {
@@ -81,6 +99,46 @@ type mockSearchService struct {
 
 func (m *mockSearchService) Query(ctx context.Context, q *search.Query) (*search.Response, error) {
 	return m.queryFn(ctx, q)
+}
+
+type mockPhysicsService struct {
+	analyzeFn func(ctx context.Context, question string, sessionContext string) (*physicsdomain.PhysicsModel, error)
+}
+
+func (m *mockPhysicsService) Analyze(
+	ctx context.Context,
+	question string,
+	sessionContext string,
+) (*physicsdomain.PhysicsModel, error) {
+	return m.analyzeFn(ctx, question, sessionContext)
+}
+
+func (m *mockPhysicsService) Simulate(
+	context.Context,
+	physicsdomain.ModelType,
+	map[string]float64,
+) (*physicsdomain.ComputeResult, error) {
+	return nil, nil
+}
+
+func (m *mockPhysicsService) GenerateRender(
+	context.Context,
+	*physicsdomain.SceneSpec,
+	string,
+) (*physicsdomain.RenderArtifact, error) {
+	return nil, nil
+}
+
+type mockBiologyService struct {
+	analyzeFn func(ctx context.Context, question string, sessionContext string) (*biologydomain.BiologyModel, error)
+}
+
+func (m *mockBiologyService) Analyze(
+	ctx context.Context,
+	question string,
+	sessionContext string,
+) (*biologydomain.BiologyModel, error) {
+	return m.analyzeFn(ctx, question, sessionContext)
 }
 
 type mockAgentWriteService struct {
@@ -326,6 +384,87 @@ func TestSearchHandler_Query_ServiceError(t *testing.T) {
 	w := postJSON(r, "/query", map[string]string{"query": "test"})
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestSearchHandler_Query_RecordsHistory(t *testing.T) {
+	var recorded *user.HistoryItem
+	svc := &mockSearchService{
+		queryFn: func(_ context.Context, _ *search.Query) (*search.Response, error) {
+			return &search.Response{Answer: "ok", Confidence: 0.8}, nil
+		},
+	}
+	userSvc := &mockUserService{
+		addHistoryFn: func(_ context.Context, item *user.HistoryItem) error {
+			recorded = item
+			return nil
+		},
+	}
+	handler := NewSearchHandler(svc, userSvc)
+
+	r := gin.New()
+	r.POST("/query", handler.Query)
+
+	w := postJSON(r, "/query", map[string]string{"query": "Newton"})
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, recorded)
+	assert.Equal(t, "search", recorded.ActionType)
+	assert.Equal(t, "Newton", recorded.Query)
+}
+
+func TestPhysicsHandler_Analyze_RecordsHistory(t *testing.T) {
+	var recorded *user.HistoryItem
+	physicsSvc := &mockPhysicsService{
+		analyzeFn: func(_ context.Context, question string, _ string) (*physicsdomain.PhysicsModel, error) {
+			return &physicsdomain.PhysicsModel{
+				ModelType:     physicsdomain.ModelProjectileMotion,
+				ResultSummary: question,
+			}, nil
+		},
+	}
+	userSvc := &mockUserService{
+		addHistoryFn: func(_ context.Context, item *user.HistoryItem) error {
+			recorded = item
+			return nil
+		},
+	}
+	handler := NewPhysicsHandler(physicsSvc, userSvc)
+
+	r := gin.New()
+	r.POST("/physics", handler.Analyze)
+
+	w := postJSON(r, "/physics", map[string]string{"question": "平抛运动"})
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, recorded)
+	assert.Equal(t, "physics", recorded.ActionType)
+	assert.Equal(t, "平抛运动", recorded.Query)
+}
+
+func TestBiologyHandler_Analyze_RecordsHistory(t *testing.T) {
+	var recorded *user.HistoryItem
+	biologySvc := &mockBiologyService{
+		analyzeFn: func(_ context.Context, question string, _ string) (*biologydomain.BiologyModel, error) {
+			return &biologydomain.BiologyModel{Topic: question, ResultSummary: "ok"}, nil
+		},
+	}
+	userSvc := &mockUserService{
+		addHistoryFn: func(_ context.Context, item *user.HistoryItem) error {
+			recorded = item
+			return nil
+		},
+	}
+	handler := NewBiologyHandler(biologySvc, userSvc)
+
+	r := gin.New()
+	r.POST("/biology", handler.Analyze)
+
+	w := postJSON(r, "/biology", map[string]string{"question": "光合作用"})
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, recorded)
+	assert.Equal(t, "biology", recorded.ActionType)
+	assert.Equal(t, "光合作用", recorded.Query)
 }
 
 // ── AgentHandler Session Tests ───────────────────────────

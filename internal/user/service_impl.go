@@ -73,12 +73,54 @@ func (s *serviceImpl) GetProfile(ctx context.Context, userID uuid.UUID) (*User, 
 	return s.repo.GetByID(ctx, userID)
 }
 
+func (s *serviceImpl) EnsureAnonymousUser(ctx context.Context) (*User, error) {
+	uid := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	u, err := s.repo.GetByID(ctx, uid)
+	if err == nil {
+		return u, nil
+	}
+	if !errors.Is(err, ErrUserNotFound) {
+		return nil, err
+	}
+
+	now := time.Now()
+	u = &User{
+		ID:          uid,
+		Nickname:    "Anonymous",
+		Role:        RoleStudent,
+		AvatarURL:   "",
+		LastLoginAt: now,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if createErr := s.repo.Create(ctx, u); createErr != nil {
+		// 并发创建时可能已存在，二次读取兜底。
+		if existing, getErr := s.repo.GetByID(ctx, uid); getErr == nil {
+			return existing, nil
+		}
+		return nil, createErr
+	}
+
+	return u, nil
+}
+
 func (s *serviceImpl) GetHistory(
 	ctx context.Context,
 	userID uuid.UUID,
 	offset, limit int,
 ) ([]*HistoryItem, int64, error) {
 	return s.histRepo.ListByUser(ctx, userID, offset, limit)
+}
+
+func (s *serviceImpl) AddHistory(ctx context.Context, item *HistoryItem) error {
+	if item.ID == uuid.Nil {
+		item.ID = uuid.New()
+	}
+	if item.CreatedAt.IsZero() {
+		item.CreatedAt = time.Now()
+	}
+
+	return s.histRepo.Add(ctx, item)
 }
 
 func (s *serviceImpl) AddFavorite(ctx context.Context, fav *Favorite) error {

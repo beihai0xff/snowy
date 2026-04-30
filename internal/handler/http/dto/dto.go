@@ -58,14 +58,31 @@ type SearchQueryReq struct {
 
 // PhysicsAnalyzeReq 物理解析请求 DTO，参考技术方案 §17.3。
 type PhysicsAnalyzeReq struct {
-	Question string `binding:"required" json:"question"`
-	Context  string `                   json:"context,omitempty"`
+	Question    string `binding:"required" json:"question"`
+	Context     string `                   json:"context,omitempty"`
+	TargetScene string `                   json:"target_scene,omitempty"`
 }
 
-// PhysicsSimulateReq 物理调参请求 DTO，参考技术方案 §17.4。
+// PhysicsSimulateReq 物理调参请求 DTO，参考技术方案 §17.4（兼容旧链路）。
 type PhysicsSimulateReq struct {
 	ModelType  string             `binding:"required" json:"model_type"`
 	Parameters map[string]float64 `binding:"required" json:"parameters"`
+}
+
+// RenderSceneSpec 前端渲染场景规格。
+type RenderSceneSpec struct {
+	SceneType    string             `binding:"required" json:"scene_type"`
+	Title        string             `json:"title,omitempty"`
+	Summary      string             `json:"summary,omitempty"`
+	RenderMode   string             `json:"render_mode,omitempty"`
+	DefaultProps map[string]float64 `json:"default_props,omitempty"`
+}
+
+// RenderGenerateReq 前端渲染代码生成请求 DTO。
+type RenderGenerateReq struct {
+	SceneSpec  RenderSceneSpec `binding:"required" json:"scene_spec"`
+	Context    string          `                   json:"context,omitempty"`
+	RenderMode string          `binding:"omitempty,oneof=html_iframe react_iframe" json:"render_mode,omitempty"`
 }
 
 // ── Biology ──────────────────────────────────────────────

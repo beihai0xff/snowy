@@ -4,7 +4,6 @@
 # 包含服务:
 #   - MySQL       : 主数据库（用户、会话、Agent 记录、内容元数据等）
 #   - Redis       : 缓存 + Asynq 异步任务队列
-#   - OpenSearch  : 全文 + 向量 + 混合检索
 #   - MinIO       : S3 兼容对象存储（开发环境替代）
 #   - Prometheus  : 指标采集
 #   - Grafana     : 可视化仪表盘
@@ -58,55 +57,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # ──────────────────────────────────────────────
-  # OpenSearch — 全文检索 + 向量检索 + 混合检索
-  # ──────────────────────────────────────────────
-  opensearch:
-    image: opensearchproject/opensearch:2.19.1
-    container_name: snowy-opensearch
-    restart: unless-stopped
-    environment:
-      - cluster.name=snowy-cluster
-      - node.name=snowy-node-1
-      - discovery.type=single-node
-      - bootstrap.memory_lock=true
-      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
-      # 开发环境关闭安全插件，简化调试
-      - DISABLE_SECURITY_PLUGIN=true
-      - DISABLE_INSTALL_DEMO_CONFIG=true
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-      nofile:
-        soft: 65536
-        hard: 65536
-    ports:
-      - "9200:9200"   # REST API
-      - "9600:9600"   # Performance Analyzer
-    volumes:
-      - opensearch_data:/usr/share/opensearch/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 30s
-
-  # OpenSearch Dashboards — 可视化管理界面
-  opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.19.1
-    container_name: snowy-opensearch-dashboards
-    restart: unless-stopped
-    environment:
-      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
-      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
-    ports:
-      - "5601:5601"
-    depends_on:
-      opensearch:
-        condition: service_healthy
 
   # ──────────────────────────────────────────────
   # MinIO — S3 兼容对象存储（开发环境）
@@ -194,14 +144,32 @@ services:
     image: snowy-api:latest
     container_name: snowy-api
     restart: unless-stopped
+    environment:
+      - MIMO_API_KEY
+      - SNOWY_LLM_PRIMARY_PROVIDER
+      - SNOWY_LLM_PRIMARY_MODEL_PROVIDER
+      - SNOWY_LLM_PRIMARY_MODEL
+      - SNOWY_LLM_PRIMARY_MODEL_NAME
+      - SNOWY_LLM_PRIMARY_API_KEY
+      - SNOWY_LLM_PRIMARY_BASE_URL
+      - SNOWY_LLM_PRIMARY_BASEURL
+      - SNOWY_LLM_PRIMARY_TIMEOUT
+      - SNOWY_LLM_PRIMARY_MAX_RETRIES
+      - SNOWY_LLM_FALLBACK_PROVIDER
+      - SNOWY_LLM_FALLBACK_MODEL_PROVIDER
+      - SNOWY_LLM_FALLBACK_MODEL
+      - SNOWY_LLM_FALLBACK_MODEL_NAME
+      - SNOWY_LLM_FALLBACK_API_KEY
+      - SNOWY_LLM_FALLBACK_BASE_URL
+      - SNOWY_LLM_FALLBACK_BASEURL
+      - SNOWY_LLM_FALLBACK_TIMEOUT
+      - SNOWY_LLM_FALLBACK_MAX_RETRIES
     ports:
       - "8080:8080"
     depends_on:
       mysql:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      opensearch:
         condition: service_healthy
       minio:
         condition: service_healthy
@@ -225,6 +193,26 @@ services:
     image: snowy-worker:latest
     container_name: snowy-worker
     restart: unless-stopped
+    environment:
+      - MIMO_API_KEY
+      - SNOWY_LLM_PRIMARY_PROVIDER
+      - SNOWY_LLM_PRIMARY_MODEL_PROVIDER
+      - SNOWY_LLM_PRIMARY_MODEL
+      - SNOWY_LLM_PRIMARY_MODEL_NAME
+      - SNOWY_LLM_PRIMARY_API_KEY
+      - SNOWY_LLM_PRIMARY_BASE_URL
+      - SNOWY_LLM_PRIMARY_BASEURL
+      - SNOWY_LLM_PRIMARY_TIMEOUT
+      - SNOWY_LLM_PRIMARY_MAX_RETRIES
+      - SNOWY_LLM_FALLBACK_PROVIDER
+      - SNOWY_LLM_FALLBACK_MODEL_PROVIDER
+      - SNOWY_LLM_FALLBACK_MODEL
+      - SNOWY_LLM_FALLBACK_MODEL_NAME
+      - SNOWY_LLM_FALLBACK_API_KEY
+      - SNOWY_LLM_FALLBACK_BASE_URL
+      - SNOWY_LLM_FALLBACK_BASEURL
+      - SNOWY_LLM_FALLBACK_TIMEOUT
+      - SNOWY_LLM_FALLBACK_MAX_RETRIES
     ports:
       - "8081:8081"
     depends_on:
@@ -246,16 +234,17 @@ services:
     restart: unless-stopped
     ports:
       - "3001:80"
-    depends_on:
-      snowy-api:
-        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   mysql_data:
     driver: local
   redis_data:
-    driver: local
-  opensearch_data:
     driver: local
   minio_data:
     driver: local
@@ -263,4 +252,3 @@ volumes:
     driver: local
   grafana_data:
     driver: local
-

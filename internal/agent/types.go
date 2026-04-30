@@ -64,13 +64,15 @@ type ToolCall struct {
 type SSEEventType string
 
 const (
-	SSEEventThinking SSEEventType = "thinking"
-	SSEEventContent  SSEEventType = "content"
-	SSEEventCitation SSEEventType = "citation"
-	SSEEventToolCall SSEEventType = "tool_call"
-	SSEEventChart    SSEEventType = "chart"
-	SSEEventDiagram  SSEEventType = "diagram"
-	SSEEventDone     SSEEventType = "done"
+	SSEEventThinking   SSEEventType = "thinking"
+	SSEEventContent    SSEEventType = "content"
+	SSEEventCitation   SSEEventType = "citation"
+	SSEEventToolCall   SSEEventType = "tool_call"
+	SSEEventHeartbeat  SSEEventType = "heartbeat"
+	SSEEventDiagram    SSEEventType = "diagram"
+	SSEEventRenderCode SSEEventType = "render_code"
+	SSEEventPreview    SSEEventType = "preview"
+	SSEEventDone       SSEEventType = "done"
 )
 
 // SSEEvent 流式输出事件。

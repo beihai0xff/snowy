@@ -16,7 +16,7 @@ import (
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
-// openaiEmbedding 基于 OpenAI text-embedding-3-large 的实现。
+// openaiEmbedding 基于 OpenAI-compatible Embeddings API 的实现。
 // 当未配置 API Key 时会退化为本地确定性向量，便于开发和测试环境继续工作。
 type openaiEmbedding struct {
 	cfg        config.EmbeddingConfig
@@ -41,7 +41,7 @@ func (e *openaiEmbedding) Embed(ctx context.Context, texts []string) ([][]float6
 		return e.localEmbeddings(texts), nil
 	}
 
-	payload := map[string]any{"model": e.cfg.Model, "input": texts}
+	payload := map[string]any{"model": e.cfg.EffectiveModel(), "input": texts}
 	if e.cfg.Dimensions > 0 {
 		payload["dimensions"] = e.cfg.Dimensions
 	}
@@ -51,9 +51,9 @@ func (e *openaiEmbedding) Embed(ctx context.Context, texts []string) ([][]float6
 		return nil, fmt.Errorf("marshal embedding request: %w", err)
 	}
 
-	baseURL := strings.TrimRight(strings.TrimSpace(e.cfg.BaseURL), "/")
+	baseURL := strings.TrimRight(e.cfg.EffectiveBaseURL(), "/")
 	if baseURL == "" {
-		baseURL = "https://api.openai.com/v1"
+		return nil, fmt.Errorf("embedding provider: base_url is empty")
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/embeddings", bytes.NewReader(body))
