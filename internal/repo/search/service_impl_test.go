@@ -122,7 +122,9 @@ func TestService_QueryUsesLLMDirectAnswer(t *testing.T) {
 	require.NotNil(t, captured)
 	require.Len(t, captured.Messages, 2)
 	assert.Equal(t, "system", captured.Messages[0].Role)
-	assert.Contains(t, captured.Messages[0].Content, "不使用 RAG 检索结果")
+	assert.Contains(t, captured.Messages[0].Content, "不依赖外部检索结果")
+	assert.NotContains(t, captured.Messages[0].Content, "Snowy")
+	assert.NotContains(t, captured.Messages[0].Content, "学习平台")
 	assert.True(t, strings.Contains(captured.Messages[1].Content, "不要进行数据库检索"))
 	assert.Equal(t, "configured-mimo-model", captured.Model)
 }

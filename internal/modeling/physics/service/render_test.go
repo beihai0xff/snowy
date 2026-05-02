@@ -47,7 +47,7 @@ func (f *renderFakeLLMProvider) Generate(ctx context.Context, req *llm.Request) 
 		return f.generateFn(ctx, req)
 	}
 	return &llm.Response{Content: `{
-		"scene_type":"physics_projectile_2d",
+		"scene_type":"biology_concept_flow",
 		"render_mode":"html_iframe",
 		"render_manifest":{"entry":"index.html"},
 		"code_bundle":{"index.html":"<!doctype html><html><body><div id=\"snowy-preview-root\"></div><script>parent.postMessage({source:'snowy-preview',type:'preview',status:'ready'}, '*');</script></body></html>"},
@@ -73,17 +73,15 @@ func (f *renderFakeLLMProvider) ConfiguredBaseURL() string { return "" }
 
 func (f *renderFakeLLMProvider) ConfiguredModelProvider() string { return "" }
 
-func TestGenerateRenderPassesConfiguredProviderModel(t *testing.T) {
+func TestBiologyRenderPassesConfiguredProviderModel(t *testing.T) {
 	provider := &renderFakeLLMProvider{model: "configured-render-model"}
-	svc := &serviceImpl{primaryLLM: provider}
+	svc := &serviceImpl{primaryLLM: provider, codeValidator: nil}
 
 	_, err := svc.GenerateRender(context.Background(), &domain.SceneSpec{
-		SceneType:  "physics_projectile_2d",
-		Summary:    "projectile",
-		RenderMode: domain.RenderModeHTMLIframe,
-		DefaultProps: map[string]float64{
-			"initialVelocity": 10,
-		},
+		SceneType:    "biology_concept_flow",
+		Summary:      "biology",
+		RenderMode:   domain.RenderModeHTMLIframe,
+		DefaultProps: map[string]float64{"concept_count": 4},
 	}, string(domain.RenderModeHTMLIframe))
 	if err != nil {
 		t.Fatalf("GenerateRender() error = %v", err)
@@ -96,32 +94,88 @@ func TestGenerateRenderPassesConfiguredProviderModel(t *testing.T) {
 	}
 }
 
-func TestForce3DUsesOptimizedPromptAndGenerationOptions(t *testing.T) {
-	provider := &renderFakeLLMProvider{generateFn: func(ctx context.Context, req *llm.Request) (*llm.Response, error) {
-		return nil, errors.New("stop after capture")
+func TestPhysicsRenderReturnsNativeEngineArtifactWithoutLLM(t *testing.T) {
+	provider := &renderFakeLLMProvider{generateFn: func(context.Context, *llm.Request) (*llm.Response, error) {
+		t.Fatalf("physics render should not call LLM provider")
+		return nil, nil
 	}}
 	svc := NewService(nil, WithLLMProviders(provider, nil))
-	_, _ = svc.GenerateRender(context.Background(), &domain.SceneSpec{
+	artifact, err := svc.GenerateRender(context.Background(), &domain.SceneSpec{
 		SceneType:    "physics_force_3d",
 		Summary:      "force 3d",
 		RenderMode:   domain.RenderModeHTMLIframe,
 		DefaultProps: map[string]float64{"m": 2, "a": 3},
 	}, string(domain.RenderModeHTMLIframe))
+	if err != nil {
+		t.Fatalf("GenerateRender() error = %v", err)
+	}
+	if provider.captured != nil {
+		t.Fatalf("physics render captured LLM request: %#v", provider.captured)
+	}
+	if artifact.SceneType != "physics_force_3d" {
+		t.Fatalf("scene type = %q", artifact.SceneType)
+	}
+	if artifact.RenderManifest.Framework != "snowy-native-physics-engine" {
+		t.Fatalf("framework = %q", artifact.RenderManifest.Framework)
+	}
+	if artifact.RenderManifest.Sandbox != "react-native" {
+		t.Fatalf("sandbox = %q", artifact.RenderManifest.Sandbox)
+	}
+	if !containsString(artifact.RenderManifest.Dependencies, "rapier3d") {
+		t.Fatalf("dependencies missing rapier3d: %#v", artifact.RenderManifest.Dependencies)
+	}
+	if artifact.RenderManifest.InitialProps["view_dimension"] != 3 {
+		t.Fatalf("manifest initial view_dimension = %v", artifact.RenderManifest.InitialProps["view_dimension"])
+	}
+	if _, ok := artifact.CodeBundle["README.md"]; !ok {
+		t.Fatalf("native artifact should retain minimal README code_bundle")
+	}
+}
+
+func TestProjectileRenderReturnsNativeEngineArtifactWithDefaults(t *testing.T) {
+	svc := NewService(nil)
+	artifact, err := svc.GenerateRender(context.Background(), &domain.SceneSpec{
+		SceneType:    "physics_projectile_3d",
+		Summary:      "projectile",
+		RenderMode:   domain.RenderModeHTMLIframe,
+		DefaultProps: map[string]float64{"v0": 30},
+	}, string(domain.RenderModeHTMLIframe))
+	if err != nil {
+		t.Fatalf("GenerateRender() error = %v", err)
+	}
+	if artifact.RenderManifest.Framework != "snowy-native-physics-engine" {
+		t.Fatalf("framework = %q", artifact.RenderManifest.Framework)
+	}
+	for _, key := range []string{"v0", "angle_deg", "t", "g", "view_dimension"} {
+		if _, ok := artifact.RenderManifest.InitialProps[key]; !ok {
+			t.Fatalf("initial props missing %q: %#v", key, artifact.RenderManifest.InitialProps)
+		}
+	}
+}
+
+func TestBiologyUsesOptimizedPromptAndGenerationOptions(t *testing.T) {
+	provider := &renderFakeLLMProvider{generateFn: func(ctx context.Context, req *llm.Request) (*llm.Response, error) {
+		return nil, errors.New("stop after capture")
+	}}
+	svc := NewService(nil, WithLLMProviders(provider, nil))
+	_, _ = svc.GenerateRender(context.Background(), &domain.SceneSpec{
+		SceneType:    "biology_concept_flow",
+		Summary:      "biology",
+		RenderMode:   domain.RenderModeHTMLIframe,
+		DefaultProps: map[string]float64{"concept_count": 4},
+	}, string(domain.RenderModeHTMLIframe))
 
 	if provider.captured == nil {
 		t.Fatalf("expected provider request to be captured")
 	}
-	if provider.captured.Temperature != 0.1 {
-		t.Fatalf("temperature = %v, want 0.1", provider.captured.Temperature)
+	if provider.captured.Temperature != 0.15 {
+		t.Fatalf("temperature = %v, want 0.15", provider.captured.Temperature)
 	}
-	if provider.captured.MaxTokens != 12288 {
-		t.Fatalf("max tokens = %v, want 12288", provider.captured.MaxTokens)
-	}
-	if len(provider.captured.Messages) != 2 {
-		t.Fatalf("messages len = %d, want 2", len(provider.captured.Messages))
+	if provider.captured.MaxTokens != 16384 {
+		t.Fatalf("max tokens = %v, want 16384", provider.captured.MaxTokens)
 	}
 	systemPrompt := provider.captured.Messages[0].Content
-	for _, want := range []string{"getContext('webgl')", "snowy:update-props", "snowy-preview ready", "view_dimension", "2D fallback", "perspective/mat4/camera/rotate", "不要为了压缩而省略"} {
+	for _, want := range []string{"biology_*", "交互式科学可视化前端工程师", "animation_speed", "不限制 index.html/code_bundle 字符数"} {
 		if !strings.Contains(systemPrompt, want) {
 			t.Fatalf("system prompt missing %q", want)
 		}
@@ -129,22 +183,16 @@ func TestForce3DUsesOptimizedPromptAndGenerationOptions(t *testing.T) {
 	if strings.Contains(systemPrompt, "5000") {
 		t.Fatalf("system prompt should not retain 5000 character cap")
 	}
-	userPrompt := provider.captured.Messages[1].Content
-	for _, want := range []string{"不要省略 code_bundle", "getContext('webgl')", "snowy:update-props", "snowy-preview ready", "view_dimension", "2D fallback"} {
-		if !strings.Contains(userPrompt, want) {
-			t.Fatalf("user prompt missing %q", want)
-		}
-	}
 }
 
-func TestNonForce3DUsesDefaultGenerationOptions(t *testing.T) {
+func TestNonPhysicsNonBiologyUsesDefaultGenerationOptions(t *testing.T) {
 	provider := &renderFakeLLMProvider{generateFn: func(ctx context.Context, req *llm.Request) (*llm.Response, error) {
 		return nil, errors.New("stop after capture")
 	}}
 	svc := NewService(nil, WithLLMProviders(provider, nil))
 	_, _ = svc.GenerateRender(context.Background(), &domain.SceneSpec{
-		SceneType:    "physics_projectile_2d",
-		Summary:      "projectile",
+		SceneType:    "custom_motion_2d",
+		Summary:      "custom",
 		RenderMode:   domain.RenderModeHTMLIframe,
 		DefaultProps: map[string]float64{"v0": 20},
 	}, string(domain.RenderModeHTMLIframe))
@@ -157,9 +205,6 @@ func TestNonForce3DUsesDefaultGenerationOptions(t *testing.T) {
 	}
 	if provider.captured.MaxTokens != 8192 {
 		t.Fatalf("max tokens = %v, want 8192", provider.captured.MaxTokens)
-	}
-	if strings.Contains(provider.captured.Messages[1].Content, "physics_force_3d 成功标准") {
-		t.Fatalf("non-force scene should not include force 3d success standard in user prompt")
 	}
 }
 
@@ -178,67 +223,130 @@ func TestAnalyzeNewtonSecondLawDefaultsToForce3D(t *testing.T) {
 	if got := model.SceneSpec.DefaultProps["view_dimension"]; got != 3 {
 		t.Fatalf("view_dimension = %v, want 3", got)
 	}
+	if !strings.Contains(strings.Join(model.Warnings, " "), "Rapier 3D") {
+		t.Fatalf("expected Rapier warning, got %#v", model.Warnings)
+	}
 }
 
-func TestForce3DTemplateContainsWebGLAndFallback(t *testing.T) {
-	svc := NewService(nil)
-	artifact, err := svc.GenerateRender(context.Background(), &domain.SceneSpec{
-		SceneType:  "physics_force_3d",
-		Title:      "牛顿第二定律 3D 受力模型",
-		Summary:    "F=ma 3D model",
-		RenderMode: domain.RenderModeHTMLIframe,
-		DefaultProps: map[string]float64{
-			"m": 2,
-			"a": 3,
+func TestAnalyzeNewTeachingScenes(t *testing.T) {
+	tests := []struct {
+		name      string
+		question  string
+		modelType domain.ModelType
+		sceneType string
+		props     []string
+	}{
+		{
+			name:      "orbit",
+			question:  "卫星绕地球运动，展示天体轨道和万有引力方向",
+			modelType: domain.ModelTwoBodyMotion,
+			sceneType: "physics_orbit_3d",
+			props:     []string{"central_mass", "satellite_mass", "orbit_radius", "tangential_speed", "eccentricity", "gravitational_strength", "view_dimension"},
 		},
-	}, string(domain.RenderModeHTMLIframe))
+		{
+			name:      "spring",
+			question:  "弹簧振子简谐运动，展示回复力和能量变化",
+			modelType: domain.ModelSpringOscillator,
+			sceneType: "physics_spring_3d",
+			props:     []string{"k", "m", "x", "damping", "view_dimension"},
+		},
+		{
+			name:      "collision",
+			question:  "两个小球弹性碰撞，展示动量和能量变化",
+			modelType: domain.ModelCollisionMotion,
+			sceneType: "physics_collision_3d",
+			props:     []string{"m1", "m2", "v1", "v2", "restitution", "view_dimension"},
+		},
+	}
+
+	svc := NewService(nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model, err := svc.Analyze(context.Background(), tt.question, "")
+			if err != nil {
+				t.Fatalf("Analyze() error = %v", err)
+			}
+			if model.ModelType != tt.modelType {
+				t.Fatalf("model type = %q, want %q", model.ModelType, tt.modelType)
+			}
+			if model.SceneSpec == nil {
+				t.Fatalf("expected scene spec")
+			}
+			if model.SceneSpec.SceneType != tt.sceneType {
+				t.Fatalf("scene type = %q, want %q", model.SceneSpec.SceneType, tt.sceneType)
+			}
+			for _, key := range tt.props {
+				if _, ok := model.SceneSpec.DefaultProps[key]; !ok {
+					t.Fatalf("default props missing %q: %#v", key, model.SceneSpec.DefaultProps)
+				}
+			}
+		})
+	}
+}
+
+func TestAnalyzeOrbitQuestionDoesNotTreat3DAsCondition(t *testing.T) {
+	svc := NewService(nil)
+	model, err := svc.Analyze(context.Background(), "卫星绕地球做轨道运动，展示天体运动 3D 模型", "")
 	if err != nil {
-		t.Fatalf("GenerateRender() error = %v", err)
+		t.Fatalf("Analyze() error = %v", err)
 	}
-	if artifact.SceneType != "physics_force_3d" {
-		t.Fatalf("scene type = %q", artifact.SceneType)
+	if model.ModelType != domain.ModelTwoBodyMotion {
+		t.Fatalf("model type = %q, want %q", model.ModelType, domain.ModelTwoBodyMotion)
 	}
-	html := artifact.CodeBundle["index.html"]
-	for _, want := range []string{"getContext('webgl')", "view_dimension", "snowy:update-props", "snowy-preview", "ready", "2D fallback", "mat4Perspective"} {
-		if !strings.Contains(html, want) {
-			t.Fatalf("index.html missing %q", want)
+	if model.SceneSpec == nil || model.SceneSpec.SceneType != "physics_orbit_3d" {
+		t.Fatalf("scene spec = %#v", model.SceneSpec)
+	}
+	for _, condition := range model.Conditions {
+		if condition.Name == "v0" || condition.Unit == "D" {
+			t.Fatalf("3D view hint leaked into extracted conditions: %#v", model.Conditions)
 		}
 	}
-	if !containsString(artifact.RenderManifest.AllowedAPIs, "WebGLRenderingContext") {
-		t.Fatalf("manifest allowed APIs missing WebGLRenderingContext: %#v", artifact.RenderManifest.AllowedAPIs)
+	if !strings.Contains(model.ResultSummary, "gravity_force=") {
+		t.Fatalf("summary should use normalized orbit metrics, got %q", model.ResultSummary)
 	}
-	if artifact.RenderManifest.InitialProps["view_dimension"] != 3 {
-		t.Fatalf("manifest initial view_dimension = %v", artifact.RenderManifest.InitialProps["view_dimension"])
+	if strings.Contains(model.ResultSummary, "198611753234863") {
+		t.Fatalf("summary still contains unreadable SI astronomy force: %q", model.ResultSummary)
 	}
 }
 
-func TestForce3DRejectsPure2DProviderArtifactAndFallsBack(t *testing.T) {
-	provider := &renderFakeLLMProvider{generateFn: func(ctx context.Context, req *llm.Request) (*llm.Response, error) {
-		return &llm.Response{Content: `{
-			"scene_type":"physics_force_3d",
-			"render_mode":"html_iframe",
-			"render_manifest":{"entry":"index.html","allowed_apis":["CanvasRenderingContext2D"]},
-			"code_bundle":{"index.html":"<!doctype html><html><body><div id=\"snowy-preview-root\"></div><canvas id=\"c\"></canvas><script>window.addEventListener('message',function(event){if(event.data&&event.data.type==='snowy:update-props'){} }); parent.postMessage({source:'snowy-preview',type:'preview',status:'ready'}, '*');</script></body></html>"},
-			"result_summary":"2d only"
-		}`}, nil
+func TestNewPhysicsScenesRenderNativeArtifactWithoutLLM(t *testing.T) {
+	provider := &renderFakeLLMProvider{generateFn: func(context.Context, *llm.Request) (*llm.Response, error) {
+		t.Fatalf("physics render should not call LLM provider")
+		return nil, nil
 	}}
 	svc := NewService(nil, WithLLMProviders(provider, nil))
-	artifact, err := svc.GenerateRender(context.Background(), &domain.SceneSpec{
-		SceneType:    "physics_force_3d",
-		Title:        "force 3d",
-		Summary:      "force 3d",
-		RenderMode:   domain.RenderModeHTMLIframe,
-		DefaultProps: map[string]float64{"m": 2, "a": 3},
-	}, string(domain.RenderModeHTMLIframe))
-	if err != nil {
-		t.Fatalf("GenerateRender() error = %v", err)
+
+	tests := []struct {
+		sceneType string
+		props     []string
+	}{
+		{sceneType: "physics_orbit_3d", props: []string{"central_mass", "satellite_mass", "orbit_radius", "tangential_speed", "gravitational_strength", "view_dimension"}},
+		{sceneType: "physics_spring_3d", props: []string{"k", "m", "x", "damping", "view_dimension"}},
+		{sceneType: "physics_collision_3d", props: []string{"m1", "m2", "v1", "v2", "restitution", "view_dimension"}},
 	}
-	html := artifact.CodeBundle["index.html"]
-	if !strings.Contains(html, "getContext('webgl')") {
-		t.Fatalf("expected fallback WebGL template, got html prefix: %.160s", html)
-	}
-	if len(artifact.Warnings) == 0 || !strings.Contains(strings.Join(artifact.Warnings, " "), "missing native WebGL context") {
-		t.Fatalf("expected warning with semantic validation failure, got %#v", artifact.Warnings)
+
+	for _, tt := range tests {
+		t.Run(tt.sceneType, func(t *testing.T) {
+			artifact, err := svc.GenerateRender(context.Background(), &domain.SceneSpec{
+				SceneType:  tt.sceneType,
+				Title:      tt.sceneType,
+				RenderMode: domain.RenderModeHTMLIframe,
+			}, string(domain.RenderModeHTMLIframe))
+			if err != nil {
+				t.Fatalf("GenerateRender() error = %v", err)
+			}
+			if provider.captured != nil {
+				t.Fatalf("physics render captured LLM request: %#v", provider.captured)
+			}
+			if artifact.RenderManifest.Framework != "snowy-native-physics-engine" {
+				t.Fatalf("framework = %q", artifact.RenderManifest.Framework)
+			}
+			for _, key := range tt.props {
+				if _, ok := artifact.RenderManifest.InitialProps[key]; !ok {
+					t.Fatalf("initial props missing %q: %#v", key, artifact.RenderManifest.InitialProps)
+				}
+			}
+		})
 	}
 }
 

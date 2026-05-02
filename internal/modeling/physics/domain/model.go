@@ -1,5 +1,5 @@
 // Package domain 定义物理建模域的领域模型。
-// 有界上下文：Physics Modeling — 条件抽取、模型识别、推导、前端代码生成、浏览器渲染。
+// 有界上下文：Physics Modeling — 条件抽取、模型识别、推导、原生物理引擎预览、浏览器渲染。
 // 参考技术方案 §15。
 package domain
 
@@ -14,6 +14,7 @@ const (
 	ModelWorkEnergy          ModelType = "work_energy"
 	ModelSpringOscillator    ModelType = "spring_oscillator"
 	ModelTwoBodyMotion       ModelType = "two_body_motion"
+	ModelCollisionMotion     ModelType = "collision_motion"
 )
 
 // RenderMode 浏览器渲染模式。
@@ -70,7 +71,7 @@ type SeriesSpec struct {
 	Data [][]float64 `json:"data"`
 }
 
-// SceneSpec 前端代码生成所需的场景规格。
+// SceneSpec 浏览器预览所需的场景规格。
 type SceneSpec struct {
 	SceneType    string             `json:"scene_type"`
 	Title        string             `json:"title"`
@@ -102,7 +103,7 @@ type RenderArtifact struct {
 	Warnings       []string          `json:"warnings,omitempty"`
 }
 
-// PhysicsModel 物理建模完整结果，兼容旧版图表协议，同时补充 scene_spec 供代码生成使用。
+// PhysicsModel 物理建模完整结果，兼容旧版图表协议，同时补充 scene_spec 供浏览器预览使用。
 type PhysicsModel struct {
 	ModelType     ModelType         `json:"model_type"`
 	Conditions    []Condition       `json:"conditions"`

@@ -13,6 +13,6 @@ type PhysicsService interface {
 	Analyze(ctx context.Context, question string, sessionContext string) (*domain.PhysicsModel, error)
 	// Simulate 根据参数执行数值计算并返回更新后的图表。
 	Simulate(ctx context.Context, modelType domain.ModelType, params map[string]float64) (*domain.ComputeResult, error)
-	// GenerateRender 根据场景规格生成可直接在浏览器中渲染的前端代码产物。
+	// GenerateRender 根据场景规格生成可直接在浏览器中渲染的预览产物；物理场景返回原生引擎 artifact，生物等场景仍可返回 HTML artifact。
 	GenerateRender(ctx context.Context, sceneSpec *domain.SceneSpec, renderMode string) (*domain.RenderArtifact, error)
 }

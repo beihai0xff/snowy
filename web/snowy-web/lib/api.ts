@@ -293,6 +293,96 @@ export interface AgentBiologyPayload {
   render_artifact?: RenderArtifact;
 }
 
+
+// ── Monitoring ──────────────────────────────────────────
+
+export interface LLMProviderConfig {
+  role: string;
+  provider: string;
+  model_provider?: string;
+  model: string;
+  base_url?: string;
+  timeout?: string;
+  max_retries: number;
+  configured: boolean;
+  api_key_configured: boolean;
+}
+
+export interface LLMSummary {
+  total_calls: number;
+  success_calls: number;
+  failed_calls: number;
+  success_rate: number;
+  avg_latency_ms: number;
+  p50_latency_ms: number;
+  p95_latency_ms: number;
+  max_latency_ms: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  avg_prompt_chars: number;
+  last_error?: string;
+  last_call_at?: string;
+}
+
+export interface LLMGroupMetric {
+  key: string;
+  total_calls: number;
+  success_calls: number;
+  failed_calls: number;
+  success_rate: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+}
+
+export interface LLMCallRecord {
+  id: string;
+  role: string;
+  provider: string;
+  model_provider?: string;
+  model: string;
+  base_url?: string;
+  operation: string;
+  status: 'success' | 'failed' | string;
+  latency_ms: number;
+  input_tokens: number;
+  output_tokens: number;
+  max_tokens: number;
+  temperature: number;
+  prompt_chars: number;
+  system_pe?: string;
+  user_prompt?: string;
+  prompt_preview?: string;
+  finish_reason?: string;
+  error?: string;
+  started_at: string;
+  finished_at: string;
+}
+
+export interface LLMPromptProfile {
+  id: string;
+  scene: string;
+  version: string;
+  mode: string;
+  title: string;
+  system_pe: string;
+  user_prompt_contract: string;
+  success_checklist: string[];
+  generation_params?: Record<string, unknown>;
+  updated_at: string;
+}
+
+export interface LLMDashboard {
+  generated_at: string;
+  summary: LLMSummary;
+  providers: LLMProviderConfig[];
+  by_provider: LLMGroupMetric[];
+  by_operation: LLMGroupMetric[];
+  recent_calls: LLMCallRecord[];
+  prompt_profiles: LLMPromptProfile[];
+}
+
 // ── HTTP helpers ─────────────────────────────────────────
 
 async function request<T>(
@@ -374,6 +464,9 @@ export const api = {
 
   createSession: (mode: string) =>
     request<SessionResp>('/agent/sessions', { method: 'POST', body: JSON.stringify({ mode }) }),
+
+  // Monitoring
+  getLLMMonitoring: () => request<LLMDashboard>('/monitoring/llm'),
 };
 
 export async function agentChatStream(

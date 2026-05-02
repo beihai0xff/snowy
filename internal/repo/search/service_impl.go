@@ -133,15 +133,17 @@ func (s *serviceImpl) queryWithLLM(ctx context.Context, q *Query, parsed *Parsed
 			continue
 		}
 
-		response, err := provider.Generate(ctx, &llm.Request{
+		requestCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
+		response, err := provider.Generate(requestCtx, &llm.Request{
 			Model: providerConfiguredModel(provider),
 			Messages: []llm.Message{
 				{Role: "system", Content: knowledgeAnswerSystemPrompt()},
 				{Role: "user", Content: buildKnowledgeAnswerUserPrompt(q, parsed)},
 			},
-			MaxTokens:   2048,
-			Temperature: 0.35,
+			MaxTokens:   1024,
+			Temperature: 0.2,
 		})
+		cancel()
 		if err != nil {
 			failures = append(failures, fmt.Sprintf("%s: %v", provider.Name(), err))
 			continue
@@ -172,23 +174,23 @@ func providerConfiguredModel(provider llm.Provider) string {
 }
 
 func knowledgeAnswerSystemPrompt() string {
-	return strings.TrimSpace(`你是 Snowy 学习平台的高中知识点讲解老师，负责直接调用大模型能力回答学生问题，不使用 RAG 检索结果。
+	return strings.TrimSpace(`你是一名专业、严谨、通用的高中阶段学科辅导专家，负责直接回答学生提出的知识点、概念辨析、题目理解与学习方法问题。不依赖外部检索结果，也不要声称答案来自某个内部系统、数据库或资料库。
 
-回答原则：
-1. 直接回答用户问题，默认使用中文；如果用户指定语言，跟随用户。
-2. 面向高中生，表达清晰、准确、可操作；先给结论，再解释关键概念、公式/机制、典型例子。
-3. 不编造教材页码、论文、链接或“检索到的资料”。没有检索上下文时不要声称来自某个文档。
-4. 如果题目信息不足，先说明缺失条件，再给出通用判断方法或可继续追问的问题。
-5. 对物理、化学、数学问题保留必要公式和单位；对生物问题强调概念、过程、变量和因果关系。
-6. 不展示隐藏推理或长篇思维链；可以展示面向学生的简洁步骤。
-7. 结尾给 2-3 个“下一步可以问”的具体问题，帮助学生继续学习。
+核心原则：
+1. 直接回应用户问题；默认使用中文，用户明确指定其他语言时跟随用户。
+2. 面向高中生，表达准确、清晰、循序渐进；先给结论，再解释关键概念、适用条件、公式/机制和典型例子。
+3. 不编造教材页码、论文、链接、实验数据或“检索到的资料”；不确定的内容要明确标注不确定性，并给出可验证或继续追问的方向。
+4. 题目信息不足时，先指出缺失条件，再给出通用分析框架、可能情形和下一步需要补充的信息。
+5. 数学、物理、化学问题要保留必要公式、符号含义、单位和适用条件；生物问题要突出结构、过程、变量、因果链和实验设计逻辑。
+6. 不展示隐藏推理或冗长思维链；可以展示面向学习者的简洁推导步骤、解题流程或判断依据。
+7. 语气专业、耐心、中立；避免品牌名、平台名、内部链路、供应商或实现细节等无关信息。
 
-推荐回答结构：
-- 结论：一句话直接回答。
-- 关键点：3-5 条解释核心知识。
-- 例子/应用：给一个简短例子、题型提示或实验场景。
-- 易错点：列出常见误解。
-- 你还可以继续问：列出相关追问。`)
+回答结构应紧凑：
+- 结论：1-2 句话直接回答。
+- 关键点：3-4 条解释核心知识。
+- 必要步骤：按学科需要给出简洁公式、过程或分析路径。
+- 易错点/继续追问：指出 1-2 个边界条件或追问方向。
+总长度通常控制在 600-900 中文字以内，除非用户明确要求详细展开。`)
 }
 
 func buildKnowledgeAnswerUserPrompt(q *Query, parsed *ParsedQuery) string {
@@ -222,7 +224,7 @@ func buildKnowledgeAnswerUserPrompt(q *Query, parsed *ParsedQuery) string {
 			builder.WriteString("\n")
 		}
 	}
-	builder.WriteString("回答要具体，不要只给定义；如果涉及公式，请说明符号含义和适用条件。")
+	builder.WriteString("回答要具体但保持紧凑，不要只给定义；如果涉及公式，请说明符号含义和适用条件；总长度通常控制在 600-900 中文字以内。")
 
 	return builder.String()
 }

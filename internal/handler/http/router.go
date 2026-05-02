@@ -1,7 +1,10 @@
 package http
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 	"github.com/beihai0xff/snowy/internal/pkg/middleware"
@@ -9,12 +12,13 @@ import (
 
 // Handlers 聚合所有 HTTP Handler。
 type Handlers struct {
-	Agent   *AgentHandler
-	Search  *SearchHandler
-	Physics *PhysicsHandler
-	Render  *RenderHandler
-	Biology *BiologyHandler
-	User    *UserHandler
+	Agent      *AgentHandler
+	Search     *SearchHandler
+	Physics    *PhysicsHandler
+	Render     *RenderHandler
+	Biology    *BiologyHandler
+	User       *UserHandler
+	Monitoring *MonitoringHandler
 }
 
 // NewRouter 创建 Gin 路由，组装所有路由和中间件。
@@ -37,6 +41,11 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+
+	// ── Prometheus 指标 ─────────────────────────────────
+	if path := strings.TrimSpace(cfg.Observability.PrometheusPath); path != "" {
+		r.GET(path, gin.WrapH(promhttp.Handler()))
+	}
 
 	// ── API v1 路由组 ──────────────────────────────────
 	v1 := r.Group("/api/v1")
@@ -82,6 +91,11 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 		{
 			biology.POST("/analyze", h.Biology.Analyze)
 		}
+	}
+
+	// ── 监控看板接口 ───────────────────────────────────
+	if h.Monitoring != nil {
+		v1.GET("/monitoring/llm", h.Monitoring.LLMDashboard)
 	}
 
 	// ── 用户接口（不再需要认证）──────────────────────

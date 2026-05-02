@@ -30,8 +30,7 @@ const actionTypeColor: Record<string, string> = {
 
 const starterActions = [
   { label: '去检索', path: '/search', icon: <SearchOutlined /> },
-  { label: '物理建模', path: '/physics', icon: <ExperimentOutlined /> },
-  { label: '生物建模', path: '/biology', icon: <BranchesOutlined /> },
+  { label: '统一建模', path: '/modeling', icon: <ExperimentOutlined /> },
 ];
 
 export default function LearningPage() {
@@ -71,24 +70,24 @@ export default function LearningPage() {
   const handleHistoryClick = (item: HistoryItem) => {
     const routeMap: Record<string, string> = {
       search: '/search',
-      physics: '/physics',
-      biology: '/biology',
+      physics: '/modeling?type=physics',
+      biology: '/modeling?type=biology',
     };
     const route = routeMap[item.action_type];
     if (route) {
-      router.push(`${route}?q=${encodeURIComponent(item.query)}`);
+      router.push(route.includes('?') ? `${route}&q=${encodeURIComponent(item.query)}` : `${route}?q=${encodeURIComponent(item.query)}`);
     }
   };
 
   const handleFavoriteClick = (item: Favorite) => {
     const routeMap: Record<string, string> = {
       search: '/search',
-      physics: '/physics',
-      biology: '/biology',
+      physics: '/modeling?type=physics',
+      biology: '/modeling?type=biology',
     };
     const route = routeMap[item.target_type];
     if (route) {
-      router.push(`${route}?q=${encodeURIComponent(item.title)}`);
+      router.push(route.includes('?') ? `${route}&q=${encodeURIComponent(item.title)}` : `${route}?q=${encodeURIComponent(item.title)}`);
     }
   };
 

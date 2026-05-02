@@ -100,7 +100,7 @@ func assemblePhysicsResponse(mode agent.Mode, toolOutputs map[string]any) (*agen
 		Answer:            answer,
 		StructuredPayload: payload,
 		Confidence:        0.88,
-		NextActions:       []string{"可在前端直接挂载 render_artifact 并通过 postMessage 调整参数"},
+		NextActions:       []string{"可在前端直接挂载 render_artifact，并通过参数面板驱动 Rapier 3D 原生物理引擎"},
 	}, nil
 }
 

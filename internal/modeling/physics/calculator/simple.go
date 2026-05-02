@@ -30,6 +30,8 @@ func (c *simpleCalculator) Compute(model domain.ModelType, params map[string]flo
 		return computeSpringOscillator(params), nil
 	case domain.ModelTwoBodyMotion:
 		return computeTwoBodyMotion(params), nil
+	case domain.ModelCollisionMotion:
+		return computeCollisionMotion(params), nil
 	}
 
 	return nil, fmt.Errorf("unsupported physics model: %s", model)
@@ -44,6 +46,7 @@ func (c *simpleCalculator) SupportedModels() []domain.ModelType {
 		domain.ModelWorkEnergy,
 		domain.ModelSpringOscillator,
 		domain.ModelTwoBodyMotion,
+		domain.ModelCollisionMotion,
 	}
 }
 
@@ -156,17 +159,60 @@ func computeSpringOscillator(params map[string]float64) *domain.ComputeResult {
 }
 
 func computeTwoBodyMotion(params map[string]float64) *domain.ComputeResult {
-	const gravitationalConstant = 6.67430e-11
+	// The browser preview uses normalized teaching units rather than SI-scale
+	// astronomy values.  Keep the calculator aligned with that convention so the
+	// UI does not show huge unreadable forces for generic prompts such as
+	// “卫星绕地球运动”.
+	centralMass := valueOrDefault(params, "central_mass", valueOrDefault(params, "m1", 8))
+	satelliteMass := valueOrDefault(params, "satellite_mass", valueOrDefault(params, "m2", 1))
+	radius := valueOrDefault(params, "orbit_radius", valueOrDefault(params, "r", 3.6))
+	tangentialSpeed := valueOrDefault(params, "tangential_speed", 2.25)
+	gravityStrength := valueOrDefault(params, "gravitational_strength", 10)
 
-	m1 := valueOrDefault(params, "m1", 5.97e24)
-	m2 := valueOrDefault(params, "m2", 7.35e22)
-	r := valueOrDefault(params, "r", 3.84e8)
+	if radius <= 0 {
+		radius = 3.6
+	}
+
+	gravityForce := gravityStrength * centralMass * satelliteMass / (radius * radius)
+	centripetalNeed := satelliteMass * tangentialSpeed * tangentialSpeed / radius
+	orbitalBalance := gravityForce / math.Max(0.001, centripetalNeed)
+	period := 2 * math.Pi * radius / math.Max(0.001, tangentialSpeed)
 
 	return &domain.ComputeResult{
 		Values: map[string]float64{
-			"force": gravitationalConstant * m1 * m2 / (r * r),
+			"gravity_force":     gravityForce,
+			"centripetal_need":  centripetalNeed,
+			"orbital_balance":   orbitalBalance,
+			"orbit_period_demo": period,
 		},
 	}
+}
+
+func computeCollisionMotion(params map[string]float64) *domain.ComputeResult {
+	m1 := valueOrDefault(params, "m1", 1.5)
+	m2 := valueOrDefault(params, "m2", 1)
+	v1 := valueOrDefault(params, "v1", 5)
+	v2 := valueOrDefault(params, "v2", -2)
+	restitution := math.Max(0, math.Min(1, valueOrDefault(params, "restitution", 0.9)))
+	totalMass := m1 + m2
+	if totalMass <= 0 {
+		totalMass = 1
+	}
+	newV1 := ((m1-restitution*m2)*v1 + (1+restitution)*m2*v2) / totalMass
+	newV2 := ((m2-restitution*m1)*v2 + (1+restitution)*m1*v1) / totalMass
+	initialMomentum := m1*v1 + m2*v2
+	finalMomentum := m1*newV1 + m2*newV2
+	initialEnergy := 0.5*m1*v1*v1 + 0.5*m2*v2*v2
+	finalEnergy := 0.5*m1*newV1*newV1 + 0.5*m2*newV2*newV2
+
+	return &domain.ComputeResult{Values: map[string]float64{
+		"v1_after":          newV1,
+		"v2_after":          newV2,
+		"initial_momentum":  initialMomentum,
+		"final_momentum":    finalMomentum,
+		"initial_kinetic_e": initialEnergy,
+		"final_kinetic_e":   finalEnergy,
+	}}
 }
 
 func valueOrDefault(params map[string]float64, key string, fallback float64) float64 {

@@ -21,7 +21,7 @@ const fallbackRecommendations: RecommendationsResp = {
     { id: 'photosynthesis', title: '光合作用', description: '光反应、暗反应与变量分析', category: 'biology', icon: '🌿' },
   ],
   physics_models: [
-    { id: 'projectile-model', title: '平抛运动轨迹', description: '生成可交互前端预览', category: 'physics' },
+    { id: 'projectile-model', title: '平抛运动轨迹', description: 'Rapier 3D 原生仿真', category: 'physics' },
     { id: 'force-model', title: '斜面受力分析', description: '拆解受力与加速度', category: 'physics' },
     { id: 'oscillation-model', title: '简谐运动', description: '位移-时间关系可视化', category: 'physics' },
   ],
@@ -67,7 +67,7 @@ export default function HomePage() {
           ❄️ Snowy 学习平台
         </Title>
         <Paragraph type="secondary" style={{ fontSize: 16 }}>
-          面向高中生的 AIGC 知识检索、物理 / 3D 场景代码生成、生物建模工具
+          面向高中生的 AIGC 知识检索、物理仿真与生物可视化统一建模工具
         </Paragraph>
         <Search
           placeholder="输入你的学习问题，如：牛顿第二定律的推导过程"
@@ -80,7 +80,7 @@ export default function HomePage() {
 
       {/* Quick Links */}
       <Row gutter={[16, 16]} style={{ marginBottom: 32 }}>
-        <Col xs={24} sm={8}>
+        <Col xs={24} sm={12}>
           <Card
             hoverable
             onClick={() => router.push('/search')}
@@ -91,26 +91,15 @@ export default function HomePage() {
             <Paragraph type="secondary">搜索课本知识、考纲要点、题库</Paragraph>
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
+        <Col xs={24} sm={12}>
           <Card
             hoverable
-            onClick={() => router.push('/physics')}
+            onClick={() => router.push('/modeling')}
             style={{ textAlign: 'center', borderColor: '#52c41a' }}
           >
             <ExperimentOutlined style={{ fontSize: 32, color: '#52c41a' }} />
-            <Title level={4} style={{ marginTop: 12 }}>物理建模</Title>
-            <Paragraph type="secondary">推导说明、前端代码生成、浏览器渲染</Paragraph>
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card
-            hoverable
-            onClick={() => router.push('/biology')}
-            style={{ textAlign: 'center', borderColor: '#722ed1' }}
-          >
-            <BranchesOutlined style={{ fontSize: 32, color: '#722ed1' }} />
-            <Title level={4} style={{ marginTop: 12 }}>生物建模</Title>
-            <Paragraph type="secondary">概念图谱、过程分析、实验设计</Paragraph>
+            <Title level={4} style={{ marginTop: 12 }}>统一建模</Title>
+            <Paragraph type="secondary">物理 Rapier 3D 仿真 + 生物动态可视化</Paragraph>
           </Card>
         </Col>
       </Row>
@@ -158,7 +147,7 @@ export default function HomePage() {
                   <Card
                     size="small"
                     hoverable
-                    onClick={() => router.push(`/physics?q=${encodeURIComponent(item.title)}`)}
+                    onClick={() => router.push(`/modeling?type=physics&q=${encodeURIComponent(item.title)}`)}
                   >
                     <div style={{ fontWeight: 500 }}>{item.title}</div>
                     <div style={{ fontSize: 12, color: '#999' }}>{item.description}</div>
@@ -176,7 +165,7 @@ export default function HomePage() {
                   <Card
                     size="small"
                     hoverable
-                    onClick={() => router.push(`/biology?q=${encodeURIComponent(item.title)}`)}
+                    onClick={() => router.push(`/modeling?type=biology&q=${encodeURIComponent(item.title)}`)}
                   >
                     <div style={{ fontWeight: 500 }}>{item.title}</div>
                     <div style={{ fontSize: 12, color: '#999' }}>{item.description}</div>

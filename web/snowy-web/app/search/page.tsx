@@ -241,14 +241,14 @@ function SearchPageInner() {
                 <Button
                   block
                   icon={<ExperimentOutlined />}
-                  onClick={() => router.push(`/physics?q=${encodeURIComponent(query)}`)}
+                  onClick={() => router.push(`/modeling?type=physics&q=${encodeURIComponent(query)}`)}
                 >
                   物理建模
                 </Button>
                 <Button
                   block
                   icon={<BranchesOutlined />}
-                  onClick={() => router.push(`/biology?q=${encodeURIComponent(query)}`)}
+                  onClick={() => router.push(`/modeling?type=biology&q=${encodeURIComponent(query)}`)}
                 >
                   生物建模
                 </Button>

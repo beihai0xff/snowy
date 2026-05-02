@@ -7,6 +7,8 @@ import type { RenderArtifact } from '@/lib/api';
 
 const { Text } = Typography;
 
+export type PreviewStatus = 'loading' | 'ready' | 'updated' | 'error' | 'timeout';
+
 export interface RenderPreviewSandboxProps {
   artifact: RenderArtifact;
   propsData: Record<string, number>;
@@ -42,10 +44,7 @@ export default function RenderPreviewSandbox({ artifact, propsData, onStatusChan
   const [lastSyncText, setLastSyncText] = useState('等待参数同步');
 
   const srcDoc = useMemo(() => buildSrcDoc(artifact), [artifact]);
-  const bundleSize = useMemo(() => {
-    return Object.values(artifact.code_bundle).reduce((total, content) => total + content.length, 0);
-  }, [artifact]);
-  const artifactKey = `${artifact.scene_type}:${artifact.render_manifest.entry}:${Object.keys(artifact.code_bundle).sort().join('|')}:${bundleSize}`;
+  const artifactKey = `${artifact.scene_type}:${artifact.render_manifest.entry}:${Object.keys(artifact.code_bundle).sort().join('|')}`;
   const [iframeKey, setIframeKey] = useState(0);
   const supportsWebGL = useMemo(() => {
     const apis = artifact.render_manifest.allowed_apis || [];
@@ -123,7 +122,7 @@ export default function RenderPreviewSandbox({ artifact, propsData, onStatusChan
     const stopPings = pingPreview();
     const timer = window.setTimeout(() => {
       if (readyRef.current) return;
-      const message = '未收到 ready，但画面可能已渲染；可继续操作，或重新加载/查看代码排查。';
+      const message = '未收到 ready，但画面可能已渲染；可继续操作，或重新加载预览。';
       updateStatus('timeout', message);
       setRuntimeError(message);
     }, 8000);
@@ -154,7 +153,6 @@ export default function RenderPreviewSandbox({ artifact, propsData, onStatusChan
         <Tag color="purple">iframe</Tag>
         <Tag color="purple">{artifact.render_mode}</Tag>
         <Tag color="cyan">{artifact.scene_type}</Tag>
-        <Tag>{Object.keys(artifact.code_bundle).length} files / {bundleSize}B</Tag>
         <Tag color={status === 'updated' || status === 'ready' ? 'green' : 'default'}>{lastSyncText}</Tag>
         <Button size="small" icon={<ReloadOutlined />} onClick={() => setIframeKey((value) => value + 1)}>
           重新加载预览

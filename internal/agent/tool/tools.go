@@ -104,19 +104,19 @@ func (t *PhysicsAnalyzeTool) Run(ctx context.Context, input any) (any, error) {
 	return t.physicsService.Analyze(ctx, request.Question, request.SessionContext)
 }
 
-// RenderCodeTool 前端渲染代码生成工具。
+// RenderCodeTool 渲染预览产物生成工具。
 type RenderCodeTool struct {
 	physicsService physicssvc.PhysicsService
 }
 
-// NewRenderCodeTool 创建前端代码生成工具。
+// NewRenderCodeTool 创建渲染预览产物生成工具。
 func NewRenderCodeTool(physicsService physicssvc.PhysicsService) *RenderCodeTool {
 	return &RenderCodeTool{physicsService: physicsService}
 }
 
 func (t *RenderCodeTool) Name() string { return "RenderCodeTool" }
 func (t *RenderCodeTool) Description() string {
-	return "根据 scene_spec 生成浏览器可渲染的前端代码包"
+	return "根据 scene_spec 生成浏览器可渲染的预览产物；物理场景返回 Rapier 原生引擎配置"
 }
 func (t *RenderCodeTool) Run(ctx context.Context, input any) (any, error) {
 	request, ok := input.(RenderCodeInput)

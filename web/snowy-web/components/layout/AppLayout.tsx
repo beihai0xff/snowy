@@ -7,8 +7,8 @@ import {
   HomeOutlined,
   SearchOutlined,
   ExperimentOutlined,
-  BranchesOutlined,
   BookOutlined,
+  DashboardOutlined,
 } from '@ant-design/icons';
 
 const { Header, Content } = Layout;
@@ -16,9 +16,9 @@ const { Header, Content } = Layout;
 const menuItems = [
   { key: '/', icon: <HomeOutlined />, label: '首页' },
   { key: '/search', icon: <SearchOutlined />, label: '知识检索' },
-  { key: '/physics', icon: <ExperimentOutlined />, label: '物理 / 3D 场景' },
-  { key: '/biology', icon: <BranchesOutlined />, label: '生物建模' },
+  { key: '/modeling', icon: <ExperimentOutlined />, label: '统一建模' },
   { key: '/learning', icon: <BookOutlined />, label: '学习中心' },
+  { key: '/monitoring', icon: <DashboardOutlined />, label: '监控看板' },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -49,13 +49,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
         <Menu
           mode="horizontal"
-          selectedKeys={[pathname]}
+          selectedKeys={[pathname === '/physics' || pathname === '/biology' ? '/modeling' : pathname]}
           items={menuItems}
           onClick={handleMenuClick}
           style={{ flex: 1, border: 'none' }}
         />
       </Header>
-      <Content style={{ padding: '24px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+      <Content style={{ padding: '24px', maxWidth: 1440, margin: '0 auto', width: '100%' }}>
         {children}
       </Content>
     </Layout>

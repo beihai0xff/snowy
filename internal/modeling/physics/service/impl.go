@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -58,7 +59,7 @@ func NewService(calc calculator.Calculator, opts ...Option) PhysicsService {
 }
 
 func (s *serviceImpl) Analyze(_ context.Context, question string, sessionContext string) (*domain.PhysicsModel, error) {
-	question = strings.TrimSpace(question)
+	question = sanitizeQuestionText(question)
 	if question == "" {
 		return nil, errors.New("question is empty")
 	}
@@ -83,7 +84,7 @@ func (s *serviceImpl) Analyze(_ context.Context, question string, sessionContext
 		warnings = append(warnings, "题干未抽取到完整数值，已根据默认参数模板补全预览参数")
 	}
 	if strings.Contains(sceneType, "3d") {
-		warnings = append(warnings, "当前 3D 效果为浏览器轻量渲染示意，不依赖原生物理引擎")
+		warnings = append(warnings, "当前 3D 预览由本地 Rapier 3D 原生物理引擎驱动，大模型仅用于解析与讲解")
 	}
 
 	return &domain.PhysicsModel{
@@ -117,12 +118,13 @@ func inferModelType(text string) domain.ModelType {
 		model    domain.ModelType
 		keywords []string
 	}{
+		{model: domain.ModelCollisionMotion, keywords: []string{"碰撞", "动量", "反弹", "collision", "momentum", "elastic collision"}},
 		{model: domain.ModelProjectileMotion, keywords: []string{"平抛", "抛", "projectile"}},
 		{model: domain.ModelNewtonSecondLaw, keywords: []string{"牛顿", "force", "受力"}},
+		{model: domain.ModelSpringOscillator, keywords: []string{"弹簧", "振子", "oscillat", "简谐", "spring"}},
+		{model: domain.ModelTwoBodyMotion, keywords: []string{"双体", "天体", "行星", "卫星", "万有引力", "引力", "orbit", "轨道", "gravity"}},
 		{model: domain.ModelUniformAcceleration, keywords: []string{"加速度", "acceler", "匀变速"}},
 		{model: domain.ModelWorkEnergy, keywords: []string{"功", "energy", "能量"}},
-		{model: domain.ModelSpringOscillator, keywords: []string{"弹簧", "oscillat", "简谐"}},
-		{model: domain.ModelTwoBodyMotion, keywords: []string{"双体", "引力", "orbit", "轨道"}},
 	} {
 		if containsAny(lower, rule.keywords...) {
 			return rule.model
@@ -137,6 +139,12 @@ func inferSceneType(text string, modelType domain.ModelType) string {
 	wants3D := containsAny(lower, "3d", "三维", "立体", "空间", "spatial", "轨迹观察")
 
 	switch {
+	case modelType == domain.ModelTwoBodyMotion:
+		return "physics_orbit_3d"
+	case modelType == domain.ModelSpringOscillator:
+		return "physics_spring_3d"
+	case modelType == domain.ModelCollisionMotion:
+		return "physics_collision_3d"
 	case wants3D && modelType == domain.ModelProjectileMotion:
 		return "physics_projectile_3d"
 	case modelType == domain.ModelNewtonSecondLaw:
@@ -173,16 +181,21 @@ func extractConditions(question string, modelType domain.ModelType) ([]domain.Co
 	}
 
 	velocityName := "v0"
-	if modelType == domain.ModelUniformMotion {
+	if modelType == domain.ModelUniformMotion || modelType == domain.ModelWorkEnergy {
 		velocityName = "v"
 	}
-
-	if v, ok := captureNamedFloat(text, `(?:初速度|速度|v0|速率)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
-		add(velocityName, v, "m/s")
+	if modelType == domain.ModelCollisionMotion || modelType == domain.ModelTwoBodyMotion || modelType == domain.ModelSpringOscillator {
+		velocityName = ""
 	}
-	if _, ok := params[velocityName]; !ok {
-		if v, ok := captureFloat(text, `([0-9]+(?:\.[0-9]+)?)\s*m/s`); ok {
+
+	if velocityName != "" {
+		if v, ok := captureNamedFloat(text, `(?:初速度|速度|v0|速率)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
 			add(velocityName, v, "m/s")
+		}
+		if _, ok := params[velocityName]; !ok {
+			if v, ok := captureFloat(text, `([0-9]+(?:\.[0-9]+)?)\s*m/s`); ok {
+				add(velocityName, v, "m/s")
+			}
 		}
 	}
 
@@ -222,6 +235,43 @@ func extractConditions(question string, modelType domain.ModelType) ([]domain.Co
 	if v, ok := captureNamedFloat(text, `(?:位移|伸长量|x)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
 		add("x", v, "m")
 	}
+	if v, ok := captureNamedFloat(text, `(?:物体一质量|质量1|m1)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
+		add("m1", v, "kg")
+	}
+	if v, ok := captureNamedFloat(text, `(?:中心质量|central_mass)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
+		add("central_mass", v, "演示单位")
+	}
+	if v, ok := captureNamedFloat(text, `(?:物体二质量|质量2|m2)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
+		add("m2", v, "kg")
+	}
+	if v, ok := captureNamedFloat(text, `(?:卫星质量|satellite_mass)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
+		add("satellite_mass", v, "演示单位")
+	}
+	if v, ok := captureNamedFloat(text, `(?:半径|距离|轨道半径|orbit_radius|r)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
+		if modelType == domain.ModelTwoBodyMotion {
+			add("orbit_radius", v, "演示单位")
+		} else {
+			add("r", v, "m")
+		}
+	}
+	if v, ok := captureNamedFloat(text, `(?:切向速度|tangential_speed)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
+		add("tangential_speed", v, "演示单位/s")
+	}
+	if v, ok := captureNamedFloat(text, `(?:引力强度|gravitational_strength)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
+		add("gravitational_strength", v, "")
+	}
+	if v, ok := captureNamedFloat(text, `(?:偏心率|eccentricity)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
+		add("eccentricity", v, "")
+	}
+	if v, ok := captureNamedFloat(text, `(?:速度1|v1)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
+		add("v1", v, "m/s")
+	}
+	if v, ok := captureNamedFloat(text, `(?:速度2|v2)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
+		add("v2", v, "m/s")
+	}
+	if v, ok := captureNamedFloat(text, `(?:恢复系数|反弹系数|restitution)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
+		add("restitution", v, "")
+	}
 
 	// 如果仍然没有明显参数，按数值顺序回退，但避免把单位明显不匹配的值映射错位。
 	if len(params) == 0 {
@@ -252,22 +302,22 @@ func derivationSteps(modelType domain.ModelType) []domain.DerivationStep {
 		return []domain.DerivationStep{
 			{Index: 1, Title: "分解初速度", Content: "将初速度分解为水平和竖直两个方向，确定抛射角对应的分量。"},
 			{Index: 2, Title: "建立位移关系", Content: "水平做匀速运动，竖直做匀变速运动，分别建立位移方程。"},
-			{Index: 3, Title: "组织渲染场景", Content: "将速度、时间、角度等量注入前端代码，在浏览器中绘制轨迹与关键点。"},
+			{Index: 3, Title: "运行原生物理仿真", Content: "将速度、时间、角度等量注入 Rapier 3D 原生物理引擎，在浏览器中播放轨迹、速度箭头和关键点。"},
 		}
 	case domain.ModelNewtonSecondLaw:
 		return []domain.DerivationStep{
 			{Index: 1, Title: "识别受力", Content: "明确研究对象、受力方向及合外力。"},
 			{Index: 2, Title: "应用牛顿第二定律", Content: "建立 F = ma 的数量关系，并提取可视化参数。"},
-			{Index: 3, Title: "生成 3D 受力模型代码", Content: "把质量、加速度和合力映射到原生 WebGL 方块、地面网格、坐标轴和可切换 2D/3D 的矢量预览。"},
+			{Index: 3, Title: "运行 3D 受力仿真", Content: "把质量、加速度和合力映射到 Rapier 3D 刚体、地面、坐标轴和可切换 2D/3D 的矢量预览。"},
 		}
 	case domain.ModelUniformAcceleration:
 		return []domain.DerivationStep{
 			{Index: 1, Title: "建立速度关系", Content: "使用 v = v0 + at 确定速度随时间变化。"},
 			{Index: 2, Title: "建立位移关系", Content: "使用 x = x0 + v0t + 1/2 at² 计算位移。"},
-			{Index: 3, Title: "生成运动预览", Content: "把位移、速度和时间映射到浏览器中的动画轨迹。"},
+			{Index: 3, Title: "运行运动预览", Content: "把位移、速度和时间映射到本地物理引擎预览中的动画轨迹。"},
 		}
 	case domain.ModelUniformMotion:
-		return []domain.DerivationStep{{Index: 1, Title: "建立运动关系", Content: "使用匀速直线运动公式 x = x0 + vt，并生成浏览器中的位移示意。"}}
+		return []domain.DerivationStep{{Index: 1, Title: "建立运动关系", Content: "使用匀速直线运动公式 x = x0 + vt，并在本地物理引擎预览中展示位移示意。"}}
 	case domain.ModelWorkEnergy:
 		return []domain.DerivationStep{
 			{Index: 1, Title: "识别做功过程", Content: "明确外力做功与系统机械能变化的对应关系。"},
@@ -280,8 +330,15 @@ func derivationSteps(modelType domain.ModelType) []domain.DerivationStep {
 		}
 	case domain.ModelTwoBodyMotion:
 		return []domain.DerivationStep{
-			{Index: 1, Title: "识别相互作用", Content: "确定两物体之间的距离、质量与引力关系。"},
-			{Index: 2, Title: "建立轨道或受力方程", Content: "使用万有引力公式与圆周运动条件联立分析。"},
+			{Index: 1, Title: "识别相互作用", Content: "确定中心天体、环绕物体、距离和轨道速度等关键量。"},
+			{Index: 2, Title: "建立轨道关系", Content: "用万有引力提供向心作用的思路分析轨道，并映射为归一化教学演示参数。"},
+			{Index: 3, Title: "运行轨道演示", Content: "在本地物理引擎预览中展示发光天体、轨道尾迹、速度和引力方向。"},
+		}
+	case domain.ModelCollisionMotion:
+		return []domain.DerivationStep{
+			{Index: 1, Title: "识别碰撞对象", Content: "确定两个物体的质量、初速度和碰撞方向。"},
+			{Index: 2, Title: "应用动量关系", Content: "用动量守恒和恢复系数估计碰撞前后速度变化。"},
+			{Index: 3, Title: "运行碰撞演示", Content: "在本地物理引擎中播放碰撞、反弹、速度箭头和能量变化面板。"},
 		}
 	}
 
@@ -321,15 +378,27 @@ func parameterSchema(modelType domain.ModelType) []domain.ParameterSchema {
 		}
 	case domain.ModelSpringOscillator:
 		return []domain.ParameterSchema{
-			{Name: "k", Label: "劲度系数", Default: 20, Min: 0.1, Max: 500, Step: 0.1, Unit: "N/m"},
-			{Name: "m", Label: "质量", Default: 1, Min: 0.1, Max: 100, Step: 0.1, Unit: "kg"},
-			{Name: "x", Label: "位移", Default: 0.2, Min: -2, Max: 2, Step: 0.01, Unit: "m"},
+			{Name: "k", Label: "劲度系数", Default: 24, Min: 1, Max: 80, Step: 1, Unit: "N/m"},
+			{Name: "m", Label: "质量", Default: 1.2, Min: 0.2, Max: 8, Step: 0.1, Unit: "kg"},
+			{Name: "x", Label: "初始位移", Default: 1.4, Min: -3, Max: 3, Step: 0.05, Unit: "m"},
+			{Name: "damping", Label: "阻尼", Default: 0.18, Min: 0, Max: 2, Step: 0.02, Unit: ""},
 		}
 	case domain.ModelTwoBodyMotion:
 		return []domain.ParameterSchema{
-			{Name: "m1", Label: "物体一质量", Default: 5.97e24, Min: 1e10, Max: 1e30, Step: 1e10, Unit: "kg"},
-			{Name: "m2", Label: "物体二质量", Default: 7.35e22, Min: 1e10, Max: 1e30, Step: 1e10, Unit: "kg"},
-			{Name: "r", Label: "中心距离", Default: 3.84e8, Min: 1e3, Max: 1e12, Step: 1e3, Unit: "m"},
+			{Name: "central_mass", Label: "中心质量", Default: 8, Min: 1, Max: 20, Step: 0.1, Unit: "演示单位"},
+			{Name: "satellite_mass", Label: "卫星质量", Default: 1, Min: 0.1, Max: 6, Step: 0.1, Unit: "演示单位"},
+			{Name: "orbit_radius", Label: "轨道半径", Default: 3.6, Min: 1.4, Max: 6.5, Step: 0.1, Unit: "演示单位"},
+			{Name: "tangential_speed", Label: "切向速度", Default: 2.25, Min: 0.3, Max: 5.5, Step: 0.05, Unit: "演示单位/s"},
+			{Name: "eccentricity", Label: "偏心率", Default: 0.18, Min: 0, Max: 0.75, Step: 0.01, Unit: ""},
+			{Name: "gravitational_strength", Label: "引力强度", Default: 10, Min: 1, Max: 24, Step: 0.1, Unit: ""},
+		}
+	case domain.ModelCollisionMotion:
+		return []domain.ParameterSchema{
+			{Name: "m1", Label: "物体一质量", Default: 1.5, Min: 0.2, Max: 8, Step: 0.1, Unit: "kg"},
+			{Name: "m2", Label: "物体二质量", Default: 1, Min: 0.2, Max: 8, Step: 0.1, Unit: "kg"},
+			{Name: "v1", Label: "物体一速度", Default: 4.5, Min: -8, Max: 8, Step: 0.1, Unit: "m/s"},
+			{Name: "v2", Label: "物体二速度", Default: -2.5, Min: -8, Max: 8, Step: 0.1, Unit: "m/s"},
+			{Name: "restitution", Label: "恢复系数", Default: 0.9, Min: 0, Max: 1, Step: 0.01, Unit: ""},
 		}
 	}
 
@@ -352,10 +421,18 @@ func resultSummary(modelType domain.ModelType, values map[string]float64) string
 
 	parts := make([]string, 0, len(values))
 	for key, value := range values {
-		parts = append(parts, fmt.Sprintf("%s=%.2f", key, value))
+		parts = append(parts, fmt.Sprintf("%s=%s", key, formatResultValue(value)))
 	}
 
 	return fmt.Sprintf("识别为 %s，计算结果：%s。", modelType, strings.Join(parts, "，"))
+}
+
+func formatResultValue(value float64) string {
+	abs := math.Abs(value)
+	if abs > 0 && (abs >= 100000 || abs < 0.01) {
+		return fmt.Sprintf("%.3g", value)
+	}
+	return fmt.Sprintf("%.2f", value)
 }
 
 func mergeDefaultProps(modelType domain.ModelType, params map[string]float64, sceneType string) map[string]float64 {
@@ -379,6 +456,30 @@ func mergeDefaultProps(modelType domain.ModelType, params map[string]float64, sc
 		}
 	}
 
+	if sceneType == "physics_orbit_3d" {
+		for key, value := range map[string]float64{"view_dimension": 3, "trail_length": 240, "camera_yaw": 0.72, "camera_pitch": 0.54} {
+			if _, ok := props[key]; !ok {
+				props[key] = value
+			}
+		}
+	}
+
+	if sceneType == "physics_spring_3d" {
+		for key, value := range map[string]float64{"view_dimension": 3, "trail_length": 180, "camera_yaw": 0.6, "camera_pitch": 0.38} {
+			if _, ok := props[key]; !ok {
+				props[key] = value
+			}
+		}
+	}
+
+	if sceneType == "physics_collision_3d" {
+		for key, value := range map[string]float64{"view_dimension": 3, "trail_length": 200, "camera_yaw": 0.45, "camera_pitch": 0.38} {
+			if _, ok := props[key]; !ok {
+				props[key] = value
+			}
+		}
+	}
+
 	if sceneType == "physics_force_3d" {
 		if _, ok := props["view_dimension"]; !ok {
 			props["view_dimension"] = 3
@@ -396,6 +497,12 @@ func mergeDefaultProps(modelType domain.ModelType, params map[string]float64, sc
 
 func sceneTitle(sceneType string, modelType domain.ModelType) string {
 	switch sceneType {
+	case "physics_orbit_3d":
+		return "天体轨道 3D 动态演示"
+	case "physics_spring_3d":
+		return "弹簧振子 3D 动态演示"
+	case "physics_collision_3d":
+		return "碰撞运动 3D 动态演示"
 	case "physics_projectile_3d":
 		return "平抛运动 3D 轨迹预览"
 	case "physics_projectile_2d":
@@ -416,24 +523,43 @@ func sceneTitle(sceneType string, modelType domain.ModelType) string {
 func sceneSummary(sceneType string, modelType domain.ModelType, values map[string]float64) string {
 	base := resultSummary(modelType, values)
 	switch sceneType {
+	case "physics_orbit_3d":
+		return base + " 已转换为教学演示优先的 3D 天体轨道场景，支持发光星体、轨道尾迹、速度与引力箭头。"
+	case "physics_spring_3d":
+		return base + " 已转换为 3D 弹簧振子场景，支持发光弹簧、回复力箭头、能量条和阻尼调节。"
+	case "physics_collision_3d":
+		return base + " 已转换为 3D 碰撞演示场景，支持双刚体反弹、速度箭头、轨迹残影和碰撞闪光。"
 	case "physics_projectile_3d":
-		return base + " 已转换为 3D 轨迹浏览器场景，用于观察空间投影效果。"
+		return base + " 已转换为 Rapier 3D 原生物理引擎轨迹场景，用于观察空间投影效果。"
 	case "physics_projectile_2d":
-		return base + " 已转换为浏览器中的可交互轨迹代码。"
+		return base + " 已转换为本地物理引擎中的可交互轨迹预览。"
 	case "physics_force_3d":
-		return base + " 已转换为原生 WebGL 3D 受力模型代码，支持方块、地面网格、坐标轴、力矢量、加速度矢量和 2D/3D 切换。"
+		return base + " 已转换为 Rapier 3D 原生受力模型，支持方块刚体、地面、坐标轴、力矢量、加速度矢量和 2D/3D 切换。"
 	case "physics_force_diagram":
-		return base + " 已转换为浏览器中的受力箭头与加速度示意代码。"
+		return base + " 已转换为本地物理引擎中的受力箭头与加速度示意。"
 	case "physics_generic_3d":
-		return base + " 已转换为轻量 3D 浏览器场景代码。"
+		return base + " 已转换为 Rapier 3D 原生物理引擎通用场景。"
 	default:
-		return base + " 已转换为浏览器中的交互演示代码。"
+		return base + " 已转换为本地物理引擎中的交互演示。"
 	}
 }
 
 func normalizeQuestion(question string) string {
 	replacer := strings.NewReplacer("／", "/", "㎡", "m", "﹣", "-", "，", ",", "：", ":")
-	return replacer.Replace(question)
+	return sanitizeQuestionText(replacer.Replace(question))
+}
+
+func sanitizeQuestionText(question string) string {
+	text := strings.TrimSpace(question)
+	if text == "" {
+		return text
+	}
+
+	// View-mode hints such as “3D/2D” are useful for scene selection but should
+	// never become physics conditions like v0=3.  Strip them before numeric
+	// extraction while keeping semantic words such as “三维/空间”.
+	re := regexp.MustCompile(`(?i)(^|[^a-z0-9])([23])\s*d([^a-z0-9]|$)`)
+	return strings.TrimSpace(re.ReplaceAllString(text, "${1}${3}"))
 }
 
 func captureNamedFloat(text string, pattern string) (float64, bool) {

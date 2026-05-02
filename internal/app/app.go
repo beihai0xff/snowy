@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	goredis "github.com/redis/go-redis/v9"
@@ -25,6 +26,7 @@ import (
 	biologyservice "github.com/beihai0xff/snowy/internal/modeling/biology/service"
 	physicscalculator "github.com/beihai0xff/snowy/internal/modeling/physics/calculator"
 	physicsservice "github.com/beihai0xff/snowy/internal/modeling/physics/service"
+	"github.com/beihai0xff/snowy/internal/monitoring"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 	mysqlrepo "github.com/beihai0xff/snowy/internal/repo/mysql"
@@ -83,8 +85,15 @@ func New(cfg *config.Config) (*App, error) {
 	_ = redisrepo.NewSessionStore(rdb)
 
 	// ── 4. Provider 实例化 ─────────────────────────────
-	primaryLLM := newLLMProvider(cfg.LLM.Primary)
-	fallbackLLM := newLLMProvider(cfg.LLM.Fallback)
+	llmRecorder := monitoring.NewLLMRecorder(
+		monitoring.WithProviderConfigs(
+			monitoring.ProviderConfigFromConfig("primary", cfg.LLM.Primary),
+			monitoring.ProviderConfigFromConfig("fallback", cfg.LLM.Fallback),
+		),
+		monitoring.WithPromptProfiles(monitoring.DefaultPromptProfiles(time.Now())...),
+	)
+	primaryLLM := monitoring.WrapProvider(newLLMProvider(cfg.LLM.Primary), llmRecorder, "primary")
+	fallbackLLM := monitoring.WrapProvider(newLLMProvider(cfg.LLM.Fallback), llmRecorder, "fallback")
 	objectStorage := storage.NewMinIOStorage(cfg.MinIO)
 	_ = objectStorage
 
@@ -135,12 +144,13 @@ func New(cfg *config.Config) (*App, error) {
 
 	// ── 6. Handler 实例化 ──────────────────────────────
 	handlers := &handler.Handlers{
-		Agent:   handler.NewAgentHandler(agentSvc, agentWriteSvc, sessionRepo, messageRepo, userSvc),
-		Search:  handler.NewSearchHandler(searchSvc, userSvc),
-		Physics: handler.NewPhysicsHandler(physicsSvc, userSvc),
-		Render:  handler.NewRenderHandler(physicsSvc),
-		Biology: handler.NewBiologyHandler(biologySvc, userSvc),
-		User:    handler.NewUserHandler(userSvc),
+		Agent:      handler.NewAgentHandler(agentSvc, agentWriteSvc, sessionRepo, messageRepo, userSvc),
+		Search:     handler.NewSearchHandler(searchSvc, userSvc),
+		Physics:    handler.NewPhysicsHandler(physicsSvc, userSvc),
+		Render:     handler.NewRenderHandler(physicsSvc),
+		Biology:    handler.NewBiologyHandler(biologySvc, userSvc),
+		User:       handler.NewUserHandler(userSvc),
+		Monitoring: handler.NewMonitoringHandler(llmRecorder),
 	}
 
 	// ── 7. Router 装配 ────────────────────────────────
