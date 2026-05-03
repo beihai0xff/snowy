@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/beihai0xff/snowy/internal/agent"
+	"github.com/beihai0xff/snowy/internal/modeling/generative"
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
@@ -149,6 +150,80 @@ func (r *historyRow) toDomain() *user.HistoryItem {
 	}
 
 	return item
+}
+
+//nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.
+type generativeModelPackageRow struct {
+	ID             uuid.UUID  `gorm:"column:id"`
+	UserID         uuid.UUID  `gorm:"column:user_id"`
+	SessionID      *uuid.UUID `gorm:"column:session_id"`
+	Domain         string     `gorm:"column:domain"`
+	Question       string     `gorm:"column:question"`
+	PackageJSON    jsonValue  `gorm:"column:package_json"`
+	ModelName      string     `gorm:"column:model_name"`
+	Status         string     `gorm:"column:status"`
+	Confidence     float64    `gorm:"column:confidence"`
+	ValidationJSON jsonValue  `gorm:"column:validation_json"`
+	FallbackReason string     `gorm:"column:fallback_reason"`
+	CreatedAt      time.Time  `gorm:"column:created_at"`
+}
+
+func (generativeModelPackageRow) TableName() string { return "generative_model_packages" }
+
+func newGenerativeModelPackageRow(pkg *generative.GenerativeModelPackage) *generativeModelPackageRow {
+	if pkg == nil {
+		return nil
+	}
+	return &generativeModelPackageRow{
+		ID:             pkg.PackageID,
+		UserID:         pkg.UserID,
+		SessionID:      nullableUUID(pkg.SessionID),
+		Domain:         pkg.Domain,
+		Question:       pkg.Question,
+		PackageJSON:    newJSONValue(pkg),
+		ModelName:      pkg.ModelName,
+		Status:         pkg.Status,
+		Confidence:     pkg.Confidence,
+		ValidationJSON: newJSONValue(pkg.ValidationReport),
+		FallbackReason: pkg.FallbackReason,
+		CreatedAt:      pkg.CreatedAt,
+	}
+}
+
+func (r *generativeModelPackageRow) toDomain() *generative.GenerativeModelPackage {
+	if r == nil {
+		return nil
+	}
+	var pkg generative.GenerativeModelPackage
+	_ = r.PackageJSON.AssignTo(&pkg)
+	if pkg.PackageID == uuid.Nil {
+		pkg.PackageID = r.ID
+	}
+	pkg.UserID = r.UserID
+	if r.SessionID != nil {
+		pkg.SessionID = *r.SessionID
+	}
+	pkg.Domain = firstNonEmptyString(pkg.Domain, r.Domain)
+	pkg.Question = firstNonEmptyString(pkg.Question, r.Question)
+	pkg.ModelName = firstNonEmptyString(pkg.ModelName, r.ModelName)
+	pkg.Status = firstNonEmptyString(pkg.Status, r.Status)
+	if pkg.Confidence == 0 {
+		pkg.Confidence = r.Confidence
+	}
+	pkg.FallbackReason = firstNonEmptyString(pkg.FallbackReason, r.FallbackReason)
+	if pkg.CreatedAt.IsZero() {
+		pkg.CreatedAt = r.CreatedAt
+	}
+	return &pkg
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 //nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.

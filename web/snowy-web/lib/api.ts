@@ -245,6 +245,141 @@ export interface BiologyModel {
   result_summary: string;
 }
 
+
+// ── Generative Modeling v2 ───────────────────────────────
+
+export interface EvidenceRef {
+  doc_id: string;
+  source_type: string;
+  title?: string;
+  chapter?: string;
+  snippet: string;
+  knowledge_tags?: string[];
+  confidence: number;
+}
+
+export interface VariableSpec {
+  name: string;
+  label: string;
+  unit?: string;
+  default: number;
+  min: number;
+  max: number;
+  step?: number;
+}
+
+export interface FormulaSpec {
+  id: string;
+  expr: string;
+  meaning: string;
+}
+
+export interface ReasoningTrace {
+  summary: string;
+  evidence_used?: string[];
+  assumptions?: string[];
+  key_steps?: string[];
+  confidence: number;
+}
+
+export interface GenerativeModelSpec {
+  id?: string;
+  domain: string;
+  grade_band: string;
+  topic: string;
+  learning_goal: string;
+  knowledge_tags?: string[];
+  entities?: { id: string; name: string; type: string }[];
+  variables?: VariableSpec[];
+  relations?: { source: string; target: string; type: string; description?: string; condition?: string }[];
+}
+
+export interface DynamicSimulationSpec {
+  simulation_type: string;
+  runtime: string;
+  assumptions?: string[];
+  state_variables?: string[];
+  variables?: VariableSpec[];
+  formulas?: FormulaSpec[];
+  render_instructions?: { coordinate_system?: string; layers?: string[]; annotations?: string[] };
+  local_recompute_allowed: boolean;
+  regenerate_when?: string[];
+}
+
+export interface GenerativeVisualizationSpec {
+  visualization_type: string;
+  topic: string;
+  nodes?: { id: string; label: string; type: string }[];
+  edges?: { source: string; target: string; relation: string; condition?: string; evidence_ref?: string }[];
+  process_steps?: { index: number; title: string; input?: string[]; output?: string[]; detail?: string }[];
+  experiment_variables?: ExperimentVariables;
+  curve_explanation?: string;
+  limiting_factors?: string[];
+}
+
+export interface InteractionPlan {
+  controls?: { variable: string; control: string; label: string }[];
+  challenge?: { goal: string; success_condition?: string; feedback_generated_by_llm: boolean };
+  feedback_rules?: { when: string; message?: string; action?: string }[];
+  regeneration_policy?: { local_recompute?: string[]; llm_regenerate?: string[] };
+}
+
+export interface ModelValidationReport {
+  schema_valid: boolean;
+  evidence_valid: boolean;
+  domain_valid: boolean;
+  safety_valid: boolean;
+  checks?: { name: string; status: string; message?: string }[];
+  confidence: number;
+  fallback_required: boolean;
+  fallback_reason?: string;
+  retry_count?: number;
+}
+
+export interface AssessmentTask {
+  task_type: string;
+  question: string;
+  expected_key_points?: string[];
+  feedback_rule?: string;
+}
+
+export interface GenerativeModelPackage {
+  package_id: string;
+  session_id?: string;
+  domain: 'physics' | 'biology' | string;
+  question: string;
+  learning_model: { domain: string; grade_band: string; topic: string; learning_goal: string; knowledge_tags?: string[]; difficulty?: string };
+  evidence_refs: EvidenceRef[];
+  reasoning_trace: ReasoningTrace;
+  generative_model: GenerativeModelSpec;
+  simulation_logic?: DynamicSimulationSpec;
+  visualization_graph?: GenerativeVisualizationSpec;
+  interaction_plan: InteractionPlan;
+  assessment_tasks: AssessmentTask[];
+  validation_report: ModelValidationReport;
+  regeneration_hints?: { reason: string; message: string }[];
+  warnings?: string[];
+  confidence: number;
+  model_name?: string;
+  status: string;
+  fallback_reason?: string;
+  created_at: string;
+}
+
+export interface ModelingCompileReq {
+  session_id?: string;
+  message: string;
+  domain?: 'auto' | 'physics' | 'biology';
+  grade_band?: string;
+  target_mode?: 'interactive_model' | 'review' | 'explain';
+  context?: {
+    citations?: EvidenceRef[];
+    knowledge_tags?: string[];
+    source_page?: string;
+    user_notes?: string;
+  };
+}
+
 // ── Agent / Chat ─────────────────────────────────────────
 
 export interface ChatReq {
@@ -457,6 +592,12 @@ export const api = {
   // Biology
   biologyAnalyze: (data: BiologyAnalyzeReq) =>
     request<BiologyModel>('/modeling/biology/analyze', { method: 'POST', body: JSON.stringify(data) }),
+
+  modelingCompile: (data: ModelingCompileReq) =>
+    request<GenerativeModelPackage>('/modeling/compile', { method: 'POST', body: JSON.stringify(data) }),
+
+  getModelingPackage: (id: string) =>
+    request<GenerativeModelPackage>(`/modeling/packages/${encodeURIComponent(id)}`),
 
   // Agent Chat
   agentChat: (data: ChatReq) =>

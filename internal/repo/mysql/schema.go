@@ -93,6 +93,23 @@ type agentToolCallSchema struct {
 
 func (agentToolCallSchema) TableName() string { return "agent_tool_calls" }
 
+type generativeModelPackageSchema struct {
+	ID             uuid.UUID  `gorm:"column:id;type:char(36);primaryKey"`
+	UserID         uuid.UUID  `gorm:"column:user_id;type:char(36);not null;index:idx_generative_packages_user,priority:1"`
+	SessionID      *uuid.UUID `gorm:"column:session_id;type:char(36);index:idx_generative_packages_session"`
+	Domain         string     `gorm:"column:domain;type:varchar(32);not null;index:idx_generative_packages_domain,priority:1"`
+	Question       string     `gorm:"column:question;type:text;not null"`
+	PackageJSON    jsonValue  `gorm:"column:package_json;type:json;not null"`
+	ModelName      string     `gorm:"column:model_name;type:varchar(128);not null;default:''"`
+	Status         string     `gorm:"column:status;type:varchar(32);not null;default:'success'"`
+	Confidence     float64    `gorm:"column:confidence;type:decimal(5,4);not null;default:0"`
+	ValidationJSON jsonValue  `gorm:"column:validation_json;type:json"`
+	FallbackReason string     `gorm:"column:fallback_reason;type:varchar(255);default:''"`
+	CreatedAt      time.Time  `gorm:"column:created_at;type:datetime(3);not null;index:idx_generative_packages_user,priority:2,sort:desc;index:idx_generative_packages_domain,priority:2,sort:desc"`
+}
+
+func (generativeModelPackageSchema) TableName() string { return "generative_model_packages" }
+
 type contentDocumentSchema struct {
 	ID              uuid.UUID `gorm:"column:id;type:char(36);primaryKey"`
 	DocID           string    `gorm:"column:doc_id;type:varchar(128);not null;uniqueIndex:uk_content_docs_doc_id"`
@@ -207,6 +224,7 @@ func schemaModels() []any {
 		&agentMessageSchema{},
 		&agentRunSchema{},
 		&agentToolCallSchema{},
+		&generativeModelPackageSchema{},
 		&contentDocumentSchema{},
 		&contentChunkSchema{},
 		&searchLogSchema{},

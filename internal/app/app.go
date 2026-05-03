@@ -24,6 +24,7 @@ import (
 	biologyexperiment "github.com/beihai0xff/snowy/internal/modeling/biology/experiment"
 	biologygraph "github.com/beihai0xff/snowy/internal/modeling/biology/graph"
 	biologyservice "github.com/beihai0xff/snowy/internal/modeling/biology/service"
+	generativeservice "github.com/beihai0xff/snowy/internal/modeling/generative"
 	physicscalculator "github.com/beihai0xff/snowy/internal/modeling/physics/calculator"
 	physicsservice "github.com/beihai0xff/snowy/internal/modeling/physics/service"
 	"github.com/beihai0xff/snowy/internal/monitoring"
@@ -77,6 +78,7 @@ func New(cfg *config.Config) (*App, error) {
 	messageRepo := mysqlrepo.NewAgentMessageRepository(db)
 	runRepo := mysqlrepo.NewAgentRunRepository(db)
 	toolCallRepo := mysqlrepo.NewAgentToolCallRepository(db)
+	generativeRepo := mysqlrepo.NewGenerativeModelPackageRepository(db)
 	transactor := mysqlrepo.NewTransactor(db)
 
 	// ── 3. Redis 组件 ──────────────────────────────────
@@ -116,6 +118,13 @@ func New(cfg *config.Config) (*App, error) {
 		biologyexperiment.NewSimpleAnalyzer(),
 		biologygraph.NewSimpleDiagramBuilder(),
 	)
+	generativeSvc := generativeservice.NewCompilerService(
+		searchSvc,
+		physicsSvc,
+		biologySvc,
+		generativeRepo,
+		generativeservice.WithLLMProviders(primaryLLM, fallbackLLM),
+	)
 
 	modelRouter := agentrouter.NewStaticRouter(cfg.LLM)
 	policyEngine := agentpolicy.NewDefaultEngine()
@@ -149,6 +158,7 @@ func New(cfg *config.Config) (*App, error) {
 		Physics:    handler.NewPhysicsHandler(physicsSvc, userSvc),
 		Render:     handler.NewRenderHandler(physicsSvc),
 		Biology:    handler.NewBiologyHandler(biologySvc, userSvc),
+		Generative: handler.NewGenerativeHandler(generativeSvc, userSvc),
 		User:       handler.NewUserHandler(userSvc),
 		Monitoring: handler.NewMonitoringHandler(llmRecorder),
 	}

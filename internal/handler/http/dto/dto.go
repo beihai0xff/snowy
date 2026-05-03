@@ -117,3 +117,31 @@ type RecommendationsResp struct {
 	PhysicsModels []RecommendationItem `json:"physics_models"`
 	BiologyTopics []RecommendationItem `json:"biology_topics"`
 }
+
+// ── Generative Modeling v2 ───────────────────────────────
+
+type EvidenceRefDTO struct {
+	DocID         string   `json:"doc_id"`
+	SourceType    string   `json:"source_type"`
+	Title         string   `json:"title,omitempty"`
+	Chapter       string   `json:"chapter,omitempty"`
+	Snippet       string   `json:"snippet"`
+	KnowledgeTags []string `json:"knowledge_tags,omitempty"`
+	Confidence    float64  `json:"confidence"`
+}
+
+type ModelingCompileContextReq struct {
+	Citations     []EvidenceRefDTO `json:"citations,omitempty"`
+	KnowledgeTags []string         `json:"knowledge_tags,omitempty"`
+	SourcePage    string           `json:"source_page,omitempty"`
+	UserNotes     string           `json:"user_notes,omitempty"`
+}
+
+type ModelingCompileReq struct {
+	SessionID  string                    `json:"session_id,omitempty"`
+	Message    string                    `binding:"required" json:"message"`
+	Domain     string                    `binding:"omitempty,oneof=auto physics biology" json:"domain,omitempty"`
+	GradeBand  string                    `json:"grade_band,omitempty"`
+	TargetMode string                    `binding:"omitempty,oneof=interactive_model review explain" json:"target_mode,omitempty"`
+	Context    ModelingCompileContextReq `json:"context,omitempty"`
+}

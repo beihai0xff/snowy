@@ -99,3 +99,15 @@ func (j *jsonValue) Scan(src any) error {
 
 	return nil
 }
+
+// AssignTo decodes the stored JSON value into dst.
+func (j jsonValue) AssignTo(dst any) error {
+	if dst == nil {
+		return fmt.Errorf("jsonValue: destination is nil")
+	}
+	b, err := json.Marshal(j.Data)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, dst)
+}

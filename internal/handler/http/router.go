@@ -17,6 +17,7 @@ type Handlers struct {
 	Physics    *PhysicsHandler
 	Render     *RenderHandler
 	Biology    *BiologyHandler
+	Generative *GenerativeHandler
 	User       *UserHandler
 	Monitoring *MonitoringHandler
 }
@@ -76,6 +77,11 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 	// ── 建模接口 ───────────────────────────────────────
 	modeling := v1.Group("/modeling")
 	{
+		if h.Generative != nil {
+			modeling.POST("/compile", h.Generative.Compile)
+			modeling.GET("/packages/:id", h.Generative.GetPackage)
+		}
+
 		physics := modeling.Group("/physics")
 		{
 			physics.POST("/analyze", h.Physics.Analyze)
