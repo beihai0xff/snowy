@@ -81,6 +81,15 @@ paths:
       responses:
         '200':
           description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SearchResponse'
 
 
   /modeling/compile:
@@ -312,6 +321,122 @@ components:
         confidence:
           type: number
 
+    SearchResponse:
+      type: object
+      properties:
+        answer:
+          type: string
+        knowledge_tags:
+          type: array
+          items:
+            type: string
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchCitation'
+        related_questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedQuestion'
+        misconceptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MisconceptionTip'
+        formula_cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormulaCard'
+        exam_mappings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExamMapping'
+        next_actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/LearningAction'
+        confidence:
+          type: number
+
+    SearchCitation:
+      type: object
+      properties:
+        doc_id:
+          type: string
+        source_type:
+          type: string
+        snippet:
+          type: string
+        score:
+          type: number
+
+    RelatedQuestion:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+
+    MisconceptionTip:
+      type: object
+      properties:
+        type:
+          type: string
+        description:
+          type: string
+        correction:
+          type: string
+
+    FormulaCard:
+      type: object
+      properties:
+        name:
+          type: string
+        expression:
+          type: string
+        variables:
+          type: array
+          items:
+            type: string
+        applies_to:
+          type: array
+          items:
+            type: string
+        limits:
+          type: array
+          items:
+            type: string
+
+    ExamMapping:
+      type: object
+      properties:
+        question_type:
+          type: string
+        focus:
+          type: string
+        practice_hint:
+          type: string
+        knowledge:
+          type: array
+          items:
+            type: string
+
+    LearningAction:
+      type: object
+      properties:
+        type:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        target:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+
     GenerativeModelPackage:
       type: object
       properties:
@@ -320,28 +445,29 @@ components:
           format: uuid
         domain:
           type: string
+          enum: [physics, biology]
         question:
           type: string
         learning_model:
-          type: object
+          $ref: '#/components/schemas/LearningModelSpec'
         evidence_refs:
           type: array
           items:
             $ref: '#/components/schemas/EvidenceRef'
         reasoning_trace:
-          type: object
+          $ref: '#/components/schemas/ReasoningTrace'
         generative_model:
           type: object
         simulation_logic:
-          type: object
+          $ref: '#/components/schemas/DynamicSimulationSpec'
         visualization_graph:
-          type: object
+          $ref: '#/components/schemas/GenerativeVisualizationSpec'
         interaction_plan:
           type: object
         assessment_tasks:
           type: array
           items:
-            type: object
+            $ref: '#/components/schemas/AssessmentTask'
         validation_report:
           type: object
         regeneration_hints:
@@ -354,9 +480,141 @@ components:
             type: string
         confidence:
           type: number
+        status:
+          type: string
+        fallback_reason:
+          type: string
         created_at:
           type: string
           format: date-time
+
+    LearningModelSpec:
+      type: object
+      properties:
+        domain:
+          type: string
+        grade_band:
+          type: string
+        topic:
+          type: string
+        learning_goal:
+          type: string
+        knowledge_tags:
+          type: array
+          items:
+            type: string
+        difficulty:
+          type: string
+
+    ReasoningTrace:
+      type: object
+      properties:
+        summary:
+          type: string
+        evidence_used:
+          type: array
+          items:
+            type: string
+        assumptions:
+          type: array
+          items:
+            type: string
+        key_steps:
+          type: array
+          items:
+            type: string
+        confidence:
+          type: number
+
+    DynamicSimulationSpec:
+      type: object
+      properties:
+        simulation_type:
+          type: string
+        runtime:
+          type: string
+        variables:
+          type: array
+          items:
+            type: object
+        formulas:
+          type: array
+          items:
+            type: object
+        vectors:
+          type: array
+          items:
+            type: object
+        curves:
+          type: array
+          items:
+            type: object
+        outcomes:
+          type: array
+          items:
+            type: object
+        render_instructions:
+          type: object
+        local_recompute_allowed:
+          type: boolean
+        regenerate_when:
+          type: array
+          items:
+            type: string
+
+    GenerativeVisualizationSpec:
+      type: object
+      properties:
+        visualization_type:
+          type: string
+        topic:
+          type: string
+        nodes:
+          type: array
+          items:
+            type: object
+        edges:
+          type: array
+          items:
+            type: object
+        process_steps:
+          type: array
+          items:
+            type: object
+        experiment_variables:
+          type: object
+        curve_explanation:
+          type: string
+        limiting_factors:
+          type: array
+          items:
+            type: string
+        mechanism_stages:
+          type: array
+          items:
+            type: object
+        variable_effects:
+          type: array
+          items:
+            type: object
+
+    AssessmentTask:
+      type: object
+      properties:
+        task_type:
+          type: string
+        question:
+          type: string
+        expected_key_points:
+          type: array
+          items:
+            type: string
+        feedback_rule:
+          type: string
+        misconception_type:
+          type: string
+        next_action:
+          type: string
 
     PhysicsAnalyzeRequest:
       type: object

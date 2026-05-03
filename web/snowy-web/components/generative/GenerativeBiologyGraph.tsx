@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Alert, Card, Col, Empty, Row, Space, Steps, Tag, Typography } from 'antd';
+import { Alert, Card, Col, Empty, List, Row, Space, Steps, Tag, Timeline, Typography } from 'antd';
 import { Background, Controls, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { GenerativeVisualizationSpec } from '@/lib/api';
@@ -75,6 +75,41 @@ export default function GenerativeBiologyGraph({ spec }: { spec?: GenerativeVisu
           </Col>
         )}
       </Row>
+
+      {(spec.mechanism_stages || []).length > 0 && (
+        <Card size="small" title="动态机制阶段">
+          <Timeline
+            items={(spec.mechanism_stages || []).map((stage) => ({
+              children: (
+                <Space direction="vertical" size={2}>
+                  <Text strong>{stage.title}</Text>
+                  {stage.description && <Text type="secondary">{stage.description}</Text>}
+                  {((stage.inputs || []).length > 0 || (stage.outputs || []).length > 0) && (
+                    <Text type="secondary">输入：{stage.inputs?.join('、') || '-'} → 输出：{stage.outputs?.join('、') || '-'}</Text>
+                  )}
+                </Space>
+              ),
+            }))}
+          />
+        </Card>
+      )}
+
+      {(spec.variable_effects || []).length > 0 && (
+        <Card size="small" title="变量影响与限制因素">
+          <List
+            size="small"
+            dataSource={spec.variable_effects}
+            renderItem={(item) => (
+              <List.Item>
+                <List.Item.Meta
+                  title={<Space><Tag color="blue">{item.variable}</Tag><Text>{item.effect}</Text></Space>}
+                  description={item.condition ? `条件：${item.condition}` : item.evidence}
+                />
+              </List.Item>
+            )}
+          />
+        </Card>
+      )}
     </Space>
   );
 }

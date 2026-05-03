@@ -134,6 +134,9 @@ type DynamicSimulationSpec struct {
 	StateVariables        []string           `json:"state_variables,omitempty"`
 	Variables             []VariableSpec     `json:"variables,omitempty"`
 	Formulas              []FormulaSpec      `json:"formulas,omitempty"`
+	Vectors               []VectorSpec       `json:"vectors,omitempty"`
+	Curves                []CurveSpec        `json:"curves,omitempty"`
+	Outcomes              []OutcomeSpec      `json:"outcomes,omitempty"`
 	RenderInstructions    RenderInstructions `json:"render_instructions"`
 	LocalRecomputeAllowed bool               `json:"local_recompute_allowed"`
 	RegenerateWhen        []string           `json:"regenerate_when,omitempty"`
@@ -143,6 +146,32 @@ type FormulaSpec struct {
 	ID      string `json:"id"`
 	Expr    string `json:"expr"`
 	Meaning string `json:"meaning"`
+}
+
+type VectorSpec struct {
+	ID      string `json:"id"`
+	Label   string `json:"label"`
+	Origin  string `json:"origin,omitempty"`
+	XExpr   string `json:"x_expr,omitempty"`
+	YExpr   string `json:"y_expr,omitempty"`
+	Meaning string `json:"meaning,omitempty"`
+}
+
+type CurveSpec struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	XLabel  string `json:"x_label,omitempty"`
+	YLabel  string `json:"y_label,omitempty"`
+	YExpr   string `json:"y_expr,omitempty"`
+	Meaning string `json:"meaning,omitempty"`
+}
+
+type OutcomeSpec struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Expr        string `json:"expr,omitempty"`
+	Unit        string `json:"unit,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 type RenderInstructions struct {
@@ -160,6 +189,8 @@ type GenerativeVisualizationSpec struct {
 	ExperimentVariables *ExperimentVariables `json:"experiment_variables,omitempty"`
 	CurveExplanation    string               `json:"curve_explanation,omitempty"`
 	LimitingFactors     []string             `json:"limiting_factors,omitempty"`
+	MechanismStages     []MechanismStage     `json:"mechanism_stages,omitempty"`
+	VariableEffects     []VariableEffect     `json:"variable_effects,omitempty"`
 }
 
 type VisualizationNode struct {
@@ -188,6 +219,21 @@ type ExperimentVariables struct {
 	Independent []string `json:"independent,omitempty"`
 	Dependent   []string `json:"dependent,omitempty"`
 	Controlled  []string `json:"controlled,omitempty"`
+}
+
+type MechanismStage struct {
+	ID          string   `json:"id"`
+	Title       string   `json:"title"`
+	Description string   `json:"description,omitempty"`
+	Inputs      []string `json:"inputs,omitempty"`
+	Outputs     []string `json:"outputs,omitempty"`
+}
+
+type VariableEffect struct {
+	Variable  string `json:"variable"`
+	Effect    string `json:"effect"`
+	Condition string `json:"condition,omitempty"`
+	Evidence  string `json:"evidence,omitempty"`
 }
 
 type InteractionPlan struct {
@@ -225,6 +271,8 @@ type AssessmentTask struct {
 	Question          string   `json:"question"`
 	ExpectedKeyPoints []string `json:"expected_key_points,omitempty"`
 	FeedbackRule      string   `json:"feedback_rule,omitempty"`
+	MisconceptionType string   `json:"misconception_type,omitempty"`
+	NextAction        string   `json:"next_action,omitempty"`
 }
 
 type ModelValidationReport struct {

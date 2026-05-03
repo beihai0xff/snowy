@@ -47,7 +47,18 @@ export default function InteractionPlanPanel({ pkg, values, onChange }: Props) {
           <List
             size="small"
             dataSource={pkg.assessment_tasks}
-            renderItem={(item) => <List.Item><Text>{item.question}</Text></List.Item>}
+            renderItem={(item) => (
+              <List.Item>
+                <Space direction="vertical" size={2}>
+                  <Text>{item.question}</Text>
+                  {item.expected_key_points && item.expected_key_points.length > 0 && (
+                    <Space wrap>{item.expected_key_points.map((point) => <Tag key={point}>{point}</Tag>)}</Space>
+                  )}
+                  {item.misconception_type && <Text type="warning">易错类型：{item.misconception_type}</Text>}
+                  {item.next_action && <Text type="secondary">下一步：{item.next_action}</Text>}
+                </Space>
+              </List.Item>
+            )}
           />
         </Card>
       )}

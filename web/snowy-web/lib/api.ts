@@ -102,11 +102,44 @@ export interface RelatedQuestion {
   title: string;
 }
 
+export interface MisconceptionTip {
+  type: string;
+  description: string;
+  correction?: string;
+}
+
+export interface FormulaCard {
+  name: string;
+  expression: string;
+  variables?: string[];
+  applies_to?: string[];
+  limits?: string[];
+}
+
+export interface ExamMapping {
+  question_type: string;
+  focus: string;
+  practice_hint?: string;
+  knowledge?: string[];
+}
+
+export interface LearningAction {
+  type: string;
+  label: string;
+  description?: string;
+  target?: string;
+  tags?: string[];
+}
+
 export interface SearchResponse {
   answer: string;
   knowledge_tags: string[];
   citations: Citation[];
   related_questions: RelatedQuestion[];
+  misconceptions?: MisconceptionTip[];
+  formula_cards?: FormulaCard[];
+  exam_mappings?: ExamMapping[];
+  next_actions?: LearningAction[];
   confidence: number;
 }
 
@@ -274,6 +307,32 @@ export interface FormulaSpec {
   meaning: string;
 }
 
+export interface VectorSpec {
+  id: string;
+  label: string;
+  origin?: string;
+  x_expr?: string;
+  y_expr?: string;
+  meaning?: string;
+}
+
+export interface CurveSpec {
+  id: string;
+  title: string;
+  x_label?: string;
+  y_label?: string;
+  y_expr?: string;
+  meaning?: string;
+}
+
+export interface OutcomeSpec {
+  id: string;
+  label: string;
+  expr?: string;
+  unit?: string;
+  description?: string;
+}
+
 export interface ReasoningTrace {
   summary: string;
   evidence_used?: string[];
@@ -301,9 +360,27 @@ export interface DynamicSimulationSpec {
   state_variables?: string[];
   variables?: VariableSpec[];
   formulas?: FormulaSpec[];
+  vectors?: VectorSpec[];
+  curves?: CurveSpec[];
+  outcomes?: OutcomeSpec[];
   render_instructions?: { coordinate_system?: string; layers?: string[]; annotations?: string[] };
   local_recompute_allowed: boolean;
   regenerate_when?: string[];
+}
+
+export interface MechanismStage {
+  id: string;
+  title: string;
+  description?: string;
+  inputs?: string[];
+  outputs?: string[];
+}
+
+export interface VariableEffect {
+  variable: string;
+  effect: string;
+  condition?: string;
+  evidence?: string;
 }
 
 export interface GenerativeVisualizationSpec {
@@ -315,6 +392,8 @@ export interface GenerativeVisualizationSpec {
   experiment_variables?: ExperimentVariables;
   curve_explanation?: string;
   limiting_factors?: string[];
+  mechanism_stages?: MechanismStage[];
+  variable_effects?: VariableEffect[];
 }
 
 export interface InteractionPlan {
@@ -341,6 +420,8 @@ export interface AssessmentTask {
   question: string;
   expected_key_points?: string[];
   feedback_rule?: string;
+  misconception_type?: string;
+  next_action?: string;
 }
 
 export interface GenerativeModelPackage {

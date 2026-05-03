@@ -229,6 +229,20 @@ func extractConditions(question string, modelType domain.ModelType) ([]domain.Co
 	if v, ok := captureNamedFloat(text, `(?:初始位移|位移起点|x0)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
 		add("x0", v, "m")
 	}
+	if v, ok := captureNamedFloat(text, `(?:高度|抛出高度|竖直高度|height|h)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
+		add("h", v, "m")
+	}
+	if _, ok := params["h"]; !ok && modelType == domain.ModelProjectileMotion {
+		if v, ok := captureFloat(text, `([0-9]+(?:\.[0-9]+)?)\s*(?:m|米)(?:高|高度)?`); ok {
+			add("h", v, "m")
+		}
+	}
+	if v, ok := captureNamedFloat(text, `(?:目标距离|目标水平距离|target_x|靶距)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
+		add("target_x", v, "m")
+	}
+	if v, ok := captureNamedFloat(text, `(?:重力加速度|g)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
+		add("g", v, "m/s²")
+	}
 	if v, ok := captureNamedFloat(text, `(?:劲度系数|k)\s*[:：=]?\s*([0-9]+(?:\.[0-9]+)?)`); ok {
 		add("k", v, "N/m")
 	}
@@ -350,8 +364,10 @@ func parameterSchema(modelType domain.ModelType) []domain.ParameterSchema {
 	case domain.ModelProjectileMotion:
 		return []domain.ParameterSchema{
 			{Name: "v0", Label: "初速度", Default: 20, Min: 1, Max: 100, Step: 1, Unit: "m/s"},
-			{Name: "angle_deg", Label: "抛射角", Default: 45, Min: 1, Max: 89, Step: 1, Unit: "°"},
-			{Name: "t", Label: "时间", Default: 2, Min: 0.1, Max: 10, Step: 0.1, Unit: "s"},
+			{Name: "h", Label: "抛出高度", Default: 20, Min: 1, Max: 100, Step: 1, Unit: "m"},
+			{Name: "g", Label: "重力加速度", Default: 9.8, Min: 1, Max: 20, Step: 0.1, Unit: "m/s²"},
+			{Name: "target_x", Label: "目标水平距离", Default: 40, Min: 5, Max: 180, Step: 1, Unit: "m"},
+			{Name: "angle_deg", Label: "抛射角", Default: 0, Min: 0, Max: 80, Step: 1, Unit: "°"},
 		}
 	case domain.ModelNewtonSecondLaw:
 		return []domain.ParameterSchema{

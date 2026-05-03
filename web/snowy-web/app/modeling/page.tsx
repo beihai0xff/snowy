@@ -26,7 +26,7 @@ import {
   ReloadOutlined,
   StarOutlined,
 } from '@ant-design/icons';
-import { api, type GenerativeModelPackage, type VariableSpec } from '@/lib/api';
+import { api, type EvidenceRef, type GenerativeModelPackage, type VariableSpec } from '@/lib/api';
 import GenerativePhysicsCanvas from '@/components/generative/GenerativePhysicsCanvas';
 import GenerativeBiologyGraph from '@/components/generative/GenerativeBiologyGraph';
 import InteractionPlanPanel from '@/components/generative/InteractionPlanPanel';
@@ -116,12 +116,33 @@ function ModelingPageInner() {
     setStage('grounding');
     try {
       window.setTimeout(() => setStage((prev) => (prev === 'grounding' ? 'reasoning' : prev)), 150);
+      let compileGrounding: { citations: EvidenceRef[]; knowledge_tags: string[] } = { citations: [], knowledge_tags: [] };
+      try {
+        const searchRes = await api.searchQuery({ query: text, filters: { subject: selectedSubject, grade: 'high_school' } });
+        compileGrounding = {
+          citations: (searchRes.data?.citations || []).map((citation) => ({
+            doc_id: citation.doc_id,
+            source_type: citation.source_type,
+            snippet: citation.snippet,
+            confidence: citation.score,
+            knowledge_tags: searchRes.data?.knowledge_tags || [],
+          })),
+          knowledge_tags: searchRes.data?.knowledge_tags || [],
+        };
+      } catch {
+        compileGrounding = { citations: [], knowledge_tags: [] };
+      }
       const res = await api.modelingCompile({
         message: text,
         domain: selectedSubject,
         grade_band: 'high_school',
         target_mode: 'interactive_model',
-        context: { source_page: 'modeling', user_notes: context || undefined },
+        context: {
+          source_page: 'modeling',
+          user_notes: context || undefined,
+          citations: compileGrounding.citations,
+          knowledge_tags: compileGrounding.knowledge_tags,
+        },
       });
       setStage('validating');
       const data = res.data ?? null;

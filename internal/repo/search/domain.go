@@ -54,11 +54,48 @@ type RelatedQuestion struct {
 	Title string `json:"title"`
 }
 
+// MisconceptionTip describes a common mistake and a corrective hint for evidence-based learning search.
+type MisconceptionTip struct {
+	Type        string `json:"type"`
+	Description string `json:"description"`
+	Correction  string `json:"correction,omitempty"`
+}
+
+// FormulaCard explains a rule/formula, its variables and applicability boundaries.
+type FormulaCard struct {
+	Name       string   `json:"name"`
+	Expression string   `json:"expression"`
+	Variables  []string `json:"variables,omitempty"`
+	AppliesTo  []string `json:"applies_to,omitempty"`
+	Limits     []string `json:"limits,omitempty"`
+}
+
+// ExamMapping describes how the concept appears in high-school exercise/exam scenarios.
+type ExamMapping struct {
+	QuestionType string   `json:"question_type"`
+	Focus        string   `json:"focus"`
+	PracticeHint string   `json:"practice_hint,omitempty"`
+	Knowledge    []string `json:"knowledge,omitempty"`
+}
+
+// LearningAction is a suggested next step that can jump into modeling or review flows.
+type LearningAction struct {
+	Type        string   `json:"type"`
+	Label       string   `json:"label"`
+	Description string   `json:"description,omitempty"`
+	Target      string   `json:"target,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
+}
+
 // Response 检索响应，参考技术方案 §13.3。
 type Response struct {
-	Answer           string            `json:"answer"`
-	KnowledgeTags    []string          `json:"knowledge_tags"`
-	Citations        []Citation        `json:"citations"`
-	RelatedQuestions []RelatedQuestion `json:"related_questions"`
-	Confidence       float64           `json:"confidence"`
+	Answer           string             `json:"answer"`
+	KnowledgeTags    []string           `json:"knowledge_tags"`
+	Citations        []Citation         `json:"citations"`
+	RelatedQuestions []RelatedQuestion  `json:"related_questions"`
+	Misconceptions   []MisconceptionTip `json:"misconceptions,omitempty"`
+	FormulaCards     []FormulaCard      `json:"formula_cards,omitempty"`
+	ExamMappings     []ExamMapping      `json:"exam_mappings,omitempty"`
+	NextActions      []LearningAction   `json:"next_actions,omitempty"`
+	Confidence       float64            `json:"confidence"`
 }

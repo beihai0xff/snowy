@@ -89,6 +89,7 @@ func TestService_QueryFallbackWhenRepositoryFails(t *testing.T) {
 	require.Len(t, resp.Citations, 1)
 	assert.Equal(t, "local-fallback", resp.Citations[0].DocID)
 	require.NotEmpty(t, resp.RelatedQuestions)
+	require.NotEmpty(t, resp.NextActions)
 }
 
 func TestService_QueryUsesLLMDirectAnswer(t *testing.T) {
@@ -115,7 +116,12 @@ func TestService_QueryUsesLLMDirectAnswer(t *testing.T) {
 	require.NotNil(t, resp)
 	assert.False(t, repoCalled)
 	assert.Contains(t, resp.Answer, "牛顿第二定律")
-	assert.Empty(t, resp.Citations)
+	require.NotEmpty(t, resp.Citations)
+	assert.Equal(t, "runtime_grounding", resp.Citations[0].SourceType)
+	assert.NotEmpty(t, resp.FormulaCards)
+	assert.NotEmpty(t, resp.Misconceptions)
+	assert.NotEmpty(t, resp.ExamMappings)
+	assert.NotEmpty(t, resp.NextActions)
 	assert.Contains(t, resp.KnowledgeTags, "大模型直答")
 	assert.Contains(t, resp.KnowledgeTags, "mimo")
 	assert.GreaterOrEqual(t, resp.Confidence, 0.8)

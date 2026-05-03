@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Input, Card, Tag, Typography, Space, Spin, Alert, Select, Row, Col, List, Empty, Button, message } from 'antd';
-import { SearchOutlined, StarOutlined, ExperimentOutlined, BranchesOutlined, ReloadOutlined } from '@ant-design/icons';
+import { SearchOutlined, StarOutlined, ExperimentOutlined, BranchesOutlined, ReloadOutlined, BulbOutlined, CompassOutlined } from '@ant-design/icons';
 import { api, type SearchResponse, type FavoriteReq } from '@/lib/api';
 import MarkdownText from '@/components/common/MarkdownText';
 
@@ -212,6 +212,61 @@ function SearchPageInner() {
                 style={{ marginBottom: 16 }}
               />
             )}
+
+            {result.formula_cards && result.formula_cards.length > 0 && (
+              <Card title="公式 / 规律卡" style={{ marginBottom: 16 }}>
+                <List
+                  dataSource={result.formula_cards}
+                  renderItem={(card) => (
+                    <List.Item>
+                      <List.Item.Meta
+                        title={<Space><Text strong>{card.name}</Text><Text code>{card.expression}</Text></Space>}
+                        description={(
+                          <Space direction="vertical" size={4}>
+                            {card.variables && card.variables.length > 0 && <Text type="secondary">变量：{card.variables.join('；')}</Text>}
+                            {card.applies_to && card.applies_to.length > 0 && <Text type="secondary">适用：{card.applies_to.join('；')}</Text>}
+                            {card.limits && card.limits.length > 0 && <Text type="warning">边界：{card.limits.join('；')}</Text>}
+                          </Space>
+                        )}
+                      />
+                    </List.Item>
+                  )}
+                />
+              </Card>
+            )}
+
+            {result.misconceptions && result.misconceptions.length > 0 && (
+              <Card title={<><BulbOutlined /> 易错点纠偏</>} style={{ marginBottom: 16 }}>
+                <List
+                  dataSource={result.misconceptions}
+                  renderItem={(item) => (
+                    <List.Item>
+                      <List.Item.Meta
+                        title={<Text>{item.description}</Text>}
+                        description={item.correction}
+                      />
+                      <Tag color="orange">{item.type}</Tag>
+                    </List.Item>
+                  )}
+                />
+              </Card>
+            )}
+
+            {result.exam_mappings && result.exam_mappings.length > 0 && (
+              <Card title="题型映射" style={{ marginBottom: 16 }}>
+                <List
+                  dataSource={result.exam_mappings}
+                  renderItem={(item) => (
+                    <List.Item>
+                      <List.Item.Meta
+                        title={<Space><Tag color="purple">{item.question_type}</Tag><Text>{item.focus}</Text></Space>}
+                        description={item.practice_hint}
+                      />
+                    </List.Item>
+                  )}
+                />
+              </Card>
+            )}
           </Col>
 
           <Col xs={24} lg={8}>
@@ -229,6 +284,24 @@ function SearchPageInner() {
                       }}
                     >
                       <Text type="secondary">{q.title}</Text>
+                    </List.Item>
+                  )}
+                />
+              </Card>
+            )}
+
+            {result.next_actions && result.next_actions.length > 0 && (
+              <Card title={<><CompassOutlined /> 下一步学习</>} size="small" style={{ marginBottom: 16 }}>
+                <List
+                  size="small"
+                  dataSource={result.next_actions}
+                  renderItem={(action) => (
+                    <List.Item>
+                      <Space direction="vertical" size={2}>
+                        <Text strong>{action.label}</Text>
+                        {action.description && <Text type="secondary">{action.description}</Text>}
+                        {action.tags && <Space wrap>{action.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}</Space>}
+                      </Space>
                     </List.Item>
                   )}
                 />

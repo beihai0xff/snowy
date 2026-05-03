@@ -69,6 +69,10 @@ func TestCompileUsesLLMJSON(t *testing.T) {
 	assert.Equal(t, "m1", pkg.ModelName)
 	assert.False(t, pkg.ValidationReport.FallbackRequired)
 	assert.Greater(t, pkg.Confidence, 0.8)
+	require.NotNil(t, pkg.SimulationLogic)
+	assert.NotEmpty(t, pkg.SimulationLogic.Vectors)
+	assert.NotEmpty(t, pkg.SimulationLogic.Curves)
+	assert.NotEmpty(t, pkg.SimulationLogic.Outcomes)
 }
 
 func TestCompileFallsBackToSecondProvider(t *testing.T) {
@@ -80,6 +84,9 @@ func TestCompileFallsBackToSecondProvider(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "m2", pkg.ModelName)
 	assert.Equal(t, DomainBiology, pkg.Domain)
+	require.NotNil(t, pkg.VisualizationGraph)
+	assert.NotEmpty(t, pkg.VisualizationGraph.MechanismStages)
+	assert.NotEmpty(t, pkg.VisualizationGraph.VariableEffects)
 }
 
 func TestCompileRuleFallbackWhenLLMFails(t *testing.T) {
@@ -89,6 +96,9 @@ func TestCompileRuleFallbackWhenLLMFails(t *testing.T) {
 	assert.Equal(t, "fallback", pkg.Status)
 	assert.True(t, pkg.ValidationReport.FallbackRequired)
 	assert.True(t, strings.Contains(pkg.FallbackReason, "down"))
+	require.NotNil(t, pkg.SimulationLogic)
+	assert.NotEmpty(t, pkg.SimulationLogic.Outcomes)
+	assert.NotEmpty(t, pkg.AssessmentTasks)
 }
 
 func TestDecodePackageJSONNormalizesMiMoShape(t *testing.T) {
