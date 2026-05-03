@@ -140,7 +140,7 @@ func (s *serviceImpl) queryWithLLM(ctx context.Context, q *Query, parsed *Parsed
 				{Role: "system", Content: knowledgeAnswerSystemPrompt()},
 				{Role: "user", Content: buildKnowledgeAnswerUserPrompt(q, parsed)},
 			},
-			MaxTokens:   1024,
+			MaxTokens:   llm.MaxTokens128K,
 			Temperature: 0.2,
 		})
 		cancel()

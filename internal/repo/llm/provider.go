@@ -8,6 +8,9 @@ import (
 	"strings"
 )
 
+// MaxTokens128K is the unified 128k generation token budget used for all model calls.
+const MaxTokens128K = 128 * 1024
+
 // Request LLM 调用请求。
 type Request struct {
 	Model       string    `json:"model"`

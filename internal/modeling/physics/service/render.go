@@ -201,9 +201,9 @@ func buildRenderUserPrompt(sceneSpec *domain.SceneSpec, mode domain.RenderMode) 
 
 func renderGenerationOptions(sceneSpec *domain.SceneSpec) (float64, int) {
 	if sceneSpec != nil && strings.HasPrefix(sceneSpec.SceneType, "biology_") {
-		return 0.15, 16384
+		return 0.15, llm.MaxTokens128K
 	}
-	return 0.2, 8192
+	return 0.2, llm.MaxTokens128K
 }
 
 func decodeRenderArtifact(content string) (*domain.RenderArtifact, error) {

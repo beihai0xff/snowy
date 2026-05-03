@@ -86,11 +86,16 @@ func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response,
 		return nil, fmt.Errorf("openai provider: base_url is empty")
 	}
 
+	maxTokens := req.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = MaxTokens128K
+	}
+
 	payload := openAIChatCompletionRequest{
 		Model:       model,
 		Messages:    req.Messages,
 		Temperature: req.Temperature,
-		MaxTokens:   req.MaxTokens,
+		MaxTokens:   maxTokens,
 		Stream:      false,
 	}
 

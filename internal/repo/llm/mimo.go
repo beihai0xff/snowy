@@ -103,7 +103,7 @@ func (p *mimoProvider) Generate(ctx context.Context, req *Request) (*Response, e
 
 	maxTokens := req.MaxTokens
 	if maxTokens <= 0 {
-		maxTokens = 8192
+		maxTokens = MaxTokens128K
 	}
 
 	temperature := req.Temperature

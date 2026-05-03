@@ -579,7 +579,7 @@ func DefaultPromptProfiles(now time.Time) []LLMPromptProfile {
 				"不伪造引用或内部来源声明",
 				"包含易错点和下一步追问",
 			},
-			GenerationParams: map[string]any{"temperature": 0.35, "max_tokens": 2048},
+			GenerationParams: map[string]any{"temperature": 0.35, "max_tokens": llm.MaxTokens128K},
 			UpdatedAt:        now,
 		},
 		{
@@ -597,7 +597,7 @@ func DefaultPromptProfiles(now time.Time) []LLMPromptProfile {
 				"Canvas 2D/WebGL 离线渲染，无外链依赖",
 				"体现 particle/flow/stage/label 等动态可视化语义",
 			},
-			GenerationParams: map[string]any{"temperature": 0.15, "max_tokens": 16384},
+			GenerationParams: map[string]any{"temperature": 0.15, "max_tokens": llm.MaxTokens128K},
 			UpdatedAt:        now,
 		},
 		{

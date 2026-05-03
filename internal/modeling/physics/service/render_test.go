@@ -171,8 +171,8 @@ func TestBiologyUsesOptimizedPromptAndGenerationOptions(t *testing.T) {
 	if provider.captured.Temperature != 0.15 {
 		t.Fatalf("temperature = %v, want 0.15", provider.captured.Temperature)
 	}
-	if provider.captured.MaxTokens != 16384 {
-		t.Fatalf("max tokens = %v, want 16384", provider.captured.MaxTokens)
+	if provider.captured.MaxTokens != llm.MaxTokens128K {
+		t.Fatalf("max tokens = %v, want %v", provider.captured.MaxTokens, llm.MaxTokens128K)
 	}
 	systemPrompt := provider.captured.Messages[0].Content
 	for _, want := range []string{"biology_*", "交互式科学可视化前端工程师", "animation_speed", "不限制 index.html/code_bundle 字符数"} {
@@ -203,8 +203,8 @@ func TestNonPhysicsNonBiologyUsesDefaultGenerationOptions(t *testing.T) {
 	if provider.captured.Temperature != 0.2 {
 		t.Fatalf("temperature = %v, want 0.2", provider.captured.Temperature)
 	}
-	if provider.captured.MaxTokens != 8192 {
-		t.Fatalf("max tokens = %v, want 8192", provider.captured.MaxTokens)
+	if provider.captured.MaxTokens != llm.MaxTokens128K {
+		t.Fatalf("max tokens = %v, want %v", provider.captured.MaxTokens, llm.MaxTokens128K)
 	}
 }
 

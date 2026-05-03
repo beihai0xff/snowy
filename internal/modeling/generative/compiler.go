@@ -179,7 +179,7 @@ func (s *compilerService) compileWithLLM(
 				{Role: "system", Content: compileSystemPrompt()},
 				{Role: "user", Content: buildCompileUserPrompt(req, domain, evidence)},
 			},
-			MaxTokens:   4096,
+			MaxTokens:   llm.MaxTokens128K,
 			Temperature: 0.2,
 		})
 		cancel()
