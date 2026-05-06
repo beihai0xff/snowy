@@ -2,24 +2,34 @@
 
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Layout, Menu } from 'antd';
+import { ConfigProvider, Layout, Menu, Space, Tag, theme as antdTheme } from 'antd';
 import {
   HomeOutlined,
   SearchOutlined,
   ExperimentOutlined,
   BookOutlined,
   DashboardOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 
 const { Header, Content } = Layout;
 
 const menuItems = [
-  { key: '/', icon: <HomeOutlined />, label: '首页' },
-  { key: '/search', icon: <SearchOutlined />, label: '知识检索' },
-  { key: '/modeling', icon: <ExperimentOutlined />, label: '统一建模' },
-  { key: '/learning', icon: <BookOutlined />, label: '学习中心' },
-  { key: '/monitoring', icon: <DashboardOutlined />, label: '监控看板' },
+  { key: '/', icon: <HomeOutlined />, label: '指挥舱' },
+  { key: '/search', icon: <SearchOutlined />, label: '知识星图' },
+  { key: '/modeling', icon: <ExperimentOutlined />, label: '科学建模舱' },
+  { key: '/learning', icon: <BookOutlined />, label: '任务档案' },
+  { key: '/monitoring', icon: <DashboardOutlined />, label: 'AI 监控' },
 ];
+
+function selectedKey(pathname: string): string {
+  if (pathname === '/physics' || pathname === '/biology') return '/modeling';
+  if (pathname.startsWith('/search')) return '/search';
+  if (pathname.startsWith('/modeling')) return '/modeling';
+  if (pathname.startsWith('/learning')) return '/learning';
+  if (pathname.startsWith('/monitoring')) return '/monitoring';
+  return '/';
+}
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -30,34 +40,73 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Header style={{
-        display: 'flex',
-        alignItems: 'center',
-        background: '#fff',
-        borderBottom: '1px solid #f0f0f0',
-        padding: '0 24px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-      }}>
-        <div
-          style={{ fontSize: 20, fontWeight: 700, color: '#1677ff', cursor: 'pointer', marginRight: 40 }}
-          onClick={() => router.push('/')}
-        >
-          ❄️ Snowy
-        </div>
-        <Menu
-          mode="horizontal"
-          selectedKeys={[pathname === '/physics' || pathname === '/biology' ? '/modeling' : pathname]}
-          items={menuItems}
-          onClick={handleMenuClick}
-          style={{ flex: 1, border: 'none' }}
-        />
-      </Header>
-      <Content style={{ padding: '24px', maxWidth: 1440, margin: '0 auto', width: '100%' }}>
-        {children}
-      </Content>
-    </Layout>
+    <ConfigProvider
+      theme={{
+        algorithm: antdTheme.darkAlgorithm,
+        token: {
+          colorPrimary: '#38bdf8',
+          colorInfo: '#22d3ee',
+          colorSuccess: '#34d399',
+          colorWarning: '#fbbf24',
+          colorError: '#fb7185',
+          colorBgBase: '#020617',
+          colorBgContainer: 'rgba(15, 23, 42, 0.72)',
+          colorBorder: 'rgba(148, 163, 184, 0.22)',
+          colorTextBase: '#e2e8f0',
+          borderRadius: 18,
+          wireframe: false,
+        },
+        components: {
+          Layout: {
+            headerBg: 'transparent',
+            bodyBg: 'transparent',
+          },
+          Menu: {
+            darkItemBg: 'transparent',
+            darkSubMenuItemBg: 'transparent',
+            darkItemSelectedBg: 'rgba(56, 189, 248, 0.18)',
+            itemBorderRadius: 999,
+          },
+          Card: {
+            headerBg: 'transparent',
+          },
+        },
+      }}
+    >
+      <Layout className="snowy-shell">
+        <Header className="snowy-header">
+          <div
+            className="snowy-brand"
+            onClick={() => router.push('/')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') router.push('/');
+            }}
+          >
+            <span className="snowy-brand-mark">❄</span>
+            <span>
+              <span className="snowy-brand-name">Snowy</span>
+              <span className="snowy-brand-subtitle">AI Science Engine</span>
+            </span>
+          </div>
+          <Menu
+            mode="horizontal"
+            theme="dark"
+            selectedKeys={[selectedKey(pathname)]}
+            items={menuItems}
+            onClick={handleMenuClick}
+            className="snowy-nav"
+          />
+          <Space className="snowy-header-status" size={8}>
+            <Tag color="cyan" className="snowy-version-tag">V4</Tag>
+            <Tag icon={<ThunderboltOutlined />} color="green" className="snowy-live-tag">Lab Online</Tag>
+          </Space>
+        </Header>
+        <Content className="snowy-content">
+          {children}
+        </Content>
+      </Layout>
+    </ConfigProvider>
   );
 }

@@ -218,6 +218,7 @@ SNOWY_MINIO_BUCKET=snowy
 |---|---|
 | [产品需求文档 (PRD)](./docs/prd.md) | 产品目标、MVP 范围、核心功能、页面流程、接口边界、指标体系与里程碑 |
 | [技术方案](./docs/tech-solution.md) | 系统架构、Agent 编排、RAG 检索、多模型路由、物理 / 3D 代码生成渲染、生物建模、数据库设计、可观测性 |
+| [Snowy v4 重构蓝图](./docs/snowy-v4-redesign-blueprint.md) | 面向高中生的 AI 科学任务舱产品定位、游戏化学习链路、生成式模型包与前端科技感重构方案 |
 
 ---
 
