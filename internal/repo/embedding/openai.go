@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -53,7 +54,7 @@ func (e *openaiEmbedding) Embed(ctx context.Context, texts []string) ([][]float6
 
 	baseURL := strings.TrimRight(e.cfg.EffectiveBaseURL(), "/")
 	if baseURL == "" {
-		return nil, fmt.Errorf("embedding provider: base_url is empty")
+		return nil, errors.New("embedding provider: base_url is empty")
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/embeddings", bytes.NewReader(body))

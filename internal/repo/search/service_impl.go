@@ -59,6 +59,7 @@ func NewService(
 		embedding: embeddingProvider,
 		logs:      logs,
 	}
+
 	for _, opt := range opts {
 		if opt != nil {
 			opt(svc)
@@ -85,6 +86,7 @@ func (s *serviceImpl) Query(ctx context.Context, q *Query) (*Response, error) {
 		if directErr != nil {
 			response = fallbackResponse(q, parsed, fmt.Errorf("llm direct answer: %w", directErr))
 		}
+
 		s.saveLog(ctx, q.Text, 1, start, nil)
 
 		return response, nil
@@ -115,7 +117,13 @@ func (s *serviceImpl) Query(ctx context.Context, q *Query) (*Response, error) {
 func (s *serviceImpl) parseQuery(raw string) (*ParsedQuery, error) {
 	if s.parser == nil {
 		cleaned := strings.TrimSpace(raw)
-		return &ParsedQuery{Original: cleaned, Keywords: []string{cleaned}, Entities: []string{cleaned}, Intent: "explain"}, nil
+
+		return &ParsedQuery{
+			Original: cleaned,
+			Keywords: []string{cleaned},
+			Entities: []string{cleaned},
+			Intent:   "explain",
+		}, nil
 	}
 
 	return s.parser.Parse(raw)
@@ -127,6 +135,7 @@ func (s *serviceImpl) hasLLMProvider() bool {
 
 func (s *serviceImpl) queryWithLLM(ctx context.Context, q *Query, parsed *ParsedQuery) (*Response, error) {
 	providers := []llm.Provider{s.primaryLLM, s.fallbackLLM}
+
 	failures := make([]string, 0, len(providers))
 	for _, provider := range providers {
 		if provider == nil {
@@ -143,15 +152,19 @@ func (s *serviceImpl) queryWithLLM(ctx context.Context, q *Query, parsed *Parsed
 			MaxTokens:   llm.MaxTokens128K,
 			Temperature: 0.2,
 		})
+
 		cancel()
+
 		if err != nil {
 			failures = append(failures, fmt.Sprintf("%s: %v", provider.Name(), err))
+
 			continue
 		}
 
 		answer := strings.TrimSpace(response.Content)
 		if answer == "" {
-			failures = append(failures, fmt.Sprintf("%s: empty response", provider.Name()))
+			failures = append(failures, provider.Name()+": empty response")
+
 			continue
 		}
 
@@ -202,28 +215,33 @@ func buildKnowledgeAnswerUserPrompt(q *Query, parsed *ParsedQuery) string {
 	builder.WriteString("问题：")
 	builder.WriteString(strings.TrimSpace(q.Text))
 	builder.WriteString("\n")
+
 	if strings.TrimSpace(q.Filters.Subject) != "" {
 		builder.WriteString("学科：")
 		builder.WriteString(q.Filters.Subject)
 		builder.WriteString("\n")
 	}
+
 	if strings.TrimSpace(q.Filters.Grade) != "" {
 		builder.WriteString("年级：")
 		builder.WriteString(q.Filters.Grade)
 		builder.WriteString("\n")
 	}
+
 	if parsed != nil {
 		if parsed.Intent != "" {
 			builder.WriteString("问题意图：")
 			builder.WriteString(parsed.Intent)
 			builder.WriteString("\n")
 		}
+
 		if len(parsed.Entities) > 0 {
 			builder.WriteString("识别到的关键词：")
 			builder.WriteString(strings.Join(parsed.Entities, "、"))
 			builder.WriteString("\n")
 		}
 	}
+
 	builder.WriteString("回答要具体但保持紧凑，不要只给定义；如果涉及公式，请说明符号含义和适用条件；总长度通常控制在 600-900 中文字以内。")
 
 	return builder.String()
@@ -231,6 +249,7 @@ func buildKnowledgeAnswerUserPrompt(q *Query, parsed *ParsedQuery) string {
 
 func assembleLLMResponse(q *Query, parsed *ParsedQuery, answer, providerName string) *Response {
 	tags := buildKnowledgeTags(q, parsed, providerName)
+
 	return enrichLearningSearchResponse(q, parsed, &Response{
 		Answer:           answer,
 		KnowledgeTags:    tags,
@@ -245,10 +264,12 @@ func buildRuntimeCitations(q *Query, parsed *ParsedQuery) []Citation {
 	if q != nil && strings.TrimSpace(q.Text) != "" {
 		text = strings.TrimSpace(q.Text)
 	}
+
 	snippet := fmt.Sprintf("当前回答由大模型基于题干“%s”和高中阶段通用知识生成；若需更高可信度，请接入课本/题库索引或补充引用。", truncateRunes(text, 42))
 	if parsed != nil && len(parsed.Entities) > 0 {
 		snippet += " 识别关键词：" + strings.Join(parsed.Entities, "、") + "。"
 	}
+
 	return []Citation{{DocID: "llm-runtime-grounding", SourceType: "runtime_grounding", Snippet: snippet, Score: 0.55}}
 }
 
@@ -256,38 +277,48 @@ func enrichLearningSearchResponse(q *Query, parsed *ParsedQuery, resp *Response)
 	if resp == nil {
 		return resp
 	}
+
 	if len(resp.KnowledgeTags) == 0 {
 		resp.KnowledgeTags = inferKnowledgeTags(q, parsed, resp.Answer)
 	}
+
 	if len(resp.Misconceptions) == 0 {
 		resp.Misconceptions = inferMisconceptions(q, parsed, resp.KnowledgeTags)
 	}
+
 	if len(resp.FormulaCards) == 0 {
 		resp.FormulaCards = inferFormulaCards(q, parsed, resp.KnowledgeTags)
 	}
+
 	if len(resp.ExamMappings) == 0 {
 		resp.ExamMappings = inferExamMappings(q, parsed, resp.KnowledgeTags)
 	}
+
 	if len(resp.NextActions) == 0 {
 		resp.NextActions = inferNextActions(q, parsed, resp.KnowledgeTags, resp.Confidence)
 	}
+
 	if len(resp.RelatedQuestions) == 0 {
 		resp.RelatedQuestions = buildDirectRelatedQuestions(q, parsed)
 	}
+
 	return resp
 }
 
 func inferKnowledgeTags(q *Query, parsed *ParsedQuery, answer string) []string {
 	tags := make([]string, 0, 8)
 	seen := map[string]struct{}{}
+
 	add := func(tag string) {
 		tag = strings.TrimSpace(tag)
 		if tag == "" {
 			return
 		}
+
 		if _, ok := seen[tag]; ok {
 			return
 		}
+
 		seen[tag] = struct{}{}
 		tags = append(tags, tag)
 	}
@@ -295,27 +326,39 @@ func inferKnowledgeTags(q *Query, parsed *ParsedQuery, answer string) []string {
 		add(q.Filters.Subject)
 		add(q.Filters.Grade)
 	}
+
 	if parsed != nil {
 		add(intentLabel(parsed.Intent))
+
 		for _, entity := range parsed.Entities {
 			add(entity)
 		}
 	}
+
 	text := strings.ToLower(strings.TrimSpace(answer))
 	for _, rule := range []struct{ keyword, tag string }{
-		{"牛顿", "牛顿第二定律"}, {"斜面", "斜面受力"}, {"平抛", "平抛运动"}, {"弹簧", "弹簧振子"},
-		{"光合作用", "光合作用"}, {"光照", "限制因素"}, {"酶", "酶活性"}, {"遗传", "遗传规律"},
+		{"牛顿", "牛顿第二定律"},
+		{"斜面", "斜面受力"},
+		{"平抛", "平抛运动"},
+		{"弹簧", "弹簧振子"},
+		{"光合作用", "光合作用"},
+		{"光照", "限制因素"},
+		{"酶", "酶活性"},
+		{"遗传", "遗传规律"},
 	} {
 		if strings.Contains(text, strings.ToLower(rule.keyword)) {
 			add(rule.tag)
 		}
 	}
+
 	if len(tags) == 0 {
 		add("知识点讲解")
 	}
+
 	if len(tags) > 8 {
 		return tags[:8]
 	}
+
 	return tags
 }
 
@@ -334,7 +377,11 @@ func inferMisconceptions(q *Query, parsed *ParsedQuery, tags []string) []Misconc
 		}
 	case containsAny(text, "光合作用", "光照", "photosynthesis"):
 		return []MisconceptionTip{
-			{Type: "limiting_factor", Description: "误以为光照越强有机物积累一定无限增加。", Correction: "光照增强到一定程度后，CO₂ 浓度、温度或酶活性可能成为限制因素。"},
+			{
+				Type:        "limiting_factor",
+				Description: "误以为光照越强有机物积累一定无限增加。",
+				Correction:  "光照增强到一定程度后，CO₂ 浓度、温度或酶活性可能成为限制因素。",
+			},
 			{Type: "net_accumulation", Description: "忽略呼吸作用对净积累的消耗。", Correction: "净积累应同时考虑光合作用制造量和呼吸消耗量。"},
 		}
 	case containsAny(text, "酶", "enzyme"):
@@ -350,13 +397,45 @@ func inferFormulaCards(q *Query, parsed *ParsedQuery, tags []string) []FormulaCa
 	text := searchContextText(q, parsed, tags)
 	switch {
 	case containsAny(text, "牛顿", "受力", "斜面", "force"):
-		return []FormulaCard{{Name: "牛顿第二定律", Expression: "ΣF = ma", Variables: []string{"ΣF：合外力", "m：质量", "a：加速度"}, AppliesTo: []string{"惯性参考系", "研究对象受力可明确"}, Limits: []string{"先做受力分析", "注意方向与正负号"}}}
+		return []FormulaCard{
+			{
+				Name:       "牛顿第二定律",
+				Expression: "ΣF = ma",
+				Variables:  []string{"ΣF：合外力", "m：质量", "a：加速度"},
+				AppliesTo:  []string{"惯性参考系", "研究对象受力可明确"},
+				Limits:     []string{"先做受力分析", "注意方向与正负号"},
+			},
+		}
 	case containsAny(text, "平抛", "projectile"):
-		return []FormulaCard{{Name: "平抛运动分解", Expression: "x = v0·t,  y = h - 1/2·g·t²", Variables: []string{"v0：水平初速度", "h：抛出高度", "g：重力加速度"}, AppliesTo: []string{"忽略空气阻力", "初速度水平"}, Limits: []string{"水平与竖直方向独立处理"}}}
+		return []FormulaCard{
+			{
+				Name:       "平抛运动分解",
+				Expression: "x = v0·t,  y = h - 1/2·g·t²",
+				Variables:  []string{"v0：水平初速度", "h：抛出高度", "g：重力加速度"},
+				AppliesTo:  []string{"忽略空气阻力", "初速度水平"},
+				Limits:     []string{"水平与竖直方向独立处理"},
+			},
+		}
 	case containsAny(text, "弹簧", "振子", "spring"):
-		return []FormulaCard{{Name: "弹簧振子周期", Expression: "T = 2π√(m/k)", Variables: []string{"m：振子质量", "k：劲度系数"}, AppliesTo: []string{"小振幅近似", "理想弹簧"}, Limits: []string{"阻尼较大或非线性弹簧需重新建模"}}}
+		return []FormulaCard{
+			{
+				Name:       "弹簧振子周期",
+				Expression: "T = 2π√(m/k)",
+				Variables:  []string{"m：振子质量", "k：劲度系数"},
+				AppliesTo:  []string{"小振幅近似", "理想弹簧"},
+				Limits:     []string{"阻尼较大或非线性弹簧需重新建模"},
+			},
+		}
 	case containsAny(text, "光合作用", "光照", "photosynthesis"):
-		return []FormulaCard{{Name: "净有机物积累", Expression: "净积累 ≈ 光合作用制造量 - 呼吸消耗量", Variables: []string{"光照强度", "CO₂ 浓度", "温度", "酶活性"}, AppliesTo: []string{"高中阶段定性分析"}, Limits: []string{"平台期通常说明出现新的限制因素"}}}
+		return []FormulaCard{
+			{
+				Name:       "净有机物积累",
+				Expression: "净积累 ≈ 光合作用制造量 - 呼吸消耗量",
+				Variables:  []string{"光照强度", "CO₂ 浓度", "温度", "酶活性"},
+				AppliesTo:  []string{"高中阶段定性分析"},
+				Limits:     []string{"平台期通常说明出现新的限制因素"},
+			},
+		}
 	default:
 		return nil
 	}
@@ -367,14 +446,31 @@ func inferExamMappings(q *Query, parsed *ParsedQuery, tags []string) []ExamMappi
 	switch {
 	case containsAny(text, "牛顿", "受力", "斜面", "force"):
 		return []ExamMapping{
-			{QuestionType: "计算题", Focus: "受力分析后列 ΣF=ma", PracticeHint: "先画受力图，再分解到选定坐标轴。", Knowledge: []string{"受力分析", "牛顿第二定律"}},
+			{
+				QuestionType: "计算题",
+				Focus:        "受力分析后列 ΣF=ma",
+				PracticeHint: "先画受力图，再分解到选定坐标轴。",
+				Knowledge:    []string{"受力分析", "牛顿第二定律"},
+			},
 			{QuestionType: "图像/判断题", Focus: "摩擦方向、临界条件与加速度方向", PracticeHint: "比较重力分力和最大静摩擦力。"},
 		}
 	case containsAny(text, "平抛", "projectile"):
-		return []ExamMapping{{QuestionType: "计算题", Focus: "由竖直方向求时间，再求水平位移", PracticeHint: "把未知量拆到 x/y 两个方向。", Knowledge: []string{"运动的合成与分解", "匀变速运动"}}}
+		return []ExamMapping{
+			{
+				QuestionType: "计算题",
+				Focus:        "由竖直方向求时间，再求水平位移",
+				PracticeHint: "把未知量拆到 x/y 两个方向。",
+				Knowledge:    []string{"运动的合成与分解", "匀变速运动"},
+			},
+		}
 	case containsAny(text, "光合作用", "光照", "photosynthesis"):
 		return []ExamMapping{
-			{QuestionType: "曲线题", Focus: "解释上升段、平台期和限制因素", PracticeHint: "逐段判断哪个因素限制净光合速率。", Knowledge: []string{"光合作用", "限制因素"}},
+			{
+				QuestionType: "曲线题",
+				Focus:        "解释上升段、平台期和限制因素",
+				PracticeHint: "逐段判断哪个因素限制净光合速率。",
+				Knowledge:    []string{"光合作用", "限制因素"},
+			},
 			{QuestionType: "实验题", Focus: "自变量、因变量和控制变量", PracticeHint: "确认只有自变量被主动改变。"},
 		}
 	default:
@@ -384,18 +480,65 @@ func inferExamMappings(q *Query, parsed *ParsedQuery, tags []string) []ExamMappi
 
 func inferNextActions(q *Query, parsed *ParsedQuery, tags []string, confidence float64) []LearningAction {
 	text := searchContextText(q, parsed, tags)
-	actions := []LearningAction{{Type: "review", Label: "用一句话反思", Description: "总结当前知识点的适用条件和一个易错点。", Target: "learning/reflection", Tags: []string{"反思"}}}
-	if confidence < 0.5 {
-		actions = append(actions, LearningAction{Type: "clarify", Label: "补充条件后重试", Description: "当前可信度较低，建议补充章节、题干数值或实验条件。", Target: "search", Tags: []string{"低可信"}})
+
+	actions := []LearningAction{
+		{
+			Type:        "review",
+			Label:       "用一句话反思",
+			Description: "总结当前知识点的适用条件和一个易错点。",
+			Target:      "learning/reflection",
+			Tags:        []string{"反思"},
+		},
 	}
+	if confidence < 0.5 {
+		actions = append(
+			actions,
+			LearningAction{
+				Type:        "clarify",
+				Label:       "补充条件后重试",
+				Description: "当前可信度较低，建议补充章节、题干数值或实验条件。",
+				Target:      "search",
+				Tags:        []string{"低可信"},
+			},
+		)
+	}
+
 	switch {
 	case containsAny(text, "牛顿", "受力", "平抛", "弹簧", "运动", "force", "projectile"):
-		actions = append(actions, LearningAction{Type: "modeling", Label: "进入物理仿真实验室", Description: "把公式、变量和轨迹放到统一建模工作台中交互观察。", Target: "physics", Tags: []string{"物理仿真", "参数调节"}})
+		actions = append(
+			actions,
+			LearningAction{
+				Type:        "modeling",
+				Label:       "进入物理仿真实验室",
+				Description: "把公式、变量和轨迹放到统一建模工作台中交互观察。",
+				Target:      "physics",
+				Tags:        []string{"物理仿真", "参数调节"},
+			},
+		)
 	case containsAny(text, "光合作用", "光照", "酶", "遗传", "生态", "biology"):
-		actions = append(actions, LearningAction{Type: "modeling", Label: "进入生物可视化", Description: "生成概念关系、过程阶段和实验变量卡片。", Target: "biology", Tags: []string{"生物可视化", "实验变量"}})
+		actions = append(
+			actions,
+			LearningAction{
+				Type:        "modeling",
+				Label:       "进入生物可视化",
+				Description: "生成概念关系、过程阶段和实验变量卡片。",
+				Target:      "biology",
+				Tags:        []string{"生物可视化", "实验变量"},
+			},
+		)
 	default:
-		actions = append(actions, LearningAction{Type: "practice", Label: "做一道微练习", Description: "用一个小题检查是否真正理解。", Target: "learning/practice", Tags: []string{"微练习"}})
+		actions = append(
+			actions,
+			LearningAction{
+				Type:        "practice",
+				Label:       "做一道微练习",
+				Description: "用一个小题检查是否真正理解。",
+				Target:      "learning/practice",
+				Tags:        []string{"微练习"},
+			},
+		)
 	}
+
 	return actions
 }
 
@@ -404,10 +547,19 @@ func searchContextText(q *Query, parsed *ParsedQuery, tags []string) string {
 	if q != nil {
 		parts = append(parts, q.Text, q.Filters.Subject, q.Filters.Grade, q.Filters.Chapter)
 	}
+
 	if parsed != nil {
-		parts = append(parts, parsed.Original, strings.Join(parsed.Keywords, " "), strings.Join(parsed.Entities, " "), parsed.Intent)
+		parts = append(
+			parts,
+			parsed.Original,
+			strings.Join(parsed.Keywords, " "),
+			strings.Join(parsed.Entities, " "),
+			parsed.Intent,
+		)
 	}
+
 	parts = append(parts, strings.Join(tags, " "))
+
 	return strings.ToLower(strings.Join(parts, " "))
 }
 
@@ -419,25 +571,32 @@ func buildKnowledgeTags(q *Query, parsed *ParsedQuery, providerName string) []st
 		if tag == "" {
 			return
 		}
+
 		if _, ok := seen[tag]; ok {
 			return
 		}
+
 		seen[tag] = struct{}{}
 		tags = append(tags, tag)
 	}
 
 	add("大模型直答")
+
 	if providerName != "" {
 		add(providerName)
 	}
+
 	if q != nil {
 		add(q.Filters.Subject)
 		add(q.Filters.Grade)
 	}
+
 	if parsed != nil {
 		add(intentLabel(parsed.Intent))
+
 		for _, entity := range parsed.Entities {
 			add(entity)
+
 			if len(tags) >= 8 {
 				return tags
 			}
@@ -469,10 +628,11 @@ func buildDirectRelatedQuestions(q *Query, parsed *ParsedQuery) []RelatedQuestio
 	}
 
 	questions := []RelatedQuestion{
-		{ID: "llm-direct-summary", Title: fmt.Sprintf("用一句话总结：%s", truncateRunes(text, 28))},
+		{ID: "llm-direct-summary", Title: "用一句话总结：" + truncateRunes(text, 28)},
 		{ID: "llm-direct-mistakes", Title: "这个知识点有哪些常见易错点？"},
 		{ID: "llm-direct-example", Title: "给我一道相关例题并逐步讲解"},
 	}
+
 	if q != nil {
 		switch strings.TrimSpace(q.Filters.Subject) {
 		case "physics":
@@ -481,6 +641,7 @@ func buildDirectRelatedQuestions(q *Query, parsed *ParsedQuery) []RelatedQuestio
 			questions = append(questions, RelatedQuestion{ID: "biology-modeling", Title: "用生物建模生成概念图"})
 		}
 	}
+
 	if parsed != nil && parsed.Intent == "definition" {
 		questions = append(questions, RelatedQuestion{ID: "llm-direct-compare", Title: "把这个概念和相近概念做对比"})
 	}
@@ -516,6 +677,7 @@ func fallbackResponse(q *Query, parsed *ParsedQuery, cause error) *Response {
 	if q != nil && strings.TrimSpace(q.Filters.Subject) != "" {
 		tags = append(tags, q.Filters.Subject)
 	}
+
 	if parsed != nil && parsed.Intent != "" {
 		tags = append(tags, parsed.Intent)
 	}
@@ -524,6 +686,7 @@ func fallbackResponse(q *Query, parsed *ParsedQuery, cause error) *Response {
 	if cause != nil && strings.Contains(cause.Error(), "search repository") {
 		answer = fmt.Sprintf("当前知识索引暂时不可用或没有命中结果。你可以围绕“%s”补充学科、章节、已知条件，或直接跳转到物理/生物建模继续分析。", text)
 	}
+
 	if cause != nil {
 		answer += " 诊断信息：" + cause.Error()
 	}
@@ -637,6 +800,7 @@ func containsAny(text string, keywords ...string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 

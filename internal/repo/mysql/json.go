@@ -3,6 +3,7 @@ package mysql
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -103,11 +104,13 @@ func (j *jsonValue) Scan(src any) error {
 // AssignTo decodes the stored JSON value into dst.
 func (j jsonValue) AssignTo(dst any) error {
 	if dst == nil {
-		return fmt.Errorf("jsonValue: destination is nil")
+		return errors.New("jsonValue: destination is nil")
 	}
+
 	b, err := json.Marshal(j.Data)
 	if err != nil {
 		return err
 	}
+
 	return json.Unmarshal(b, dst)
 }

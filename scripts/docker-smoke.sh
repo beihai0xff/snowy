@@ -67,7 +67,7 @@ require_cmd python3
 
 log "checking docker compose services"
 "${COMPOSE[@]}" ps --status running >/tmp/snowy-smoke-ps.txt
-for svc in snowy-api snowy-web snowy-worker mysql redis minio; do
+for svc in snowy snowy-web mysql redis minio; do
   grep -q "$svc" /tmp/snowy-smoke-ps.txt || fail "$svc is not running"
 done
 ok "compose services are running"

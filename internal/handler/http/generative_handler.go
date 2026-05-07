@@ -23,26 +23,33 @@ func NewGenerativeHandler(generativeSvc generative.Service, userSvc ...user.Serv
 	if len(userSvc) > 0 {
 		svc = userSvc[0]
 	}
+
 	return &GenerativeHandler{generativeSvc: generativeSvc, userSvc: svc}
 }
 
 // Compile POST /api/v1/modeling/compile.
 func (h *GenerativeHandler) Compile(c *gin.Context) {
 	reqID := common.RequestIDFromContext(c.Request.Context())
+
 	var req dto.ModelingCompileReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+
 		return
 	}
+
 	userID := common.DefaultUserID
 	if fromCtx := common.UserIDFromContext(c.Request.Context()); fromCtx != "" {
 		userID = fromCtx
 	}
+
 	uid, err := uuid.Parse(userID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage("invalid user id"), reqID))
+
 		return
 	}
+
 	compileReq := &generative.CompileRequest{
 		UserID:     uid,
 		Message:    req.Message,
@@ -61,14 +68,18 @@ func (h *GenerativeHandler) Compile(c *gin.Context) {
 			compileReq.SessionID = sid
 		} else {
 			c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage("invalid session_id"), reqID))
+
 			return
 		}
 	}
+
 	pkg, err := h.generativeSvc.Compile(c.Request.Context(), compileReq)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
+
 		return
 	}
+
 	recordHistory(c, h.userSvc, "modeling", req.Message)
 	c.JSON(http.StatusOK, common.Success(pkg))
 }
@@ -76,11 +87,14 @@ func (h *GenerativeHandler) Compile(c *gin.Context) {
 // GetPackage GET /api/v1/modeling/packages/:id.
 func (h *GenerativeHandler) GetPackage(c *gin.Context) {
 	reqID := common.RequestIDFromContext(c.Request.Context())
+
 	pkg, err := h.generativeSvc.GetPackage(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusNotFound, common.Fail(common.ErrInvalidInput.WithMessage("model package not found"), reqID))
+
 		return
 	}
+
 	c.JSON(http.StatusOK, common.Success(pkg))
 }
 
@@ -97,5 +111,6 @@ func convertEvidenceRefs(items []dto.EvidenceRefDTO) []generative.EvidenceRef {
 			Confidence:    item.Confidence,
 		})
 	}
+
 	return out
 }

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
-	"sort"
 	"strings"
 
 	"github.com/beihai0xff/snowy/internal/modeling/physics/domain"
@@ -18,12 +17,15 @@ func (s *serviceImpl) generateTemplateArtifact(
 	if sceneSpec.SceneType == "physics_force_3d" {
 		ensureForce3DProps(props)
 	}
+
 	if strings.HasPrefix(sceneSpec.SceneType, "biology_") {
 		ensureBiologyProps(props)
 	}
+
 	css := basePreviewCSS()
 
 	var js string
+
 	switch sceneSpec.SceneType {
 	case "physics_projectile_3d":
 		js = projectile3DScript(props)
@@ -43,10 +45,19 @@ func (s *serviceImpl) generateTemplateArtifact(
 
 	dependencies := []string{"native-html", "canvas"}
 	allowedAPIs := []string{"requestAnimationFrame", "setTimeout", "postMessage", "CanvasRenderingContext2D"}
+
 	if sceneSpec.SceneType == "physics_force_3d" {
 		dependencies = []string{"native-html", "webgl", "canvas"}
-		allowedAPIs = []string{"requestAnimationFrame", "setTimeout", "postMessage", "CanvasRenderingContext2D", "WebGLRenderingContext", "WebGL2RenderingContext"}
+		allowedAPIs = []string{
+			"requestAnimationFrame",
+			"setTimeout",
+			"postMessage",
+			"CanvasRenderingContext2D",
+			"WebGLRenderingContext",
+			"WebGL2RenderingContext",
+		}
 	}
+
 	if strings.HasPrefix(sceneSpec.SceneType, "biology_") {
 		dependencies = []string{"native-html", "canvas"}
 		allowedAPIs = []string{"requestAnimationFrame", "setTimeout", "postMessage", "CanvasRenderingContext2D"}
@@ -64,8 +75,17 @@ func (s *serviceImpl) generateTemplateArtifact(
 			MountSelector: "#snowy-preview-root",
 			Dependencies:  dependencies,
 			AllowedAPIs:   allowedAPIs,
-			BlockedAPIs:   []string{"fetch", "XMLHttpRequest", "localStorage", "sessionStorage", "indexedDB", "document.cookie", "WebSocket", "navigator.sendBeacon"},
-			InitialProps:  props,
+			BlockedAPIs: []string{
+				"fetch",
+				"XMLHttpRequest",
+				"localStorage",
+				"sessionStorage",
+				"indexedDB",
+				"document.cookie",
+				"WebSocket",
+				"navigator.sendBeacon",
+			},
+			InitialProps: props,
 		},
 		CodeBundle: map[string]string{
 			"index.html": indexHTML,
@@ -90,6 +110,7 @@ func (s *serviceImpl) generateNativePhysicsArtifact(
 	if props == nil {
 		props = map[string]float64{}
 	}
+
 	ensureNativePhysicsProps(sceneSpec.SceneType, props)
 
 	artifact := &domain.RenderArtifact{
@@ -102,9 +123,24 @@ func (s *serviceImpl) generateNativePhysicsArtifact(
 			RenderMode:    mode,
 			MountSelector: "#snowy-native-physics-root",
 			Dependencies:  []string{"rapier3d", "native-webgl", "react-canvas"},
-			AllowedAPIs:   []string{"requestAnimationFrame", "ResizeObserver", "CanvasRenderingContext2D", "WebGLRenderingContext", "WebGL2RenderingContext"},
-			BlockedAPIs:   []string{"fetch", "XMLHttpRequest", "localStorage", "sessionStorage", "indexedDB", "document.cookie", "WebSocket", "navigator.sendBeacon"},
-			InitialProps:  props,
+			AllowedAPIs: []string{
+				"requestAnimationFrame",
+				"ResizeObserver",
+				"CanvasRenderingContext2D",
+				"WebGLRenderingContext",
+				"WebGL2RenderingContext",
+			},
+			BlockedAPIs: []string{
+				"fetch",
+				"XMLHttpRequest",
+				"localStorage",
+				"sessionStorage",
+				"indexedDB",
+				"document.cookie",
+				"WebSocket",
+				"navigator.sendBeacon",
+			},
+			InitialProps: props,
 		},
 		CodeBundle: map[string]string{
 			"README.md": "Native physics artifact. The web client renders this scene with the bundled Rapier 3D engine; code_bundle is retained only for API compatibility.",
@@ -140,9 +176,11 @@ func ensureSharedNativeProps(props map[string]float64) {
 	if _, ok := props["view_dimension"]; !ok {
 		props["view_dimension"] = 3
 	}
+
 	if _, ok := props["animation_speed"]; !ok {
 		props["animation_speed"] = 1
 	}
+
 	if _, ok := props["trail_length"]; !ok {
 		props["trail_length"] = 180
 	}
@@ -150,18 +188,23 @@ func ensureSharedNativeProps(props map[string]float64) {
 
 func ensureProjectileProps(props map[string]float64) {
 	ensureSharedNativeProps(props)
+
 	if _, ok := props["v0"]; !ok {
 		props["v0"] = 20
 	}
+
 	if _, ok := props["angle_deg"]; !ok {
 		props["angle_deg"] = 45
 	}
+
 	if _, ok := props["t"]; !ok {
 		props["t"] = 2
 	}
+
 	if _, ok := props["g"]; !ok {
 		props["g"] = 9.8
 	}
+
 	if _, ok := props["view_dimension"]; !ok {
 		props["view_dimension"] = 3
 	}
@@ -171,26 +214,33 @@ func nativePhysicsSummary(sceneSpec *domain.SceneSpec) string {
 	if strings.TrimSpace(sceneSpec.Summary) != "" {
 		return sceneSpec.Summary + " 已切换为 Rapier 3D 原生物理引擎预览，参数变化将直接驱动本地仿真。"
 	}
+
 	if strings.TrimSpace(sceneSpec.Title) != "" {
 		return sceneSpec.Title + " 已切换为 Rapier 3D 原生物理引擎预览。"
 	}
+
 	return "已切换为 Rapier 3D 原生物理引擎预览。"
 }
 
 func ensureForce3DProps(props map[string]float64) {
 	ensureSharedNativeProps(props)
+
 	if _, ok := props["m"]; !ok {
 		props["m"] = 2
 	}
+
 	if _, ok := props["a"]; !ok {
 		props["a"] = 3
 	}
+
 	if _, ok := props["view_dimension"]; !ok {
 		props["view_dimension"] = 3
 	}
+
 	if _, ok := props["camera_yaw"]; !ok {
 		props["camera_yaw"] = 0.55
 	}
+
 	if _, ok := props["camera_pitch"]; !ok {
 		props["camera_pitch"] = 0.42
 	}
@@ -198,6 +248,7 @@ func ensureForce3DProps(props map[string]float64) {
 
 func ensureOrbitProps(props map[string]float64) {
 	ensureSharedNativeProps(props)
+
 	defaults := map[string]float64{
 		"central_mass":           8,
 		"satellite_mass":         1,
@@ -218,7 +269,16 @@ func ensureOrbitProps(props map[string]float64) {
 
 func ensureSpringProps(props map[string]float64) {
 	ensureSharedNativeProps(props)
-	defaults := map[string]float64{"k": 24, "m": 1.2, "x": 1.4, "damping": 0.18, "trail_length": 180, "camera_yaw": 0.6, "camera_pitch": 0.38}
+
+	defaults := map[string]float64{
+		"k":            24,
+		"m":            1.2,
+		"x":            1.4,
+		"damping":      0.18,
+		"trail_length": 180,
+		"camera_yaw":   0.6,
+		"camera_pitch": 0.38,
+	}
 	for key, value := range defaults {
 		if _, ok := props[key]; !ok {
 			props[key] = value
@@ -228,7 +288,17 @@ func ensureSpringProps(props map[string]float64) {
 
 func ensureCollisionProps(props map[string]float64) {
 	ensureSharedNativeProps(props)
-	defaults := map[string]float64{"m1": 1.5, "m2": 1, "v1": 4.5, "v2": -2.5, "restitution": 0.9, "trail_length": 200, "camera_yaw": 0.45, "camera_pitch": 0.38}
+
+	defaults := map[string]float64{
+		"m1":           1.5,
+		"m2":           1,
+		"v1":           4.5,
+		"v2":           -2.5,
+		"restitution":  0.9,
+		"trail_length": 200,
+		"camera_yaw":   0.45,
+		"camera_pitch": 0.38,
+	}
 	for key, value := range defaults {
 		if _, ok := props[key]; !ok {
 			props[key] = value
@@ -240,12 +310,15 @@ func ensureBiologyProps(props map[string]float64) {
 	if _, ok := props["concept_count"]; !ok {
 		props["concept_count"] = 4
 	}
+
 	if _, ok := props["relation_count"]; !ok {
 		props["relation_count"] = 3
 	}
+
 	if _, ok := props["step_count"]; !ok {
 		props["step_count"] = 3
 	}
+
 	if _, ok := props["animation_speed"]; !ok {
 		props["animation_speed"] = 1
 	}
@@ -254,8 +327,12 @@ func ensureBiologyProps(props map[string]float64) {
 func buildPreviewHTML(title, css, js string) string {
 	return "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"/>" +
 		"<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none';\"/>" +
-		"<title>" + html.EscapeString(title) + "</title><style>" + css + "</style></head><body>" +
-		"<div class=\"app-shell\"><div class=\"toolbar\"><div class=\"toolbar-title\">" + html.EscapeString(title) + "</div><div id=\"status\" class=\"status-badge\">初始化中…</div></div><div id=\"snowy-preview-root\" class=\"preview-root\"></div><div id=\"summary\" class=\"summary-panel\">等待渲染…</div></div>" +
+		"<title>" + html.EscapeString(
+		title,
+	) + "</title><style>" + css + "</style></head><body>" +
+		"<div class=\"app-shell\"><div class=\"toolbar\"><div class=\"toolbar-title\">" + html.EscapeString(
+		title,
+	) + "</div><div id=\"status\" class=\"status-badge\">初始化中…</div></div><div id=\"snowy-preview-root\" class=\"preview-root\"></div><div id=\"summary\" class=\"summary-panel\">等待渲染…</div></div>" +
 		"<script>" + js + "</script></body></html>"
 }
 
@@ -466,6 +543,7 @@ func runtimeWrapper(props map[string]float64, renderBody string) string {
 })();`
 	template = strings.ReplaceAll(template, "__INITIAL_PROPS__", string(propsJSON))
 	template = strings.ReplaceAll(template, "__RENDER_BODY__", renderBody)
+
 	return template
 }
 
@@ -563,6 +641,7 @@ function renderScene() {
   setSummary('当前预览通过浏览器 Canvas 渲染抛体轨迹，可直接拖动参数观察变化。水平位移 ' + last.x.toFixed(2) + ' m，最高点 ' + peak.toFixed(2) + ' m。');
 }
 `
+
 	return runtimeWrapper(props, body)
 }
 
@@ -654,6 +733,7 @@ function renderScene() {
   setSummary('当前预览使用浏览器 Canvas 绘制轻量 3D 轨迹投影，用于观察平抛过程在空间坐标系中的走势。终点投影 x=' + last.x.toFixed(2) + ' m，z=' + last.z.toFixed(2) + ' m。');
 }
 `
+
 	return runtimeWrapper(props, body)
 }
 
@@ -817,6 +897,7 @@ function renderScene() {
   setSummary('3D WebGL 视图：蓝色方块表示物体，地面网格和 XYZ 坐标轴提供空间参照；黄色为合力 F=ma=' + force.toFixed(2) + ' N，青色为加速度矢量。可拖拽旋转视角，或切换 2D fallback。');
 }
 `
+
 	return runtimeWrapper(props, body)
 }
 
@@ -911,6 +992,7 @@ function renderScene() {
   setSummary('当前预览使用浏览器 Canvas 生成炫酷生物教学演示：粒子流表示物质或能量迁移，发光节点表示关键概念，阶段面板随动画展示过程拆解。');
 }
 `, sceneType)
+
 	return runtimeWrapper(props, body)
 }
 
@@ -979,6 +1061,7 @@ function renderScene() {
   setSummary('当前预览使用浏览器 Canvas 直接绘制受力示意图，合力 F = ma = ' + force.toFixed(2) + ' N，可通过滑块实时改变箭头长度。');
 }
 `
+
 	return runtimeWrapper(props, body)
 }
 
@@ -1049,6 +1132,7 @@ function renderScene() {
   setSummary('当前预览使用浏览器 Canvas 渲染一维运动场景。位移 x = ' + x.toFixed(2) + ' m，可直接通过参数滑块更新预览。');
 }
 `
+
 	return runtimeWrapper(props, body)
 }
 
@@ -1134,20 +1218,6 @@ function renderScene() {
   setSummary('当前预览使用浏览器 Canvas 绘制轻量 3D 线框场景，并通过 requestAnimationFrame 实时旋转。可用于承接 3D / 空间关系建模需求。');
 }
 `
+
 	return runtimeWrapper(props, body)
-}
-
-func previewPropsMarkdown(props map[string]float64) string {
-	keys := make([]string, 0, len(props))
-	for key := range props {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	parts := make([]string, 0, len(keys))
-	for _, key := range keys {
-		parts = append(parts, fmt.Sprintf("%s=%.2f", key, props[key]))
-	}
-
-	return strings.Join(parts, ", ")
 }

@@ -72,16 +72,16 @@ type PhysicsSimulateReq struct {
 // RenderSceneSpec 前端渲染场景规格。
 type RenderSceneSpec struct {
 	SceneType    string             `binding:"required" json:"scene_type"`
-	Title        string             `json:"title,omitempty"`
-	Summary      string             `json:"summary,omitempty"`
-	RenderMode   string             `json:"render_mode,omitempty"`
-	DefaultProps map[string]float64 `json:"default_props,omitempty"`
+	Title        string             `                   json:"title,omitempty"`
+	Summary      string             `                   json:"summary,omitempty"`
+	RenderMode   string             `                   json:"render_mode,omitempty"`
+	DefaultProps map[string]float64 `                   json:"default_props,omitempty"`
 }
 
 // RenderGenerateReq 前端渲染代码生成请求 DTO。
 type RenderGenerateReq struct {
-	SceneSpec  RenderSceneSpec `binding:"required" json:"scene_spec"`
-	Context    string          `                   json:"context,omitempty"`
+	SceneSpec  RenderSceneSpec `binding:"required"                                 json:"scene_spec"`
+	Context    string          `                                                   json:"context,omitempty"`
 	RenderMode string          `binding:"omitempty,oneof=html_iframe react_iframe" json:"render_mode,omitempty"`
 }
 
@@ -139,9 +139,9 @@ type ModelingCompileContextReq struct {
 
 type ModelingCompileReq struct {
 	SessionID  string                    `json:"session_id,omitempty"`
-	Message    string                    `binding:"required" json:"message"`
-	Domain     string                    `binding:"omitempty,oneof=auto physics biology" json:"domain,omitempty"`
+	Message    string                    `json:"message"               binding:"required"`
+	Domain     string                    `json:"domain,omitempty"      binding:"omitempty,oneof=auto physics biology"`
 	GradeBand  string                    `json:"grade_band,omitempty"`
-	TargetMode string                    `binding:"omitempty,oneof=interactive_model review explain" json:"target_mode,omitempty"`
+	TargetMode string                    `json:"target_mode,omitempty" binding:"omitempty,oneof=interactive_model review explain"`
 	Context    ModelingCompileContextReq `json:"context,omitempty"`
 }

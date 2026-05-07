@@ -393,7 +393,7 @@ func (b *Builder) runPhysicsTool(ctx context.Context, state *nodepkg.State) erro
 
 	model, ok := output.(*physicsdomain.PhysicsModel)
 	if !ok || model == nil || model.SceneSpec == nil {
-		return fmt.Errorf("physics analyze output missing scene spec")
+		return errors.New("physics analyze output missing scene spec")
 	}
 
 	if b.renderCodeTool == nil {
@@ -512,7 +512,10 @@ func (b *Builder) runToolCall(
 	run func(context.Context) (any, error),
 ) (any, error) {
 	state.ToolCalls = append(state.ToolCalls, agent.ToolCall{Tool: toolName, Status: toolStatusRunning})
-	sendStreamEvent(state, agent.SSEEvent{Event: agent.SSEEventToolCall, Data: agent.ToolCall{Tool: toolName, Status: toolStatusRunning}})
+	sendStreamEvent(
+		state,
+		agent.SSEEvent{Event: agent.SSEEventToolCall, Data: agent.ToolCall{Tool: toolName, Status: toolStatusRunning}},
+	)
 
 	stopHeartbeat := startToolHeartbeat(ctx, state, toolName)
 	defer stopHeartbeat()
@@ -520,13 +523,22 @@ func (b *Builder) runToolCall(
 	output, err := run(ctx)
 	if err != nil {
 		state.ToolCalls[len(state.ToolCalls)-1].Status = toolStatusFailed
-		sendStreamEvent(state, agent.SSEEvent{Event: agent.SSEEventToolCall, Data: agent.ToolCall{Tool: toolName, Status: toolStatusFailed}})
+		sendStreamEvent(
+			state,
+			agent.SSEEvent{
+				Event: agent.SSEEventToolCall,
+				Data:  agent.ToolCall{Tool: toolName, Status: toolStatusFailed},
+			},
+		)
 
 		return nil, err
 	}
 
 	state.ToolCalls[len(state.ToolCalls)-1].Status = toolStatusSuccess
-	sendStreamEvent(state, agent.SSEEvent{Event: agent.SSEEventToolCall, Data: agent.ToolCall{Tool: toolName, Status: toolStatusSuccess}})
+	sendStreamEvent(
+		state,
+		agent.SSEEvent{Event: agent.SSEEventToolCall, Data: agent.ToolCall{Tool: toolName, Status: toolStatusSuccess}},
+	)
 
 	return output, nil
 }
@@ -537,9 +549,11 @@ func startToolHeartbeat(ctx context.Context, state *nodepkg.State, toolName stri
 	}
 
 	done := make(chan struct{})
+
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():

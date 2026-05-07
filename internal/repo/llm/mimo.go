@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -80,25 +81,28 @@ func (p *mimoProvider) Generate(ctx context.Context, req *Request) (*Response, e
 		os.Getenv("SNOWY_LLM_PRIMARY_API_KEY"),
 	)
 	if apiKey == "" {
-		return nil, fmt.Errorf("mimo provider: api key is empty; set MIMO_API_KEY or SNOWY_LLM_PRIMARY_API_KEY at runtime")
+		return nil, errors.New(
+			"mimo provider: api key is empty; set MIMO_API_KEY or SNOWY_LLM_PRIMARY_API_KEY at runtime",
+		)
 	}
 
 	model := strings.TrimSpace(req.Model)
 	if model == "" {
 		model = p.cfg.EffectiveModel()
 	}
+
 	if model == "" {
-		return nil, fmt.Errorf("mimo provider: model is empty")
+		return nil, errors.New("mimo provider: model is empty")
 	}
 
 	modelProvider := strings.TrimSpace(p.cfg.ModelProvider)
 	if modelProvider == "" {
-		return nil, fmt.Errorf("mimo provider: model_provider is empty")
+		return nil, errors.New("mimo provider: model_provider is empty")
 	}
 
 	baseURL := p.ConfiguredBaseURL()
 	if baseURL == "" {
-		return nil, fmt.Errorf("mimo provider: base_url is empty")
+		return nil, errors.New("mimo provider: base_url is empty")
 	}
 
 	maxTokens := req.MaxTokens
@@ -138,6 +142,7 @@ func (p *mimoProvider) Generate(ctx context.Context, req *Request) (*Response, e
 	if err != nil {
 		return nil, err
 	}
+
 	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	httpReq.Header.Set("Content-Type", "application/json")
 
@@ -149,15 +154,21 @@ func (p *mimoProvider) Generate(ctx context.Context, req *Request) (*Response, e
 
 	if resp.StatusCode >= 400 {
 		responseBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return nil, fmt.Errorf("mimo provider: http status %d: %s", resp.StatusCode, strings.TrimSpace(string(responseBody)))
+
+		return nil, fmt.Errorf(
+			"mimo provider: http status %d: %s",
+			resp.StatusCode,
+			strings.TrimSpace(string(responseBody)),
+		)
 	}
 
 	var decoded miMoChatCompletionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
 		return nil, err
 	}
+
 	if len(decoded.Choices) == 0 {
-		return nil, fmt.Errorf("mimo provider: empty choices")
+		return nil, errors.New("mimo provider: empty choices")
 	}
 
 	responseModel := decoded.Model
@@ -166,6 +177,7 @@ func (p *mimoProvider) Generate(ctx context.Context, req *Request) (*Response, e
 	}
 
 	choice := decoded.Choices[0]
+
 	content := choice.Message.Content
 	if strings.TrimSpace(content) == "" && choice.FinishReason == "length" {
 		return nil, fmt.Errorf(

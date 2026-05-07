@@ -55,7 +55,39 @@ func TestServerConfig_Addr(t *testing.T) {
 	}
 }
 
+func TestServerConfig_RunMode(t *testing.T) {
+	t.Run("default to all", func(t *testing.T) {
+		cfg := ServerConfig{}
+		assert.Equal(t, RunModeAll, cfg.EffectiveRunMode())
+		assert.True(t, cfg.APIEnabled())
+		assert.True(t, cfg.WorkerEnabled())
+		require.NoError(t, cfg.ValidateRunMode())
+	})
+
+	t.Run("api only", func(t *testing.T) {
+		cfg := ServerConfig{RunMode: " api "}
+		assert.Equal(t, RunModeAPI, cfg.EffectiveRunMode())
+		assert.True(t, cfg.APIEnabled())
+		assert.False(t, cfg.WorkerEnabled())
+		require.NoError(t, cfg.ValidateRunMode())
+	})
+
+	t.Run("worker only", func(t *testing.T) {
+		cfg := ServerConfig{RunMode: "WORKER"}
+		assert.Equal(t, RunModeWorker, cfg.EffectiveRunMode())
+		assert.False(t, cfg.APIEnabled())
+		assert.True(t, cfg.WorkerEnabled())
+		require.NoError(t, cfg.ValidateRunMode())
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		cfg := ServerConfig{RunMode: "invalid"}
+		require.Error(t, cfg.ValidateRunMode())
+	})
+}
+
 func TestLoad_EnvOverride(t *testing.T) {
+	t.Setenv("SNOWY_SERVER_RUN_MODE", "worker")
 	t.Setenv("SNOWY_DATABASE_HOST", "127.0.0.1")
 	t.Setenv("SNOWY_REDIS_ADDR", "127.0.0.1:6379")
 
@@ -72,6 +104,7 @@ redis:
 
 	assert.Equal(t, "127.0.0.1", cfg.Database.Host)
 	assert.Equal(t, "127.0.0.1:6379", cfg.Redis.Addr)
+	assert.Equal(t, RunModeWorker, cfg.Server.EffectiveRunMode())
 }
 
 func TestLoad_LLMEnvOverride(t *testing.T) {

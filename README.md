@@ -39,8 +39,7 @@
 ```text
 snowy/
   cmd/
-    api/                  # HTTP API 服务入口
-    worker/               # Asynq 异步任务 Worker 入口
+    snowy/                # 默认单体服务入口（API + Embedded Worker）
   internal/
     agent/                # Agent 编排域（Eino Graph）
     user/                 # 用户服务
@@ -98,7 +97,7 @@ make docker-up
 - 等待 `MySQL` / `Redis` / `OpenSearch` / `MinIO` 健康检查通过
 - 自动执行 `GORM migration`
 
-注意：`make docker-up` 只会启动基础设施相关容器，不会自动启动 `snowy-api` / `snowy-worker` / `snowy-web` 应用容器。
+注意：`make docker-up` 只会启动基础设施相关容器，不会自动启动 `snowy` / `snowy-web` 应用容器。
 
 将启动以下服务：
 
@@ -119,30 +118,32 @@ make docker-up
 # 编译全部
 make build
 
-# 一键开发（启动基础设施 + 本地运行 API）
+# 一键开发（启动基础设施 + 本地运行 Snowy 单体服务）
 make dev
 ```
 
 说明：
 
-- `make dev` 会先执行 `make bootstrap`（下载依赖 + 启动基础设施 + 迁移），再本地运行 API 服务
+- `make dev` 会先执行 `make bootstrap`（下载依赖 + 启动基础设施 + 迁移），再本地运行 `snowy` 服务
+- 如需仅运行单个 surface，可使用 `SNOWY_SERVER_RUN_MODE=api go run ./cmd/snowy` 或 `SNOWY_SERVER_RUN_MODE=worker go run ./cmd/snowy`
 
 ### 4. 构建 Docker 镜像
 
 ```bash
-# 构建 api + worker + web 镜像
+# 构建 snowy + web 镜像
 make docker-build
 
-# 通过 docker compose 一键启动 API / Worker / Web
+# 通过 docker compose 一键启动 Snowy / Web
 MIMO_API_KEY='<runtime only>' make docker-run
 ```
 
 说明：
 
-- `make docker-run` 会一次启动 `snowy-api` / `snowy-worker` / `snowy-web`
+- `make docker-run` 会一次启动 `snowy` / `snowy-web`
 - 该目标会先确保基础设施已启动、健康检查通过，并完成 MySQL migration
 - 大模型运行参数从 `configs/config*.yaml` 的 `llm.primary/fallback` 读取，也可用环境变量覆盖：`SNOWY_LLM_PRIMARY_BASE_URL` / `SNOWY_LLM_PRIMARY_BASEURL`、`SNOWY_LLM_PRIMARY_MODEL` / `SNOWY_LLM_PRIMARY_MODEL_NAME`、`SNOWY_LLM_PRIMARY_MODEL_PROVIDER`、`SNOWY_LLM_FALLBACK_BASE_URL`、`SNOWY_LLM_FALLBACK_MODEL` 等；密钥仅运行时注入（如 `MIMO_API_KEY` 或 `SNOWY_LLM_PRIMARY_API_KEY`），不要写入仓库
 - 应用容器通过 Docker Compose 网络以服务名（`mysql` / `redis` / `minio`）访问基础设施
+- 默认运行模式为 `server.run_mode=all`，同一进程内同时启动 HTTP API 与 embedded Asynq worker；如需临时拆分，可通过配置或环境变量 `SNOWY_SERVER_RUN_MODE=api|worker` 切换
 
 ### 5. 查看全部 Make 目标
 

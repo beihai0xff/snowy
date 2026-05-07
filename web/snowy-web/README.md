@@ -55,7 +55,7 @@ make docker-build-web
 make docker-up
 ```
 
-前端容器通过 Nginx 反向代理 `/api/` 到 `snowy-api:8080`，访问地址 `http://localhost:3001`。
+前端容器通过 Nginx 反向代理 `/api/` 到 `snowy:8080`，访问地址 `http://localhost:3001`。
 
 ## API 对接
 

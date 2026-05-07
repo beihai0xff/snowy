@@ -77,6 +77,7 @@ func (h *AgentHandler) Chat(c *gin.Context) {
 	resp, err := h.agentSvc.Chat(c.Request.Context(), chatReq)
 	if err != nil {
 		slog.Warn("create session failed", "error", err)
+
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
 

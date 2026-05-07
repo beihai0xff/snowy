@@ -23,6 +23,7 @@ func NewMonitoringHandler(llmRecorder *monitoring.LLMRecorder) *MonitoringHandle
 func (h *MonitoringHandler) LLMDashboard(c *gin.Context) {
 	if h == nil || h.llmRecorder == nil {
 		c.JSON(http.StatusOK, common.Success(monitoring.LLMDashboard{}))
+
 		return
 	}
 

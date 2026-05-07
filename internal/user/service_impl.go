@@ -75,15 +75,18 @@ func (s *serviceImpl) GetProfile(ctx context.Context, userID uuid.UUID) (*User, 
 
 func (s *serviceImpl) EnsureAnonymousUser(ctx context.Context) (*User, error) {
 	uid := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
 	u, err := s.repo.GetByID(ctx, uid)
 	if err == nil {
 		return u, nil
 	}
+
 	if !errors.Is(err, ErrUserNotFound) {
 		return nil, err
 	}
 
 	now := time.Now()
+
 	u = &User{
 		ID:          uid,
 		Nickname:    "Anonymous",
@@ -98,6 +101,7 @@ func (s *serviceImpl) EnsureAnonymousUser(ctx context.Context) (*User, error) {
 		if existing, getErr := s.repo.GetByID(ctx, uid); getErr == nil {
 			return existing, nil
 		}
+
 		return nil, createErr
 	}
 
@@ -116,6 +120,7 @@ func (s *serviceImpl) AddHistory(ctx context.Context, item *HistoryItem) error {
 	if item.ID == uuid.Nil {
 		item.ID = uuid.New()
 	}
+
 	if item.CreatedAt.IsZero() {
 		item.CreatedAt = time.Now()
 	}

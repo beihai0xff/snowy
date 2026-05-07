@@ -619,8 +619,7 @@ snowy/
 ```
 
 ## 7.3 结构说明
-- `cmd/api`：API 服务启动入口
-- `cmd/worker`：异步任务 worker 启动入口
+- `cmd/snowy`：默认单体服务启动入口（API + embedded worker）
 - `internal/agent`：Agent 编排逻辑核心
 - `internal/search`：检索业务实现
 - `internal/modeling/physics`：物理 / 3D 场景代码生成与渲染协议实现

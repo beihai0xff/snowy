@@ -55,6 +55,7 @@ func (h *UserHandler) ensureDefaultUser(ctx *gin.Context, uid uuid.UUID) bool {
 	if uid.String() != common.DefaultUserID {
 		reqID := common.RequestIDFromContext(ctx.Request.Context())
 		ctx.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
+
 		return false
 	}
 
@@ -64,6 +65,7 @@ func (h *UserHandler) ensureDefaultUser(ctx *gin.Context, uid uuid.UUID) bool {
 	if !ok {
 		reqID := common.RequestIDFromContext(ctx.Request.Context())
 		ctx.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
+
 		return false
 	}
 
@@ -71,6 +73,7 @@ func (h *UserHandler) ensureDefaultUser(ctx *gin.Context, uid uuid.UUID) bool {
 	if ensureErr != nil {
 		reqID := common.RequestIDFromContext(ctx.Request.Context())
 		ctx.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(ensureErr.Error()), reqID))
+
 		return false
 	}
 

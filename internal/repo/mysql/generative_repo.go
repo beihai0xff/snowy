@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -18,15 +19,20 @@ func NewGenerativeModelPackageRepository(db *gorm.DB) generative.Repository {
 
 func (r *generativeModelPackageRepo) Save(ctx context.Context, pkg *generative.GenerativeModelPackage) error {
 	if pkg == nil {
-		return fmt.Errorf("generative model package is nil")
+		return errors.New("generative model package is nil")
 	}
+
 	return dbFromContext(ctx, r.db).WithContext(ctx).Create(newGenerativeModelPackageRow(pkg)).Error
 }
 
-func (r *generativeModelPackageRepo) GetByID(ctx context.Context, id uuid.UUID) (*generative.GenerativeModelPackage, error) {
+func (r *generativeModelPackageRepo) GetByID(
+	ctx context.Context,
+	id uuid.UUID,
+) (*generative.GenerativeModelPackage, error) {
 	row := &generativeModelPackageRow{}
 	if err := dbFromContext(ctx, r.db).WithContext(ctx).Where("id = ?", id).First(row).Error; err != nil {
 		return nil, fmt.Errorf("get generative model package: %w", err)
 	}
+
 	return row.toDomain(), nil
 }

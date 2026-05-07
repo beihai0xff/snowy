@@ -174,6 +174,7 @@ func newGenerativeModelPackageRow(pkg *generative.GenerativeModelPackage) *gener
 	if pkg == nil {
 		return nil
 	}
+
 	return &generativeModelPackageRow{
 		ID:             pkg.PackageID,
 		UserID:         pkg.UserID,
@@ -194,26 +195,33 @@ func (r *generativeModelPackageRow) toDomain() *generative.GenerativeModelPackag
 	if r == nil {
 		return nil
 	}
+
 	var pkg generative.GenerativeModelPackage
+
 	_ = r.PackageJSON.AssignTo(&pkg)
 	if pkg.PackageID == uuid.Nil {
 		pkg.PackageID = r.ID
 	}
+
 	pkg.UserID = r.UserID
 	if r.SessionID != nil {
 		pkg.SessionID = *r.SessionID
 	}
+
 	pkg.Domain = firstNonEmptyString(pkg.Domain, r.Domain)
 	pkg.Question = firstNonEmptyString(pkg.Question, r.Question)
 	pkg.ModelName = firstNonEmptyString(pkg.ModelName, r.ModelName)
+
 	pkg.Status = firstNonEmptyString(pkg.Status, r.Status)
 	if pkg.Confidence == 0 {
 		pkg.Confidence = r.Confidence
 	}
+
 	pkg.FallbackReason = firstNonEmptyString(pkg.FallbackReason, r.FallbackReason)
 	if pkg.CreatedAt.IsZero() {
 		pkg.CreatedAt = r.CreatedAt
 	}
+
 	return &pkg
 }
 
@@ -223,6 +231,7 @@ func firstNonEmptyString(values ...string) string {
 			return value
 		}
 	}
+
 	return ""
 }
 

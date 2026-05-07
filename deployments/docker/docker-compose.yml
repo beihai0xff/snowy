@@ -133,19 +133,20 @@ services:
       - prometheus
 
   # ──────────────────────────────────────────────
-  # Snowy API — Go HTTP API 服务
+  # Snowy — Go 单体服务（API + Embedded Worker）
   # ──────────────────────────────────────────────
-  snowy-api:
+  snowy:
     build:
       context: ../..
       dockerfile: deployments/docker/Dockerfile
       args:
-        TARGET: api
-    image: snowy-api:latest
-    container_name: snowy-api
+        TARGET: snowy
+    image: snowy:latest
+    container_name: snowy
     restart: unless-stopped
     environment:
       - MIMO_API_KEY
+      - SNOWY_SERVER_RUN_MODE
       - SNOWY_LLM_PRIMARY_PROVIDER
       - SNOWY_LLM_PRIMARY_MODEL_PROVIDER
       - SNOWY_LLM_PRIMARY_MODEL
@@ -180,47 +181,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-
-  # ──────────────────────────────────────────────
-  # Snowy Worker — 异步任务 Worker 服务
-  # ──────────────────────────────────────────────
-  snowy-worker:
-    build:
-      context: ../..
-      dockerfile: deployments/docker/Dockerfile
-      args:
-        TARGET: worker
-    image: snowy-worker:latest
-    container_name: snowy-worker
-    restart: unless-stopped
-    environment:
-      - MIMO_API_KEY
-      - SNOWY_LLM_PRIMARY_PROVIDER
-      - SNOWY_LLM_PRIMARY_MODEL_PROVIDER
-      - SNOWY_LLM_PRIMARY_MODEL
-      - SNOWY_LLM_PRIMARY_MODEL_NAME
-      - SNOWY_LLM_PRIMARY_API_KEY
-      - SNOWY_LLM_PRIMARY_BASE_URL
-      - SNOWY_LLM_PRIMARY_BASEURL
-      - SNOWY_LLM_PRIMARY_TIMEOUT
-      - SNOWY_LLM_PRIMARY_MAX_RETRIES
-      - SNOWY_LLM_FALLBACK_PROVIDER
-      - SNOWY_LLM_FALLBACK_MODEL_PROVIDER
-      - SNOWY_LLM_FALLBACK_MODEL
-      - SNOWY_LLM_FALLBACK_MODEL_NAME
-      - SNOWY_LLM_FALLBACK_API_KEY
-      - SNOWY_LLM_FALLBACK_BASE_URL
-      - SNOWY_LLM_FALLBACK_BASEURL
-      - SNOWY_LLM_FALLBACK_TIMEOUT
-      - SNOWY_LLM_FALLBACK_MAX_RETRIES
-    ports:
-      - "8081:8081"
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: ["--config", "configs/config.docker.yaml"]
 
   # ──────────────────────────────────────────────
   # Snowy Web — 前端 Nginx 服务

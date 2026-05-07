@@ -29,15 +29,73 @@ type Config struct {
 type ServerConfig struct {
 	Host            string        `mapstructure:"host"`
 	Port            int           `mapstructure:"port"`
+	RunMode         string        `mapstructure:"run_mode"`
 	Mode            string        `mapstructure:"mode"` // debug / release / test
 	ReadTimeout     time.Duration `mapstructure:"read_timeout"`
 	WriteTimeout    time.Duration `mapstructure:"write_timeout"`
 	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
 }
 
+const (
+	RunModeAll    = "all"
+	RunModeAPI    = "api"
+	RunModeWorker = "worker"
+)
+
 // Addr 返回监听地址。
 func (s ServerConfig) Addr() string {
 	return fmt.Sprintf("%s:%d", s.Host, s.Port)
+}
+
+// EffectiveRunMode 返回规范化后的运行模式。
+func (s ServerConfig) EffectiveRunMode() string {
+	return NormalizeRunMode(s.RunMode)
+}
+
+// APIEnabled 返回当前运行模式是否包含 HTTP API 运行面。
+func (s ServerConfig) APIEnabled() bool {
+	switch s.EffectiveRunMode() {
+	case RunModeAll, RunModeAPI:
+		return true
+	default:
+		return false
+	}
+}
+
+// WorkerEnabled 返回当前运行模式是否包含 Worker 运行面。
+func (s ServerConfig) WorkerEnabled() bool {
+	switch s.EffectiveRunMode() {
+	case RunModeAll, RunModeWorker:
+		return true
+	default:
+		return false
+	}
+}
+
+// ValidateRunMode 校验运行模式是否合法。
+func (s ServerConfig) ValidateRunMode() error {
+	switch s.EffectiveRunMode() {
+	case RunModeAll, RunModeAPI, RunModeWorker:
+		return nil
+	default:
+		return fmt.Errorf(
+			"invalid server.run_mode %q: must be one of %s, %s, %s",
+			s.RunMode,
+			RunModeAll,
+			RunModeAPI,
+			RunModeWorker,
+		)
+	}
+}
+
+// NormalizeRunMode 返回规范化后的运行模式；空值默认 all。
+func NormalizeRunMode(mode string) string {
+	normalized := strings.ToLower(strings.TrimSpace(mode))
+	if normalized == "" {
+		return RunModeAll
+	}
+
+	return normalized
 }
 
 // DatabaseConfig MySQL 连接配置。
@@ -210,6 +268,7 @@ func Load(configPath string) (*Config, error) {
 	v.SetEnvPrefix("SNOWY")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
+
 	if err := bindEnvironment(v); err != nil {
 		return nil, err
 	}
@@ -223,11 +282,17 @@ func Load(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("unmarshal config: %w", err)
 	}
 
+	cfg.Server.RunMode = cfg.Server.EffectiveRunMode()
+	if err := cfg.Server.ValidateRunMode(); err != nil {
+		return nil, err
+	}
+
 	return &cfg, nil
 }
 
 func bindEnvironment(v *viper.Viper) error {
 	keys := []string{
+		"server.run_mode",
 		"llm.primary.provider",
 		"llm.primary.model_provider",
 		"llm.primary.model",

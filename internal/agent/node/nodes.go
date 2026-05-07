@@ -293,7 +293,10 @@ func (n *OutputNode) Run(_ context.Context, input any) (any, error) {
 			payload, _ := state.Response.StructuredPayload.(map[string]any)
 			if renderArtifact, ok := payload["render_artifact"]; ok {
 				sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventRenderCode, Data: renderArtifact})
-				sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventPreview, Data: map[string]any{"status": "ready"}})
+				sendEvent(
+					state.Events,
+					agent.SSEEvent{Event: agent.SSEEventPreview, Data: map[string]any{"status": "ready"}},
+				)
 			} else {
 				sendEvent(
 					state.Events,
@@ -316,9 +319,13 @@ func (n *OutputNode) Run(_ context.Context, input any) (any, error) {
 					agent.SSEEvent{Event: agent.SSEEventDiagram, Data: state.Response.StructuredPayload},
 				)
 			}
+
 			if renderArtifact, ok := payload["render_artifact"]; ok {
 				sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventRenderCode, Data: renderArtifact})
-				sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventPreview, Data: map[string]any{"status": "ready"}})
+				sendEvent(
+					state.Events,
+					agent.SSEEvent{Event: agent.SSEEventPreview, Data: map[string]any{"status": "ready"}},
+				)
 			}
 		case agent.ModeSearch, agent.ModeAuto:
 		}
@@ -399,6 +406,7 @@ func validatePhysicsState(state *State) error {
 	if model.ModelType == "" || strings.TrimSpace(model.ResultSummary) == "" || len(model.Steps) == 0 {
 		return errors.New("physics response is invalid")
 	}
+
 	if model.SceneSpec == nil || strings.TrimSpace(model.SceneSpec.SceneType) == "" {
 		return errors.New("physics scene spec is invalid")
 	}

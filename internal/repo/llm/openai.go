@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -70,20 +71,21 @@ func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response,
 		os.Getenv("SNOWY_LLM_FALLBACK_API_KEY"),
 	)
 	if apiKey == "" {
-		return nil, fmt.Errorf("openai provider: api key is empty; set api_key, OPENAI_API_KEY, or SNOWY_LLM_*_API_KEY")
+		return nil, errors.New("openai provider: api key is empty; set api_key, OPENAI_API_KEY, or SNOWY_LLM_*_API_KEY")
 	}
 
 	model := strings.TrimSpace(req.Model)
 	if model == "" {
 		model = p.cfg.EffectiveModel()
 	}
+
 	if model == "" {
-		return nil, fmt.Errorf("openai provider: model is empty")
+		return nil, errors.New("openai provider: model is empty")
 	}
 
 	baseURL := p.ConfiguredBaseURL()
 	if baseURL == "" {
-		return nil, fmt.Errorf("openai provider: base_url is empty")
+		return nil, errors.New("openai provider: base_url is empty")
 	}
 
 	maxTokens := req.MaxTokens
@@ -113,6 +115,7 @@ func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response,
 	if err != nil {
 		return nil, err
 	}
+
 	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	httpReq.Header.Set("Content-Type", "application/json")
 
@@ -130,8 +133,9 @@ func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response,
 	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
 		return nil, err
 	}
+
 	if len(decoded.Choices) == 0 {
-		return nil, fmt.Errorf("openai provider: empty choices")
+		return nil, errors.New("openai provider: empty choices")
 	}
 
 	return &Response{
