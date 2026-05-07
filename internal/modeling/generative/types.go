@@ -1,4 +1,4 @@
-// Package generative implements Snowy v2 large-model-first modeling contracts.
+// Package generative implements Snowy v4 large-model-first modeling contracts.
 package generative
 
 import (
@@ -19,7 +19,7 @@ const (
 	TargetModeExplain     = "explain"
 )
 
-// CompileRequest is the public v2 modeling compile request.
+// CompileRequest is the public v4 modeling compile request.
 type CompileRequest struct {
 	SessionID  uuid.UUID      `json:"session_id,omitempty"`
 	UserID     uuid.UUID      `json:"-"`
@@ -38,7 +38,7 @@ type CompileContext struct {
 	UserNotes     string        `json:"user_notes,omitempty"`
 }
 
-// GenerativeModelPackage is the persisted v2 modeling artifact.
+// GenerativeModelPackage is the persisted v4 modeling artifact.
 type GenerativeModelPackage struct {
 	PackageID          uuid.UUID                    `json:"package_id"`
 	SessionID          uuid.UUID                    `json:"session_id,omitempty"`

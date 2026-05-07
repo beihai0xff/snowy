@@ -279,7 +279,7 @@ export interface BiologyModel {
 }
 
 
-// ── Generative Modeling v2 ───────────────────────────────
+// ── Generative Modeling v4 ───────────────────────────────
 
 export interface EvidenceRef {
   doc_id: string;

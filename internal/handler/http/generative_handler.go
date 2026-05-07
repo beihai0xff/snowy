@@ -12,7 +12,7 @@ import (
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
-// GenerativeHandler exposes Snowy v2 generative modeling APIs.
+// GenerativeHandler exposes Snowy v4 generative modeling APIs.
 type GenerativeHandler struct {
 	generativeSvc generative.Service
 	userSvc       user.Service

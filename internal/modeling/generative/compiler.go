@@ -348,7 +348,7 @@ func normalizeEvidence(evidence []EvidenceRef, tags []string) []EvidenceRef {
 }
 
 func compileSystemPrompt() string {
-	return strings.TrimSpace(`你是 Snowy v2 的生成式科学建模编译器。请根据用户问题和证据，输出一个面向高中生的 GenerativeModelPackage JSON。
+	return strings.TrimSpace(`你是 Snowy v4 的生成式科学建模编译器。请根据用户问题和证据，输出一个面向高中生的 GenerativeModelPackage JSON。
 硬性要求：
 1. 只输出 JSON，不要 Markdown，不要代码块。
 2. 不展示隐藏思维链；reasoning_trace 只写给学生看的简洁推理摘要和关键步骤。

@@ -41,3 +41,4 @@ web/snowy-web/out/
 
 # Playwright CLI local snapshots and logs
 .playwright-cli/
+/.codex/config.toml

@@ -118,7 +118,7 @@ type RecommendationsResp struct {
 	BiologyTopics []RecommendationItem `json:"biology_topics"`
 }
 
-// ── Generative Modeling v2 ───────────────────────────────
+// ── Generative Modeling v4 ───────────────────────────────
 
 type EvidenceRefDTO struct {
 	DocID         string   `json:"doc_id"`
