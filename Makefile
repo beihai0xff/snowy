@@ -24,7 +24,7 @@ LDFLAGS        := -s -w \
                   -X main.BuildTime=$(BUILD_TIME) \
                   -X main.Commit=$(COMMIT)
 GOTEST_FLAGS   := -race -count=1 -timeout 120s
-TEST_DEPS_SERVICES := mysql redis minio
+TEST_DEPS_SERVICES := mysql redis
 INFRA_SERVICES := mysql redis
 
 # ── Docker 参数 ─────────────────────────────────────────────
@@ -103,7 +103,7 @@ test-unit:
 	@echo "$(GREEN)▸ Running unit tests...$(RESET)"
 	$(GO) test $(GOTEST_FLAGS) ./internal/...
 
-## test-integration: 启动 MySQL/Redis/MinIO Docker 依赖并运行集成测试
+## test-integration: 启动 MySQL/Redis Docker 依赖并运行集成测试
 test-integration:
 	@echo "$(GREEN)▸ Running integration tests with Docker dependencies...$(RESET)"
 	@bash ./scripts/test.sh --integration
@@ -144,12 +144,12 @@ vet:
 	@echo "$(GREEN)▸ Running vet...$(RESET)"
 	$(GO) vet ./...
 
-## test-deps-up: 启动测试所需 Docker 依赖 (MySQL/Redis/MinIO)
+## test-deps-up: 启动测试所需 Docker 依赖 (MySQL/Redis)
 test-deps-up:
 	@echo "$(CYAN)▸ Starting test dependencies: $(TEST_DEPS_SERVICES)...$(RESET)"
 	$(DOCKER_COMPOSE) up -d $(TEST_DEPS_SERVICES)
 
-## test-deps-down: 停止测试所需 Docker 依赖 (MySQL/Redis/MinIO)
+## test-deps-down: 停止测试所需 Docker 依赖 (MySQL/Redis)
 test-deps-down:
 	@echo "$(YELLOW)▸ Stopping test dependencies: $(TEST_DEPS_SERVICES)...$(RESET)"
 	-$(DOCKER_COMPOSE) stop $(TEST_DEPS_SERVICES)
@@ -159,7 +159,7 @@ test-deps-down:
 #  Docker — 基础设施 (docker-compose)
 # ============================================================
 
-.PHONY: docker-up docker-down docker-ps docker-logs docker-observability-up docker-storage-up docker-clean bootstrap
+.PHONY: docker-up docker-down docker-ps docker-logs docker-observability-up docker-clean bootstrap
 
 ## docker-up: 启动必需基础设施 (MySQL/Redis) 并等待健康检查通过后自动执行 GORM migration
 docker-up:
@@ -196,16 +196,6 @@ docker-observability-up:
 	@echo ""
 	@echo "  Prometheus : localhost:9090"
 	@echo "  Grafana    : localhost:3000"
-
-## docker-storage-up: 启动可选对象存储组件 (MinIO)
-docker-storage-up:
-	@echo "$(CYAN)▸ Starting optional storage services...$(RESET)"
-	$(DOCKER_COMPOSE) up -d minio minio-init
-	@$(WAIT_FOR_CONTAINER) snowy-minio 60 2
-	@echo "$(CYAN)✓ Storage services are running$(RESET)"
-	@echo ""
-	@echo "  MinIO API  : localhost:9000"
-	@echo "  MinIO Console: localhost:9001"
 
 ## docker-clean: 停止全部基础设施并删除数据卷 (⚠️ 数据将丢失)
 docker-clean:

@@ -34,7 +34,6 @@ func TestAppRun_AllModeServesHTTPAndConsumesTasks(t *testing.T) {
 		},
 		Database: integrationDatabaseConfig(),
 		Redis:    integrationRedisConfig(),
-		MinIO:    integrationMinIOConfig(),
 		Auth:     integrationAuthConfig(),
 		RateLimit: config.RateLimitConfig{
 			AuthenticatedRPM: 60,

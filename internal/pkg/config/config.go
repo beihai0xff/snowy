@@ -16,7 +16,6 @@ type Config struct {
 	Database      DatabaseConfig      `mapstructure:"database"`
 	Redis         RedisConfig         `mapstructure:"redis"`
 	OpenSearch    OpenSearchConfig    `mapstructure:"opensearch"`
-	MinIO         MinIOConfig         `mapstructure:"minio"`
 	LLM           LLMConfig           `mapstructure:"llm"`
 	Embedding     EmbeddingConfig     `mapstructure:"embedding"`
 	Auth          AuthConfig          `mapstructure:"auth"`
@@ -145,15 +144,6 @@ type OpenSearchConfig struct {
 	Username           string   `mapstructure:"username"`
 	Password           string   `mapstructure:"password"`
 	InsecureSkipVerify bool     `mapstructure:"insecure_skip_verify"`
-}
-
-// MinIOConfig 对象存储配置。
-type MinIOConfig struct {
-	Endpoint  string `mapstructure:"endpoint"`
-	AccessKey string `mapstructure:"access_key"`
-	SecretKey string `mapstructure:"secret_key"`
-	Bucket    string `mapstructure:"bucket"`
-	UseSSL    bool   `mapstructure:"use_ssl"`
 }
 
 // ModelProviderConfig 单个模型供应商配置。

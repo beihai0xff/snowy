@@ -28,7 +28,6 @@
 | **数据库** | MySQL 8.0+ (GORM + go-sql-driver/mysql) |
 | **缓存 & 队列** | Redis 7 + Asynq |
 | **搜索引擎** | OpenSearch 适配器（可选，默认运行未接入） |
-| **对象存储** | MinIO / S3 兼容对象存储（可选，默认运行不启动） |
 | **前端** | React / Next.js + TypeScript |
 | **可观测** | OpenTelemetry + Prometheus + Grafana（Prometheus/Grafana 可选启动） |
 
@@ -48,7 +47,7 @@ snowy/
       physics/            # 物理 / 场景代码生成域
       biology/            # 生物建模域
     handler/http/         # HTTP Handler 层
-    repo/                 # 基础设施层（MySQL / Redis / LLM / Embedding / OpenSearch / Storage）
+    repo/                 # 基础设施层（MySQL / Redis / LLM / Embedding / OpenSearch）
     pkg/                  # 公共基础包（common / config / middleware）
   api/openapi/            # OpenAPI 契约
   web/snowy-web/          # 前端项目
@@ -97,7 +96,7 @@ make docker-up
 - 等待 `MySQL` / `Redis` 健康检查通过
 - 自动执行 `GORM migration`
 
-注意：`make docker-up` 只会启动必需基础设施相关容器，不会自动启动 `snowy` / `snowy-web` 应用容器；MinIO、Prometheus、Grafana 为可选组件，需要时显式启动。
+注意：`make docker-up` 只会启动必需基础设施相关容器，不会自动启动 `snowy` / `snowy-web` 应用容器；Prometheus、Grafana 为可选观测组件，需要时显式启动。
 
 将启动以下服务：
 
@@ -106,20 +105,15 @@ make docker-up
 | MySQL | `localhost:3306` |
 | Redis | `localhost:6379` |
 
-可选组件按需启动：
+可选观测组件按需启动：
 
 ```bash
-# 对象存储（仅在需要 MinIO/S3 本地联调时）
-make docker-storage-up
-
 # 观测组件（仅在需要 Prometheus/Grafana 看板时）
 make docker-observability-up
 ```
 
 | 可选服务 | 地址 |
 |---|---|
-| MinIO API | `localhost:9000` |
-| MinIO Console | `localhost:9001` |
 | Prometheus | `localhost:9090` |
 | Grafana | `localhost:3000` |
 
@@ -167,14 +161,14 @@ make help
 推荐按分层执行测试：
 
 - `make test` / `make test-unit`：纯单元测试，默认使用 mock，速度快、适合日常开发
-- `make test-integration`：自动启动 Docker 中的 `MySQL` / `Redis` / `MinIO`，执行带 `integration` tag 的真实依赖测试；OpenSearch/RAG 集成测试需额外以 `rag` tag 按需运行
+- `make test-integration`：自动启动 Docker 中的 `MySQL` / `Redis`，执行带 `integration` tag 的真实依赖测试；OpenSearch/RAG 集成测试需额外以 `rag` tag 按需运行
 - `make test-e2e`：执行带 `e2e` tag 的端到端测试
 
 ```bash
 # 仅运行单元测试
 make test
 
-# 启动 MySQL / Redis / MinIO Docker 依赖并运行集成测试
+# 启动 MySQL / Redis Docker 依赖并运行集成测试
 make test-integration
 
 # 如需保留测试依赖容器，便于手动排查
@@ -185,7 +179,6 @@ make test-integration
 
 - MySQL：`127.0.0.1:3306`
 - Redis：`127.0.0.1:6379`
-- MinIO：`127.0.0.1:9000`
 
 可覆盖的环境变量示例：
 
@@ -198,23 +191,18 @@ SNOWY_DATABASE_NAME=snowy
 SNOWY_REDIS_ADDR=127.0.0.1:6379
 SNOWY_REDIS_PASSWORD=
 SNOWY_REDIS_DB=0
-SNOWY_MINIO_ENDPOINT=127.0.0.1:9000
-SNOWY_MINIO_ACCESS_KEY=snowy_admin
-SNOWY_MINIO_SECRET_KEY=snowy_minio_secret
-SNOWY_MINIO_BUCKET=snowy
 ```
 
 当前集成测试会在执行前自动：
 
-- 等待 MySQL / Redis / MinIO 健康检查通过
+- 等待 MySQL / Redis 健康检查通过
 - 通过 `internal/repo/mysql` 的 GORM migration runner 初始化 MySQL 表结构
-- 清理 MinIO 测试 bucket 中的对象
 - 清理 MySQL 表数据与 Redis DB，避免脏数据影响结果
 
 仓库中的 GitHub Actions 工作流会自动执行：
 
 - 单元测试 + `go vet` + `go build`
-- 基于 Docker Compose 的基础设施集成测试矩阵（MySQL / Redis / MinIO）
+- 基于 Docker Compose 的基础设施集成测试矩阵（MySQL / Redis）
 
 ---
 

@@ -249,7 +249,6 @@ graph TB
         LLMAdapter["LLM Provider Adapter"]
         EmbAdapter["Embedding Provider"]
         SearchAdapter["Search Adapter"]
-        StorageAdapter["Storage Adapter"]
         CacheAdapter["Cache Adapter"]
         CodeGuard["Code Guard<br/>AST 校验 · 依赖白名单 · 危险 API 检测"]
     end
@@ -258,7 +257,6 @@ graph TB
         MySQL[(MySQL)]
         Redis[(Redis + Asynq)]
         OS[(OpenSearch)]
-        ObjStore[(Object Storage / MinIO)]
     end
 
     SnowyWeb -->|"HTTP / SSE"| Gateway
@@ -440,15 +438,6 @@ graph TB
 - 统一全文与向量能力；
 - 更适合知识检索主场景。
 
-### 6.2.3 对象存储
-- **S3 兼容对象存储 / MinIO（开发环境）**
-
-用于：
-- 原始内容文件
-- 渲染代码包与预览快照
-- 结构图导出文件
-- 异步生成中间产物
-
 ## 6.3 LLM 与 AI 侧选型
 
 ### 6.3.1 主推理模型
@@ -576,7 +565,6 @@ snowy/
       llm/
       embedding/
       search/
-      storage/
 
     store/                     # DB / Redis 等底层访问
       mysql/

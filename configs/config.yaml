@@ -27,13 +27,6 @@ redis:
   db: 0
   pool_size: 20
 
-minio:
-  endpoint: "127.0.0.1:9000"
-  access_key: "minioadmin"
-  secret_key: "minioadmin"
-  bucket: "snowy"
-  use_ssl: false
-
 llm:
   primary:
     provider: "mimo"

@@ -2,7 +2,7 @@
 # 参考技术方案 §6 技术栈选型 & §18 数据库与存储设计
 #
 # 默认运行只需要 MySQL / Redis。
-# MinIO、Prometheus、Grafana 保留为可选服务，可通过显式 make 目标按需启动。
+# Prometheus、Grafana 保留为可选观测服务，可通过显式 make 目标按需启动。
 
 services:
   # ──────────────────────────────────────────────
@@ -53,47 +53,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # ──────────────────────────────────────────────
-  # MinIO — S3 兼容对象存储（开发环境）
-  # 用于原始内容文件、图表快照、结构图导出、异步生成产物
-  # ──────────────────────────────────────────────
-  minio:
-    image: minio/minio:latest
-    container_name: snowy-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: snowy_admin
-      MINIO_ROOT_PASSWORD: snowy_minio_secret
-    ports:
-      - "9000:9000"   # S3 API
-      - "9001:9001"   # Web Console
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # 初始化 MinIO 默认 Bucket
-  minio-init:
-    image: minio/mc:latest
-    container_name: snowy-minio-init
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set snowy http://minio:9000 snowy_admin snowy_minio_secret &&
-      mc mb --ignore-existing snowy/snowy &&
-      mc mb --ignore-existing snowy/snowy-content &&
-      mc mb --ignore-existing snowy/snowy-charts &&
-      mc mb --ignore-existing snowy/snowy-exports &&
-      echo 'MinIO buckets initialized.'
-      "
-    restart: "no"
 
   # ──────────────────────────────────────────────
   # Prometheus — 指标采集
@@ -199,8 +158,6 @@ volumes:
   mysql_data:
     driver: local
   redis_data:
-    driver: local
-  minio_data:
     driver: local
   prometheus_data:
     driver: local

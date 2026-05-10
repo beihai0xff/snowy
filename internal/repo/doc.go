@@ -6,7 +6,6 @@
 //   - llm         — LLM 供应商统一接口 + 适配实现（OpenAI、Gemini）
 //   - embedding   — Embedding 供应商统一接口 + OpenAI-compatible 适配实现
 //   - opensearch  — OpenSearch 搜索引擎适配（实现 search.Repository、content/indexer.Indexer）
-//   - storage     — 对象存储统一接口 + 适配实现（MinIO / S3）
 //
 // 上层业务（domain service）通过 interface 依赖本层能力，不直接耦合具体实现。
 package repo

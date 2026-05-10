@@ -28,13 +28,6 @@ redis:
   db: 0
   pool_size: 20
 
-minio:
-  endpoint: "minio:9000"
-  access_key: "snowy_admin"
-  secret_key: "snowy_minio_secret"
-  bucket: "snowy"
-  use_ssl: false
-
 llm:
   primary:
     provider: "mimo"
