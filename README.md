@@ -14,7 +14,7 @@
 | 📐 **物理 / 3D 场景建模** | 条件抽取 → 推导说明 → 前端代码生成 → 浏览器沙箱渲染 → 参数调节 |
 | 🧬 **生物建模** | 概念识别 → 关系抽取 → 过程拆解 → 实验变量分析 → 结构图/流程图 |
 | 🤖 **Agent 编排** | 基于 Eino Graph 的意图识别、工具调用、多模型路由与结构化输出 |
-| 🔄 **多模型路由** | `gpt5` 主推理、`gemini3` 备选，自动回退与成本管控 |
+| 🔄 **多模型路由** | v5 支持 `llm.models[]` 优先级队列，兼容 `primary/fallback`，自动重试、回退与成本管控 |
 
 ---
 
@@ -146,7 +146,7 @@ MIMO_API_KEY='<runtime only>' make docker-run
 
 - `make docker-run` 会一次启动 `snowy` / `snowy-web`
 - 该目标会先确保必需基础设施（MySQL / Redis）已启动、健康检查通过，并完成 MySQL migration
-- 大模型运行参数从 `configs/config*.yaml` 的 `llm.primary/fallback` 读取，也可用环境变量覆盖：`SNOWY_LLM_PRIMARY_BASE_URL` / `SNOWY_LLM_PRIMARY_BASEURL`、`SNOWY_LLM_PRIMARY_MODEL` / `SNOWY_LLM_PRIMARY_MODEL_NAME`、`SNOWY_LLM_PRIMARY_MODEL_PROVIDER`、`SNOWY_LLM_FALLBACK_BASE_URL`、`SNOWY_LLM_FALLBACK_MODEL` 等；密钥仅运行时注入（如 `MIMO_API_KEY` 或 `SNOWY_LLM_PRIMARY_API_KEY`），不要写入仓库
+- 大模型运行参数优先从 `configs/config*.yaml` 的 `llm.models[]` 读取，并兼容旧的 `llm.primary/fallback`；也可用环境变量覆盖：`SNOWY_LLM_PRIMARY_BASE_URL` / `SNOWY_LLM_PRIMARY_BASEURL`、`SNOWY_LLM_PRIMARY_MODEL` / `SNOWY_LLM_PRIMARY_MODEL_NAME`、`SNOWY_LLM_PRIMARY_MODEL_PROVIDER`、`SNOWY_LLM_FALLBACK_BASE_URL`、`SNOWY_LLM_FALLBACK_MODEL` 等；密钥仅运行时注入（如 `MIMO_API_KEY` 或 `SNOWY_LLM_PRIMARY_API_KEY`），不要写入仓库
 - 应用容器通过 Docker Compose 网络以服务名（`mysql` / `redis`）访问必需基础设施
 - 默认运行模式为 `server.run_mode=all`，同一进程内同时启动 HTTP API 与 embedded Asynq worker；如需临时拆分，可通过配置或环境变量 `SNOWY_SERVER_RUN_MODE=api|worker` 切换
 
@@ -213,6 +213,7 @@ SNOWY_REDIS_DB=0
 | [产品需求文档 (PRD)](./docs/prd.md) | 产品目标、MVP 范围、核心功能、页面流程、接口边界、指标体系与里程碑 |
 | [技术方案](./docs/tech-solution.md) | 系统架构、Agent 编排、RAG 检索、多模型路由、物理 / 3D 代码生成渲染、生物建模、数据库设计、可观测性 |
 | [Snowy v4 重构蓝图](./docs/snowy-v4-redesign-blueprint.md) | 面向高中生的 AI 科学任务舱产品定位、游戏化学习链路、生成式模型包与前端科技感重构方案 |
+| [Snowy v5 重构蓝图](./docs/snowy-v5-redesign-blueprint.md) | 多模型接入、邮箱登录、学习档案、社区反馈、AI 监控持久化与可靠性设计 |
 
 ---
 

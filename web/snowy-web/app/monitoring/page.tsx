@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -10,6 +10,8 @@ import {
   Collapse,
   Descriptions,
   Empty,
+  Form,
+  Input,
   Progress,
   Row,
   Space,
@@ -148,23 +150,24 @@ export default function MonitoringPage() {
   const [data, setData] = useState<LLMDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<{ user_id?: string; provider?: string; model?: string; operation?: string; limit?: number }>({ limit: 200 });
 
-  const load = async () => {
+  const load = useCallback(async (nextFilters = filters) => {
     setLoading(true);
     setError(null);
     try {
-      const resp = await api.getLLMMonitoring();
+      const resp = await api.getLLMMonitoring(nextFilters);
       setData(resp.data || null);
     } catch (err) {
       setError(err instanceof Error ? err.message : '监控数据加载失败');
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   const recentColumns: ColumnsType<LLMCallRecord> = useMemo(() => [
     {
@@ -267,7 +270,7 @@ export default function MonitoringPage() {
             展示大模型 PE、调用耗时、成功率、Token 与模型配置。API Key 仅检测是否配置，不展示明文。
           </Paragraph>
         </div>
-        <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>刷新</Button>
+        <Button icon={<ReloadOutlined />} onClick={() => load()} loading={loading}>刷新</Button>
       </Space>
 
       {error && (
@@ -276,10 +279,21 @@ export default function MonitoringPage() {
           showIcon
           message="监控数据加载失败"
           description={error}
-          action={<Button size="small" onClick={load}>重试</Button>}
+          action={<Button size="small" onClick={() => load()}>重试</Button>}
           style={{ marginBottom: 16 }}
         />
       )}
+
+      <Card style={{ marginBottom: 16 }} title="筛选器">
+        <Form layout="inline" initialValues={filters} onFinish={(values) => { setFilters(values); void load(values); }}>
+          <Form.Item name="user_id" label="用户"><Input allowClear placeholder="user_id" style={{ width: 220 }} /></Form.Item>
+          <Form.Item name="provider" label="厂商"><Input allowClear placeholder="provider" style={{ width: 140 }} /></Form.Item>
+          <Form.Item name="model" label="模型"><Input allowClear placeholder="model" style={{ width: 180 }} /></Form.Item>
+          <Form.Item name="operation" label="链路"><Input allowClear placeholder="operation" style={{ width: 190 }} /></Form.Item>
+          <Form.Item name="limit" label="条数"><Input type="number" style={{ width: 100 }} /></Form.Item>
+          <Form.Item><Button type="primary" htmlType="submit" loading={loading}>应用筛选</Button></Form.Item>
+        </Form>
+      </Card>
 
       {loading && !data ? (
         <div style={{ textAlign: 'center', padding: 80 }}><Spin tip="正在加载监控指标..." /></div>
@@ -361,7 +375,7 @@ export default function MonitoringPage() {
             </Row>
           </Card>
 
-          <Card title="最近 LLM 调用">
+          <Card title="最近 LLM 调用（MySQL 持久化 + 内存热数据）">
             {data.recent_calls.length ? (
               <Table
                 rowKey="id"

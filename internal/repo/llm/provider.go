@@ -4,6 +4,7 @@ package llm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -61,6 +62,39 @@ type Provider interface {
 	EstimateCost(ctx context.Context, req *Request) (*Cost, error)
 	// Name 返回供应商名称。
 	Name() string
+}
+
+// RetryableError marks a provider error as transient enough for same-model retry.
+type RetryableError interface {
+	error
+	Retryable() bool
+}
+
+type providerError struct {
+	message   string
+	retryable bool
+}
+
+func (e providerError) Error() string   { return e.message }
+func (e providerError) Retryable() bool { return e.retryable }
+
+// NewProviderError creates a classified provider error.
+func NewProviderError(message string, retryable bool) error {
+	return providerError{message: message, retryable: retryable}
+}
+
+// IsRetryable reports whether an error is safe to retry on the same provider.
+func IsRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var retryable RetryableError
+	if errors.As(err, &retryable) {
+		return retryable.Retryable()
+	}
+
+	return false
 }
 
 // ConfiguredProvider 暴露 Provider 从配置加载的模型元信息。

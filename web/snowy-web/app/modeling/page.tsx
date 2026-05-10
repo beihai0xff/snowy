@@ -34,6 +34,7 @@ import GenerativePhysicsCanvas from '@/components/generative/GenerativePhysicsCa
 import GenerativeBiologyGraph from '@/components/generative/GenerativeBiologyGraph';
 import InteractionPlanPanel from '@/components/generative/InteractionPlanPanel';
 import ValidationReportPanel from '@/components/generative/ValidationReportPanel';
+import ReactionBar from '@/components/common/ReactionBar';
 
 const { Title, Paragraph, Text } = Typography;
 const { TextArea } = Input;
@@ -257,6 +258,7 @@ function ModelingPageInner() {
               />
               <Tag color={stage === 'error' ? 'red' : stage === 'done' ? 'green' : loading ? 'cyan' : 'default'}>阶段：{stageText[stage]}</Tag>
               {pkg && <Tag color={confidence >= 0.8 ? 'green' : confidence >= 0.55 ? 'orange' : 'red'}>可信度：{Math.round(confidence * 100)}%</Tag>}
+              {pkg && <ReactionBar targetType="model_package" targetID={pkg.package_id} />}
               {pkg?.status && <Tag>{pkg.status}</Tag>}
             </Space>
 

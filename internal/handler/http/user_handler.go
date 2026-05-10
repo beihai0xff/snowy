@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,7 +15,7 @@ import (
 
 // UserHandler 用户 HTTP Handler。
 // 参考技术方案 §17.7 & §18A。
-// 当前已禁用登录，所有请求自动使用默认匿名用户。
+// v5 支持邮箱登录；未携带 token 时仍回落默认匿名用户。
 type UserHandler struct {
 	userSvc user.Service
 }
@@ -22,6 +23,48 @@ type UserHandler struct {
 // NewUserHandler 创建 UserHandler。
 func NewUserHandler(userSvc user.Service) *UserHandler {
 	return &UserHandler{userSvc: userSvc}
+}
+
+// Register POST /api/v1/auth/register — 邮箱注册。
+func (h *UserHandler) Register(c *gin.Context) {
+	var req dto.EmailRegisterReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	access, refresh, profile, err := h.userSvc.EmailRegister(c.Request.Context(), req.Email, req.Password, req.Nickname)
+	if err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	c.JSON(http.StatusCreated, common.Success(dto.AuthResp{AccessToken: access, RefreshToken: refresh, User: profile}))
+}
+
+// Login POST /api/v1/auth/login — 邮箱登录。
+func (h *UserHandler) Login(c *gin.Context) {
+	var req dto.EmailLoginReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	access, refresh, profile, err := h.userSvc.EmailLogin(c.Request.Context(), req.Email, req.Password)
+	if err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusUnauthorized, common.Fail(common.ErrUnauthorized.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	c.JSON(http.StatusOK, common.Success(dto.AuthResp{AccessToken: access, RefreshToken: refresh, User: profile}))
 }
 
 // GetProfile GET /api/v1/user/profile — 获取当前用户资料。
@@ -199,10 +242,115 @@ func (h *UserHandler) AddFavorite(c *gin.Context) {
 
 	if err := h.userSvc.AddFavorite(c.Request.Context(), fav); err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
 
 		return
 	}
 
 	c.JSON(http.StatusCreated, common.Success(fav))
+}
+
+// SetReaction PUT /api/v1/reactions — 设置 like/dislike。
+func (h *UserHandler) SetReaction(c *gin.Context) {
+	var req dto.ReactionReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	uid, ok := h.resolveUserID(c)
+	if !ok {
+		return
+	}
+
+	reaction := &user.Reaction{
+		UserID:       uid,
+		TargetType:   req.TargetType,
+		TargetID:     req.TargetID,
+		ReactionType: req.ReactionType,
+		Visibility:   req.Visibility,
+	}
+	if err := h.userSvc.SetReaction(c.Request.Context(), reaction); err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	summary, _ := h.userSvc.ReactionSummary(c.Request.Context(), uid, req.TargetType, req.TargetID, false)
+	c.JSON(http.StatusOK, common.Success(summary))
+}
+
+// DeleteReaction DELETE /api/v1/reactions — 撤销反馈。
+func (h *UserHandler) DeleteReaction(c *gin.Context) {
+	uid, ok := h.resolveUserID(c)
+	if !ok {
+		return
+	}
+
+	targetType := c.Query("target_type")
+	targetID := c.Query("target_id")
+	if targetType == "" || targetID == "" {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage("target_type and target_id are required"), reqID))
+
+		return
+	}
+
+	if err := h.userSvc.DeleteReaction(c.Request.Context(), uid, targetType, targetID); err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	c.JSON(http.StatusOK, common.Success(gin.H{"deleted": true}))
+}
+
+// ListReactions GET /api/v1/reactions — 当前用户反馈列表。
+func (h *UserHandler) ListReactions(c *gin.Context) {
+	uid, ok := h.resolveUserID(c)
+	if !ok {
+		return
+	}
+
+	items, total, err := h.userSvc.ListReactions(c.Request.Context(), uid, 0, 20)
+	if err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	c.JSON(http.StatusOK, common.Success(common.PageResponse{Total: total, Page: 1, PageSize: 20, Items: items}))
+}
+
+// ReactionSummary GET /api/v1/reactions/summary — 目标反馈聚合。
+func (h *UserHandler) ReactionSummary(c *gin.Context) {
+	uid, ok := h.resolveUserID(c)
+	if !ok {
+		return
+	}
+
+	targetType := c.Query("target_type")
+	targetID := c.Query("target_id")
+	if targetType == "" || targetID == "" {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage("target_type and target_id are required"), reqID))
+
+		return
+	}
+
+	includeUsers, _ := strconv.ParseBool(c.DefaultQuery("include_users", "false"))
+	summary, err := h.userSvc.ReactionSummary(c.Request.Context(), uid, targetType, targetID, includeUsers)
+	if err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	c.JSON(http.StatusOK, common.Success(summary))
 }

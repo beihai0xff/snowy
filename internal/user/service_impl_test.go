@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -17,11 +18,12 @@ import (
 // ── Mock Repositories ────────────────────────────────────
 
 type mockRepo struct {
-	createFn           func(ctx context.Context, u *User) error
-	getByIDFn          func(ctx context.Context, id uuid.UUID) (*User, error)
-	getByPhoneFn       func(ctx context.Context, phone string) (*User, error)
-	getByGoogleIDFn    func(ctx context.Context, googleID string) (*User, error)
-	updateLastLoginFn  func(ctx context.Context, id uuid.UUID) error
+	createFn          func(ctx context.Context, u *User) error
+	getByIDFn         func(ctx context.Context, id uuid.UUID) (*User, error)
+	getByPhoneFn      func(ctx context.Context, phone string) (*User, error)
+	getByEmailFn      func(ctx context.Context, email string) (*User, error)
+	getByGoogleIDFn   func(ctx context.Context, googleID string) (*User, error)
+	updateLastLoginFn func(ctx context.Context, id uuid.UUID) error
 }
 
 func (m *mockRepo) Create(ctx context.Context, u *User) error {
@@ -43,6 +45,13 @@ func (m *mockRepo) GetByPhone(ctx context.Context, phone string) (*User, error) 
 		return m.getByPhoneFn(ctx, phone)
 	}
 	return nil, nil
+}
+
+func (m *mockRepo) GetByEmail(ctx context.Context, email string) (*User, error) {
+	if m.getByEmailFn != nil {
+		return m.getByEmailFn(ctx, email)
+	}
+	return nil, ErrUserNotFound
 }
 
 func (m *mockRepo) GetByGoogleID(ctx context.Context, googleID string) (*User, error) {
@@ -91,6 +100,38 @@ type mockHistRepo struct {
 	listByUserFn func(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*HistoryItem, int64, error)
 }
 
+type mockReactionRepo struct {
+	upsertFn     func(ctx context.Context, reaction *Reaction) error
+	deleteFn     func(ctx context.Context, userID uuid.UUID, targetType string, targetID string) error
+	listByUserFn func(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*Reaction, int64, error)
+	summaryFn    func(ctx context.Context, userID uuid.UUID, targetType string, targetID string, includeUsers bool) (*ReactionSummary, error)
+}
+
+func (m *mockReactionRepo) Upsert(ctx context.Context, reaction *Reaction) error {
+	if m.upsertFn != nil {
+		return m.upsertFn(ctx, reaction)
+	}
+	return nil
+}
+func (m *mockReactionRepo) Delete(ctx context.Context, userID uuid.UUID, targetType string, targetID string) error {
+	if m.deleteFn != nil {
+		return m.deleteFn(ctx, userID, targetType, targetID)
+	}
+	return nil
+}
+func (m *mockReactionRepo) ListByUser(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*Reaction, int64, error) {
+	if m.listByUserFn != nil {
+		return m.listByUserFn(ctx, userID, offset, limit)
+	}
+	return nil, 0, nil
+}
+func (m *mockReactionRepo) Summary(ctx context.Context, userID uuid.UUID, targetType string, targetID string, includeUsers bool) (*ReactionSummary, error) {
+	if m.summaryFn != nil {
+		return m.summaryFn(ctx, userID, targetType, targetID, includeUsers)
+	}
+	return &ReactionSummary{TargetType: targetType, TargetID: targetID}, nil
+}
+
 type mockTransactor struct {
 	transactionFn func(ctx context.Context, fn func(ctx context.Context) error) error
 }
@@ -130,7 +171,7 @@ var testAuthCfg = config.AuthConfig{
 }
 
 func newTestService(repo *mockRepo, favRepo *mockFavRepo, histRepo *mockHistRepo, transactor irepo.Transactor) Service {
-	return NewService(repo, favRepo, histRepo, transactor, testAuthCfg)
+	return NewService(repo, favRepo, histRepo, transactor, testAuthCfg, &mockReactionRepo{})
 }
 
 // ── GoogleLogin Tests — New User (auto-register) ─────────
@@ -295,6 +336,62 @@ func TestGoogleLogin_DBError(t *testing.T) {
 	_, _, err := svc.GoogleLogin(context.Background(), info)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "lookup google user")
+}
+
+func TestEmailRegisterAndLogin(t *testing.T) {
+	var saved *User
+	repo := &mockRepo{
+		getByEmailFn: func(_ context.Context, email string) (*User, error) {
+			if saved != nil && saved.Email == email {
+				return saved, nil
+			}
+			return nil, ErrUserNotFound
+		},
+		createFn: func(_ context.Context, u *User) error {
+			saved = u
+			return nil
+		},
+	}
+	svc := newTestService(repo, &mockFavRepo{}, &mockHistRepo{}, &mockTransactor{})
+
+	access, refresh, profile, err := svc.EmailRegister(context.Background(), "Alice@Example.COM", "password123", "Alice")
+	require.NoError(t, err)
+	assert.NotEmpty(t, access)
+	assert.NotEmpty(t, refresh)
+	require.NotNil(t, profile)
+	assert.Equal(t, "alice@example.com", profile.Email)
+	body, marshalErr := json.Marshal(profile)
+	require.NoError(t, marshalErr)
+	assert.NotContains(t, string(body), "password_hash")
+	require.NotNil(t, saved)
+	assert.NotEmpty(t, saved.PasswordHash)
+
+	access, refresh, profile, err = svc.EmailLogin(context.Background(), "alice@example.com", "password123")
+	require.NoError(t, err)
+	assert.NotEmpty(t, access)
+	assert.NotEmpty(t, refresh)
+	assert.Equal(t, saved.ID, profile.ID)
+}
+
+func TestSetReactionValidatesAndPersists(t *testing.T) {
+	var saved *Reaction
+	reactionRepo := &mockReactionRepo{upsertFn: func(_ context.Context, reaction *Reaction) error {
+		saved = reaction
+		return nil
+	}}
+	svc := NewService(&mockRepo{}, &mockFavRepo{}, &mockHistRepo{}, nil, testAuthCfg, reactionRepo)
+
+	err := svc.SetReaction(context.Background(), &Reaction{
+		UserID:       uuid.New(),
+		TargetType:   "model_package",
+		TargetID:     "pkg-1",
+		ReactionType: ReactionLike,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, saved)
+	assert.NotEqual(t, uuid.Nil, saved.ID)
+	assert.Equal(t, ReactionVisibilityPublic, saved.Visibility)
 }
 
 // ── GetProfile Tests ─────────────────────────────────────

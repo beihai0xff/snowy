@@ -7,21 +7,108 @@ import (
 
 	"github.com/beihai0xff/snowy/internal/agent"
 	"github.com/beihai0xff/snowy/internal/modeling/generative"
+	"github.com/beihai0xff/snowy/internal/monitoring"
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
+type llmCallRecordRow struct {
+	ID            string    `gorm:"column:id"`
+	UserID        string    `gorm:"column:user_id"`
+	Role          string    `gorm:"column:role"`
+	Provider      string    `gorm:"column:provider"`
+	ModelProvider string    `gorm:"column:model_provider"`
+	Model         string    `gorm:"column:model"`
+	BaseURL       string    `gorm:"column:base_url"`
+	Operation     string    `gorm:"column:operation"`
+	Status        string    `gorm:"column:status"`
+	LatencyMS     int64     `gorm:"column:latency_ms"`
+	InputTokens   int       `gorm:"column:input_tokens"`
+	OutputTokens  int       `gorm:"column:output_tokens"`
+	MaxTokens     int       `gorm:"column:max_tokens"`
+	Temperature   float64   `gorm:"column:temperature"`
+	PromptChars   int       `gorm:"column:prompt_chars"`
+	SystemPE      string    `gorm:"column:system_pe"`
+	UserPrompt    string    `gorm:"column:user_prompt"`
+	PromptPreview string    `gorm:"column:prompt_preview"`
+	FinishReason  string    `gorm:"column:finish_reason"`
+	Error         string    `gorm:"column:error"`
+	StartedAt     time.Time `gorm:"column:started_at"`
+	FinishedAt    time.Time `gorm:"column:finished_at"`
+}
+
+func (llmCallRecordRow) TableName() string { return "llm_call_records" }
+
+func newLLMCallRecordRow(r monitoring.LLMCallRecord) *llmCallRecordRow {
+	return &llmCallRecordRow{
+		ID:            r.ID,
+		UserID:        r.UserID,
+		Role:          r.Role,
+		Provider:      r.Provider,
+		ModelProvider: r.ModelProvider,
+		Model:         r.Model,
+		BaseURL:       r.BaseURL,
+		Operation:     r.Operation,
+		Status:        r.Status,
+		LatencyMS:     r.LatencyMS,
+		InputTokens:   r.InputTokens,
+		OutputTokens:  r.OutputTokens,
+		MaxTokens:     r.MaxTokens,
+		Temperature:   r.Temperature,
+		PromptChars:   r.PromptChars,
+		SystemPE:      r.SystemPE,
+		UserPrompt:    r.UserPrompt,
+		PromptPreview: r.PromptPreview,
+		FinishReason:  r.FinishReason,
+		Error:         r.Error,
+		StartedAt:     r.StartedAt,
+		FinishedAt:    r.FinishedAt,
+	}
+}
+
+func (r *llmCallRecordRow) toMonitoring() monitoring.LLMCallRecord {
+	if r == nil {
+		return monitoring.LLMCallRecord{}
+	}
+
+	return monitoring.LLMCallRecord{
+		ID:            r.ID,
+		UserID:        r.UserID,
+		Role:          r.Role,
+		Provider:      r.Provider,
+		ModelProvider: r.ModelProvider,
+		Model:         r.Model,
+		BaseURL:       r.BaseURL,
+		Operation:     r.Operation,
+		Status:        r.Status,
+		LatencyMS:     r.LatencyMS,
+		InputTokens:   r.InputTokens,
+		OutputTokens:  r.OutputTokens,
+		MaxTokens:     r.MaxTokens,
+		Temperature:   r.Temperature,
+		PromptChars:   r.PromptChars,
+		SystemPE:      r.SystemPE,
+		UserPrompt:    r.UserPrompt,
+		PromptPreview: r.PromptPreview,
+		FinishReason:  r.FinishReason,
+		Error:         r.Error,
+		StartedAt:     r.StartedAt,
+		FinishedAt:    r.FinishedAt,
+	}
+}
+
 //nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.
 type userRow struct {
-	ID          uuid.UUID `gorm:"column:id"`
-	GoogleID    string    `gorm:"column:google_id"`
-	Email       string    `gorm:"column:email"`
-	Phone       string    `gorm:"column:phone"`
-	Nickname    string    `gorm:"column:nickname"`
-	Role        user.Role `gorm:"column:role"`
-	AvatarURL   string    `gorm:"column:avatar_url"`
-	LastLoginAt time.Time `gorm:"column:last_login_at"`
-	CreatedAt   time.Time `gorm:"column:created_at"`
-	UpdatedAt   time.Time `gorm:"column:updated_at"`
+	ID           uuid.UUID `gorm:"column:id"`
+	GoogleID     string    `gorm:"column:google_id"`
+	Email        string    `gorm:"column:email"`
+	PasswordHash string    `gorm:"column:password_hash"`
+	Phone        string    `gorm:"column:phone"`
+	Nickname     string    `gorm:"column:nickname"`
+	Role         user.Role `gorm:"column:role"`
+	AvatarURL    string    `gorm:"column:avatar_url"`
+	LastLoginAt  time.Time `gorm:"column:last_login_at"`
+	CreatedAt    time.Time `gorm:"column:created_at"`
+	UpdatedAt    time.Time `gorm:"column:updated_at"`
 }
 
 func (userRow) TableName() string { return "users" }
@@ -32,16 +119,17 @@ func newUserRow(u *user.User) *userRow {
 	}
 
 	return &userRow{
-		ID:          u.ID,
-		GoogleID:    u.GoogleID,
-		Email:       u.Email,
-		Phone:       u.Phone,
-		Nickname:    u.Nickname,
-		Role:        u.Role,
-		AvatarURL:   u.AvatarURL,
-		LastLoginAt: u.LastLoginAt,
-		CreatedAt:   u.CreatedAt,
-		UpdatedAt:   u.UpdatedAt,
+		ID:           u.ID,
+		GoogleID:     u.GoogleID,
+		Email:        u.Email,
+		PasswordHash: u.PasswordHash,
+		Phone:        u.Phone,
+		Nickname:     u.Nickname,
+		Role:         u.Role,
+		AvatarURL:    u.AvatarURL,
+		LastLoginAt:  u.LastLoginAt,
+		CreatedAt:    u.CreatedAt,
+		UpdatedAt:    u.UpdatedAt,
 	}
 }
 
@@ -51,16 +139,17 @@ func (r *userRow) toDomain() *user.User {
 	}
 
 	return &user.User{
-		ID:          r.ID,
-		GoogleID:    r.GoogleID,
-		Email:       r.Email,
-		Phone:       r.Phone,
-		Nickname:    r.Nickname,
-		Role:        r.Role,
-		AvatarURL:   r.AvatarURL,
-		LastLoginAt: r.LastLoginAt,
-		CreatedAt:   r.CreatedAt,
-		UpdatedAt:   r.UpdatedAt,
+		ID:           r.ID,
+		GoogleID:     r.GoogleID,
+		Email:        r.Email,
+		PasswordHash: r.PasswordHash,
+		Phone:        r.Phone,
+		Nickname:     r.Nickname,
+		Role:         r.Role,
+		AvatarURL:    r.AvatarURL,
+		LastLoginAt:  r.LastLoginAt,
+		CreatedAt:    r.CreatedAt,
+		UpdatedAt:    r.UpdatedAt,
 	}
 }
 
@@ -107,6 +196,53 @@ func (r *favoriteRow) toDomain() *user.Favorite {
 }
 
 //nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.
+type reactionRow struct {
+	ID           uuid.UUID `gorm:"column:id"`
+	UserID       uuid.UUID `gorm:"column:user_id"`
+	TargetType   string    `gorm:"column:target_type"`
+	TargetID     string    `gorm:"column:target_id"`
+	ReactionType string    `gorm:"column:reaction_type"`
+	Visibility   string    `gorm:"column:visibility"`
+	CreatedAt    time.Time `gorm:"column:created_at"`
+	UpdatedAt    time.Time `gorm:"column:updated_at"`
+}
+
+func (reactionRow) TableName() string { return "reactions" }
+
+func newReactionRow(r *user.Reaction) *reactionRow {
+	if r == nil {
+		return nil
+	}
+
+	return &reactionRow{
+		ID:           r.ID,
+		UserID:       r.UserID,
+		TargetType:   r.TargetType,
+		TargetID:     r.TargetID,
+		ReactionType: r.ReactionType,
+		Visibility:   r.Visibility,
+		CreatedAt:    r.CreatedAt,
+		UpdatedAt:    r.UpdatedAt,
+	}
+}
+
+func (r *reactionRow) toDomain() *user.Reaction {
+	if r == nil {
+		return nil
+	}
+
+	return &user.Reaction{
+		ID:           r.ID,
+		UserID:       r.UserID,
+		TargetType:   r.TargetType,
+		TargetID:     r.TargetID,
+		ReactionType: r.ReactionType,
+		Visibility:   r.Visibility,
+		CreatedAt:    r.CreatedAt,
+		UpdatedAt:    r.UpdatedAt,
+	}
+}
+
 type historyRow struct {
 	ID         uuid.UUID  `gorm:"column:id"`
 	UserID     uuid.UUID  `gorm:"column:user_id"`

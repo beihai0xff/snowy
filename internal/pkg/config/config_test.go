@@ -157,6 +157,32 @@ func TestModelProviderConfig_EffectiveAliases(t *testing.T) {
 	assert.Equal(t, "https://alias.example.test/v1", cfg.EffectiveBaseURL())
 }
 
+func TestLLMConfig_EffectiveModelsPriority(t *testing.T) {
+	cfg := LLMConfig{
+		Models: []ModelProviderConfig{
+			{Provider: "openai", Model: "slow", BaseURL: "https://slow.example.test/v1", Priority: 30},
+			{Provider: "mimo", Model: "fast", BaseURL: "https://fast.example.test/v1", Priority: 10},
+		},
+	}
+
+	models := cfg.EffectiveModels()
+	require.Len(t, models, 2)
+	assert.Equal(t, "fast", models[0].EffectiveModel())
+	assert.Equal(t, "slow", models[1].EffectiveModel())
+}
+
+func TestLLMConfig_EffectiveModelsBackwardCompatibility(t *testing.T) {
+	cfg := LLMConfig{
+		Primary:  ModelProviderConfig{Provider: "mimo", Model: "primary", BaseURL: "https://primary.example.test/v1"},
+		Fallback: ModelProviderConfig{Provider: "openai", Model: "fallback", BaseURL: "https://fallback.example.test/v1"},
+	}
+
+	models := cfg.EffectiveModels()
+	require.Len(t, models, 2)
+	assert.Equal(t, "primary", models[0].EffectiveModel())
+	assert.Equal(t, "fallback", models[1].EffectiveModel())
+}
+
 func TestEmbeddingConfig_EffectiveAliases(t *testing.T) {
 	cfg := EmbeddingConfig{
 		Model:               " file-embedding ",

@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useSyncExternalStore } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ConfigProvider, Layout, Menu, Space, Tag, theme as antdTheme } from 'antd';
+import { Button, ConfigProvider, Layout, Menu, Space, Tag, theme as antdTheme } from 'antd';
 import {
   HomeOutlined,
   SearchOutlined,
@@ -10,6 +10,7 @@ import {
   BookOutlined,
   DashboardOutlined,
   ThunderboltOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 
 const { Header, Content } = Layout;
@@ -21,6 +22,21 @@ const menuItems = [
   { key: '/learning', icon: <BookOutlined />, label: '任务档案' },
   { key: '/monitoring', icon: <DashboardOutlined />, label: 'AI 监控' },
 ];
+
+function subscribeAuthStorage(callback: () => void) {
+  if (typeof window === 'undefined') return () => {};
+  window.addEventListener('storage', callback);
+  window.addEventListener('focus', callback);
+  return () => {
+    window.removeEventListener('storage', callback);
+    window.removeEventListener('focus', callback);
+  };
+}
+
+function getAuthTokenSnapshot(): string {
+  if (typeof window === 'undefined') return '';
+  return window.localStorage.getItem('snowy_access_token') || '';
+}
 
 function selectedKey(pathname: string): string {
   if (pathname === '/physics' || pathname === '/biology') return '/modeling';
@@ -34,6 +50,7 @@ function selectedKey(pathname: string): string {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const accessToken = useSyncExternalStore(subscribeAuthStorage, getAuthTokenSnapshot, () => '');
 
   const handleMenuClick = (e: { key: string }) => {
     router.push(e.key);
@@ -99,8 +116,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             className="snowy-nav"
           />
           <Space className="snowy-header-status" size={8}>
-            <Tag color="cyan" className="snowy-version-tag">V4</Tag>
+            <Tag color="cyan" className="snowy-version-tag">V5</Tag>
             <Tag icon={<ThunderboltOutlined />} color="green" className="snowy-live-tag">Lab Online</Tag>
+            <Button size="small" icon={<UserOutlined />} onClick={() => router.push('/learning')}>
+              {accessToken ? '已登录' : '访客模式'}
+            </Button>
           </Space>
         </Header>
         <Content className="snowy-content">

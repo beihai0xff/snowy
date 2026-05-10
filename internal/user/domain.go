@@ -24,16 +24,17 @@ const (
 
 // User 用户实体。
 type User struct {
-	ID          uuid.UUID `json:"id"`
-	GoogleID    string    `json:"google_id,omitempty"`
-	Email       string    `json:"email,omitempty"`
-	Phone       string    `json:"phone,omitempty"`
-	Nickname    string    `json:"nickname"`
-	Role        Role      `json:"role"`
-	AvatarURL   string    `json:"avatar_url,omitempty"`
-	LastLoginAt time.Time `json:"last_login_at"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID           uuid.UUID `json:"id"`
+	GoogleID     string    `json:"google_id,omitempty"`
+	Email        string    `json:"email,omitempty"`
+	PasswordHash string    `json:"-"`
+	Phone        string    `json:"phone,omitempty"`
+	Nickname     string    `json:"nickname"`
+	Role         Role      `json:"role"`
+	AvatarURL    string    `json:"avatar_url,omitempty"`
+	LastLoginAt  time.Time `json:"last_login_at"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // Favorite 收藏条目。

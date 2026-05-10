@@ -93,13 +93,37 @@ type BiologyAnalyzeReq struct {
 	Context  string `                   json:"context,omitempty"`
 }
 
-// ── User ─────────────────────────────────────────────────
+// ── Auth / User ───────────────────────────────────────────
+
+type EmailRegisterReq struct {
+	Email    string `json:"email"    binding:"required,email"`
+	Password string `json:"password" binding:"required,min=8"`
+	Nickname string `json:"nickname,omitempty"`
+}
+
+type EmailLoginReq struct {
+	Email    string `json:"email"    binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
+type AuthResp struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	User         any    `json:"user"`
+}
 
 // FavoriteReq 收藏请求。
 type FavoriteReq struct {
-	TargetType string `binding:"required,oneof=search physics biology" json:"target_type"`
+	TargetType string `binding:"required,oneof=search answer evidence physics biology model_package render_code model_config" json:"target_type"`
 	TargetID   string `binding:"required"                              json:"target_id"`
 	Title      string `binding:"required"                              json:"title"`
+}
+
+type ReactionReq struct {
+	TargetType   string `binding:"required,oneof=search answer evidence physics biology model_package render_code" json:"target_type"`
+	TargetID     string `binding:"required" json:"target_id"`
+	ReactionType string `binding:"required,oneof=like dislike" json:"reaction_type"`
+	Visibility   string `binding:"omitempty,oneof=public private" json:"visibility,omitempty"`
 }
 
 // RecommendationItem 首页推荐条目。

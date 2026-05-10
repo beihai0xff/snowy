@@ -29,6 +29,29 @@ redis:
   pool_size: 20
 
 llm:
+  # v5 推荐使用 models[]：按 priority 从小到大尝试；primary/fallback 仍保留向后兼容。
+  models:
+    - provider: "mimo"
+      model_provider: "mimo"
+      model: "mimo-v2.5-pro"
+      api_key: ""
+      base_url: "https://token-plan-cn.xiaomimimo.com/v1"
+      timeout: 180s
+      temperature: 0.2
+      max_tokens: 131072
+      max_retries: 2
+      retry_interval: 1s
+      priority: 10
+    - provider: "google"
+      model: "gemini3"
+      api_key: ""
+      base_url: "https://generativelanguage.googleapis.com/v1"
+      timeout: 30s
+      temperature: 0.2
+      max_tokens: 131072
+      max_retries: 2
+      retry_interval: 1s
+      priority: 20
   primary:
     provider: "mimo"
     model_provider: "mimo"
@@ -36,14 +59,22 @@ llm:
     api_key: ""
     base_url: "https://token-plan-cn.xiaomimimo.com/v1"
     timeout: 180s
+    temperature: 0.2
+    max_tokens: 131072
     max_retries: 2
+    retry_interval: 1s
+    priority: 10
   fallback:
     provider: "google"
     model: "gemini3"
     api_key: ""
     base_url: "https://generativelanguage.googleapis.com/v1"
     timeout: 30s
+    temperature: 0.2
+    max_tokens: 131072
     max_retries: 2
+    retry_interval: 1s
+    priority: 20
 
 auth:
   jwt_secret: "change-me-in-production"

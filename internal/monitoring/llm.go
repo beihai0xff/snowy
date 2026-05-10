@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/beihai0xff/snowy/internal/pkg/common"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 )
@@ -67,6 +68,7 @@ type LLMCallRecord struct {
 	SystemPE      string    `json:"system_pe,omitempty"`
 	UserPrompt    string    `json:"user_prompt,omitempty"`
 	PromptPreview string    `json:"prompt_preview,omitempty"`
+	UserID        string    `json:"user_id,omitempty"`
 	FinishReason  string    `json:"finish_reason,omitempty"`
 	Error         string    `json:"error,omitempty"`
 	StartedAt     time.Time `json:"started_at"`
@@ -119,6 +121,7 @@ type LLMRecorder struct {
 	mu             sync.RWMutex
 	maxRecords     int
 	records        []LLMCallRecord
+	store          LLMCallRecordStore
 	providers      []LLMProviderConfig
 	promptProfiles []LLMPromptProfile
 }
@@ -143,6 +146,12 @@ func WithProviderConfigs(providers ...LLMProviderConfig) RecorderOption {
 func WithPromptProfiles(profiles ...LLMPromptProfile) RecorderOption {
 	return func(r *LLMRecorder) {
 		r.promptProfiles = append([]LLMPromptProfile(nil), profiles...)
+	}
+}
+
+func WithStore(store LLMCallRecordStore) RecorderOption {
+	return func(r *LLMRecorder) {
+		r.store = store
 	}
 }
 
@@ -175,16 +184,20 @@ func (r *LLMRecorder) Record(record LLMCallRecord) {
 	}
 
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	r.records = append([]LLMCallRecord{record}, r.records...)
 	if len(r.records) > r.maxRecords {
 		r.records = r.records[:r.maxRecords]
 	}
+	store := r.store
+	r.mu.Unlock()
+
+	if store != nil {
+		go func() { _ = store.Save(context.Background(), record) }()
+	}
 }
 
 // Dashboard returns a snapshot for the monitoring UI.
-func (r *LLMRecorder) Dashboard() LLMDashboard {
+func (r *LLMRecorder) Dashboard(filter ...LLMRecordFilter) LLMDashboard {
 	if r == nil {
 		return LLMDashboard{GeneratedAt: time.Now()}
 	}
@@ -206,7 +219,14 @@ func (r *LLMRecorder) Dashboard() LLMDashboard {
 		profiles = []LLMPromptProfile{}
 	}
 
+	store := r.store
 	r.mu.RUnlock()
+
+	if store != nil && len(filter) > 0 {
+		if stored, err := store.List(context.Background(), filter[0]); err == nil {
+			records = stored
+		}
+	}
 
 	return LLMDashboard{
 		GeneratedAt:    time.Now(),
@@ -369,14 +389,14 @@ func WrapProvider(provider llm.Provider, recorder *LLMRecorder, role string) llm
 func (p *ObservedProvider) Generate(ctx context.Context, req *llm.Request) (*llm.Response, error) {
 	if req == nil {
 		err := errors.New("llm request is nil")
-		p.record(req, nil, err, time.Now(), time.Now())
+		p.record(ctx, req, nil, err, time.Now(), time.Now())
 
 		return nil, err
 	}
 
 	start := time.Now()
 	resp, err := p.next.Generate(ctx, req)
-	p.record(req, resp, err, start, time.Now())
+	p.record(ctx, req, resp, err, start, time.Now())
 
 	return resp, err
 }
@@ -384,14 +404,14 @@ func (p *ObservedProvider) Generate(ctx context.Context, req *llm.Request) (*llm
 func (p *ObservedProvider) GenerateStream(ctx context.Context, req *llm.Request, chunks chan<- llm.StreamChunk) error {
 	if req == nil {
 		err := errors.New("llm stream request is nil")
-		p.record(req, nil, err, time.Now(), time.Now())
+		p.record(ctx, req, nil, err, time.Now(), time.Now())
 
 		return err
 	}
 
 	start := time.Now()
 	err := p.next.GenerateStream(ctx, req, chunks)
-	p.record(req, nil, err, start, time.Now())
+	p.record(ctx, req, nil, err, start, time.Now())
 
 	return err
 }
@@ -426,7 +446,7 @@ func (p *ObservedProvider) ConfiguredModelProvider() string {
 	return ""
 }
 
-func (p *ObservedProvider) record(req *llm.Request, resp *llm.Response, callErr error, start, finish time.Time) {
+func (p *ObservedProvider) record(ctx context.Context, req *llm.Request, resp *llm.Response, callErr error, start, finish time.Time) {
 	if p == nil || p.recorder == nil {
 		return
 	}
@@ -471,6 +491,7 @@ func (p *ObservedProvider) record(req *llm.Request, resp *llm.Response, callErr 
 		MaxTokens:     maxTokens,
 		Temperature:   temperature,
 		PromptChars:   promptChars,
+		UserID:        userIDFromContext(ctx),
 		SystemPE:      truncate(systemPE, 2400),
 		UserPrompt:    truncate(userPrompt, 2400),
 		PromptPreview: truncate(joinPromptPreview(systemPE, userPrompt), 1200),
@@ -686,4 +707,12 @@ func DefaultPromptProfiles(now time.Time) []LLMPromptProfile {
 			UpdatedAt:        now,
 		},
 	}
+}
+
+func userIDFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+
+	return strings.TrimSpace(common.UserIDFromContext(ctx))
 }

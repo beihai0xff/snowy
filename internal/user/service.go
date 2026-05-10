@@ -30,4 +30,16 @@ type Service interface {
 	AddFavorite(ctx context.Context, fav *Favorite) error
 	// ListFavorites 列出收藏。
 	ListFavorites(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*Favorite, int64, error)
+	// EmailRegister 通过邮箱注册。
+	EmailRegister(ctx context.Context, email, password, nickname string) (accessToken, refreshToken string, profile *User, err error)
+	// EmailLogin 通过邮箱登录。
+	EmailLogin(ctx context.Context, email, password string) (accessToken, refreshToken string, profile *User, err error)
+	// SetReaction 设置 like/dislike 反馈。
+	SetReaction(ctx context.Context, reaction *Reaction) error
+	// DeleteReaction 撤销反馈。
+	DeleteReaction(ctx context.Context, userID uuid.UUID, targetType string, targetID string) error
+	// ListReactions 列出用户反馈。
+	ListReactions(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*Reaction, int64, error)
+	// ReactionSummary 获取目标反馈聚合。
+	ReactionSummary(ctx context.Context, userID uuid.UUID, targetType string, targetID string, includeUsers bool) (*ReactionSummary, error)
 }

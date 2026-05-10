@@ -12,17 +12,45 @@ import (
 
 const mysqlTableOptions = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
 
+type llmCallRecordSchema struct {
+	ID            string    `gorm:"column:id;type:char(36);primaryKey"`
+	UserID        string    `gorm:"column:user_id;type:char(36);not null;default:'';index:idx_llm_calls_user,priority:1"`
+	Role          string    `gorm:"column:role;type:varchar(32);not null;default:''"`
+	Provider      string    `gorm:"column:provider;type:varchar(64);not null;default:'';index:idx_llm_calls_provider,priority:1"`
+	ModelProvider string    `gorm:"column:model_provider;type:varchar(64);not null;default:''"`
+	Model         string    `gorm:"column:model;type:varchar(128);not null;default:'';index:idx_llm_calls_model,priority:1"`
+	BaseURL       string    `gorm:"column:base_url;type:text;not null"`
+	Operation     string    `gorm:"column:operation;type:varchar(64);not null;default:'';index:idx_llm_calls_operation,priority:1"`
+	Status        string    `gorm:"column:status;type:varchar(16);not null;default:''"`
+	LatencyMS     int64     `gorm:"column:latency_ms;not null;default:0"`
+	InputTokens   int       `gorm:"column:input_tokens;not null;default:0"`
+	OutputTokens  int       `gorm:"column:output_tokens;not null;default:0"`
+	MaxTokens     int       `gorm:"column:max_tokens;not null;default:0"`
+	Temperature   float64   `gorm:"column:temperature;type:decimal(6,4);not null;default:0"`
+	PromptChars   int       `gorm:"column:prompt_chars;not null;default:0"`
+	SystemPE      string    `gorm:"column:system_pe;type:mediumtext"`
+	UserPrompt    string    `gorm:"column:user_prompt;type:mediumtext"`
+	PromptPreview string    `gorm:"column:prompt_preview;type:mediumtext"`
+	FinishReason  string    `gorm:"column:finish_reason;type:varchar(64);not null;default:''"`
+	Error         string    `gorm:"column:error;type:text"`
+	StartedAt     time.Time `gorm:"column:started_at;type:datetime(3);not null"`
+	FinishedAt    time.Time `gorm:"column:finished_at;type:datetime(3);not null;index:idx_llm_calls_user,priority:2,sort:desc;index:idx_llm_calls_provider,priority:2,sort:desc;index:idx_llm_calls_model,priority:2,sort:desc;index:idx_llm_calls_operation,priority:2,sort:desc;index:idx_llm_calls_finished,sort:desc"`
+}
+
+func (llmCallRecordSchema) TableName() string { return "llm_call_records" }
+
 type userSchema struct {
-	ID          uuid.UUID `gorm:"column:id;type:char(36);primaryKey"`
-	GoogleID    string    `gorm:"column:google_id;type:varchar(128);not null;index:idx_users_google_id;default:''"`
-	Email       string    `gorm:"column:email;type:varchar(255);not null;default:''"`
-	Phone       string    `gorm:"column:phone;type:varchar(20);not null;default:''"`
-	Nickname    string    `gorm:"column:nickname;type:varchar(64);not null;default:''"`
-	Role        string    `gorm:"column:role;type:varchar(16);not null;default:'student'"`
-	AvatarURL   string    `gorm:"column:avatar_url;type:text;not null"`
-	LastLoginAt time.Time `gorm:"column:last_login_at;type:datetime(3);not null"`
-	CreatedAt   time.Time `gorm:"column:created_at;type:datetime(3);not null"`
-	UpdatedAt   time.Time `gorm:"column:updated_at;type:datetime(3);not null"`
+	ID           uuid.UUID `gorm:"column:id;type:char(36);primaryKey"`
+	GoogleID     string    `gorm:"column:google_id;type:varchar(128);not null;index:idx_users_google_id;default:''"`
+	Email        string    `gorm:"column:email;type:varchar(255);not null;default:'';index:idx_users_email"`
+	PasswordHash string    `gorm:"column:password_hash;type:varchar(255);not null;default:''"`
+	Phone        string    `gorm:"column:phone;type:varchar(20);not null;default:''"`
+	Nickname     string    `gorm:"column:nickname;type:varchar(64);not null;default:''"`
+	Role         string    `gorm:"column:role;type:varchar(16);not null;default:'student'"`
+	AvatarURL    string    `gorm:"column:avatar_url;type:text;not null"`
+	LastLoginAt  time.Time `gorm:"column:last_login_at;type:datetime(3);not null"`
+	CreatedAt    time.Time `gorm:"column:created_at;type:datetime(3);not null"`
+	UpdatedAt    time.Time `gorm:"column:updated_at;type:datetime(3);not null"`
 }
 
 func (userSchema) TableName() string { return "users" }
@@ -37,6 +65,19 @@ type favoriteSchema struct {
 }
 
 func (favoriteSchema) TableName() string { return "favorites" }
+
+type reactionSchema struct {
+	ID           uuid.UUID `gorm:"column:id;type:char(36);primaryKey"`
+	UserID       uuid.UUID `gorm:"column:user_id;type:char(36);not null;uniqueIndex:uk_reactions_user_target,priority:1;index:idx_reactions_user,priority:1;index:idx_reactions_target,priority:3"`
+	TargetType   string    `gorm:"column:target_type;type:varchar(32);not null;uniqueIndex:uk_reactions_user_target,priority:2;index:idx_reactions_target,priority:1"`
+	TargetID     string    `gorm:"column:target_id;type:varchar(128);not null;uniqueIndex:uk_reactions_user_target,priority:3;index:idx_reactions_target,priority:2"`
+	ReactionType string    `gorm:"column:reaction_type;type:varchar(16);not null"`
+	Visibility   string    `gorm:"column:visibility;type:varchar(16);not null;default:'public'"`
+	CreatedAt    time.Time `gorm:"column:created_at;type:datetime(3);not null;index:idx_reactions_user,priority:2,sort:desc"`
+	UpdatedAt    time.Time `gorm:"column:updated_at;type:datetime(3);not null"`
+}
+
+func (reactionSchema) TableName() string { return "reactions" }
 
 type agentSessionSchema struct {
 	ID        uuid.UUID `gorm:"column:id;type:char(36);primaryKey"`
@@ -218,8 +259,10 @@ func (promptTemplateSchema) TableName() string { return "prompt_templates" }
 
 func schemaModels() []any {
 	return []any{
+		&llmCallRecordSchema{},
 		&userSchema{},
 		&favoriteSchema{},
+		&reactionSchema{},
 		&agentSessionSchema{},
 		&agentMessageSchema{},
 		&agentRunSchema{},

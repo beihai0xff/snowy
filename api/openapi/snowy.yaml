@@ -168,6 +168,34 @@ paths:
         '200':
           description: 成功
 
+  /auth/register:
+    post:
+      summary: 邮箱注册
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailRegisterRequest'
+      responses:
+        '201':
+          description: 注册成功
+
+  /auth/login:
+    post:
+      summary: 邮箱登录
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailLoginRequest'
+      responses:
+        '200':
+          description: 登录成功
+
   /user/profile:
     get:
       summary: 获取用户资料
@@ -180,6 +208,91 @@ paths:
     get:
       summary: 历史记录
       tags: [User]
+      responses:
+        '200':
+          description: 成功
+
+  /reactions:
+    get:
+      summary: 当前用户反馈列表
+      tags: [User]
+      responses:
+        '200':
+          description: 成功
+    put:
+      summary: 设置点赞/点踩
+      tags: [User]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReactionRequest'
+      responses:
+        '200':
+          description: 成功
+    delete:
+      summary: 撤销反馈
+      tags: [User]
+      parameters:
+        - name: target_type
+          in: query
+          required: true
+          schema: { type: string }
+        - name: target_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: 成功
+
+  /reactions/summary:
+    get:
+      summary: 指定目标反馈聚合
+      tags: [User]
+      parameters:
+        - name: target_type
+          in: query
+          required: true
+          schema: { type: string }
+        - name: target_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: include_users
+          in: query
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: 成功
+
+  /monitoring/llm:
+    get:
+      summary: LLM 调用监控看板
+      tags: [Monitoring]
+      parameters:
+        - name: user_id
+          in: query
+          schema: { type: string }
+        - name: provider
+          in: query
+          schema: { type: string }
+        - name: model
+          in: query
+          schema: { type: string }
+        - name: operation
+          in: query
+          schema: { type: string }
+        - name: since
+          in: query
+          schema: { type: string, format: date-time }
+        - name: until
+          in: query
+          schema: { type: string, format: date-time }
+        - name: limit
+          in: query
+          schema: { type: integer }
       responses:
         '200':
           description: 成功
@@ -226,6 +339,28 @@ components:
           type: object
         request_id:
           type: string
+
+    EmailRegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        nickname: { type: string }
+
+    EmailLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        user: { type: object }
 
     ChatRequest:
       type: object
@@ -655,8 +790,33 @@ components:
       properties:
         target_type:
           type: string
-          enum: [search, physics, biology]
+          enum: [search, answer, evidence, physics, biology, model_package, render_code, model_config]
         target_id:
           type: string
         title:
           type: string
+
+    ReactionRequest:
+      type: object
+      required: [target_type, target_id, reaction_type]
+      properties:
+        target_type:
+          type: string
+          enum: [search, answer, evidence, physics, biology, model_package, render_code]
+        target_id:
+          type: string
+        reaction_type:
+          type: string
+          enum: [like, dislike]
+        visibility:
+          type: string
+          enum: [public, private]
+
+    ReactionSummary:
+      type: object
+      properties:
+        target_type: { type: string }
+        target_id: { type: string }
+        like_count: { type: integer }
+        dislike_count: { type: integer }
+        current_reaction: { type: string }

@@ -107,10 +107,16 @@ func (p *mimoProvider) Generate(ctx context.Context, req *Request) (*Response, e
 
 	maxTokens := req.MaxTokens
 	if maxTokens <= 0 {
+		maxTokens = p.cfg.MaxTokens
+	}
+	if maxTokens <= 0 {
 		maxTokens = MaxTokens128K
 	}
 
 	temperature := req.Temperature
+	if temperature <= 0 {
+		temperature = p.cfg.Temperature
+	}
 	if temperature <= 0 {
 		temperature = 0.2
 	}
@@ -134,6 +140,12 @@ func (p *mimoProvider) Generate(ctx context.Context, req *Request) (*Response, e
 	}
 
 	timeout := p.cfg.Timeout
+	if reqCtxDeadline, ok := ctx.Deadline(); ok {
+		if remaining := time.Until(reqCtxDeadline); remaining > 0 && (timeout <= 0 || remaining < timeout) {
+			timeout = remaining
+		}
+	}
+
 	if timeout <= 0 {
 		timeout = 60 * time.Second
 	}
@@ -148,18 +160,19 @@ func (p *mimoProvider) Generate(ctx context.Context, req *Request) (*Response, e
 
 	resp, err := (&http.Client{Timeout: timeout}).Do(httpReq)
 	if err != nil {
-		return nil, err
+		return nil, NewProviderError(fmt.Sprintf("mimo provider: request failed: %v", err), true)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
 		responseBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		retryable := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= http.StatusInternalServerError
 
-		return nil, fmt.Errorf(
+		return nil, NewProviderError(fmt.Sprintf(
 			"mimo provider: http status %d: %s",
 			resp.StatusCode,
 			strings.TrimSpace(string(responseBody)),
-		)
+		), retryable)
 	}
 
 	var decoded miMoChatCompletionResponse

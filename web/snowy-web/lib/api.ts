@@ -1,7 +1,7 @@
 /**
  * Snowy API 客户端 — 封装所有后端接口调用。
  * 统一处理响应解包、错误映射。
- * 当前已禁用登录，无需 token 注入。
+ * v5 支持邮箱登录，浏览器端自动注入 access token。
  */
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '/api/v1';
@@ -54,9 +54,43 @@ export interface Favorite {
 }
 
 export interface FavoriteReq {
-  target_type: 'search' | 'physics' | 'biology';
+  target_type: 'search' | 'answer' | 'evidence' | 'physics' | 'biology' | 'model_package' | 'render_code' | 'model_config';
   target_id: string;
   title: string;
+}
+
+export interface AuthResp {
+  access_token: string;
+  refresh_token: string;
+  user: User;
+}
+
+export interface Reaction {
+  id: string;
+  user_id: string;
+  target_type: string;
+  target_id: string;
+  reaction_type: 'like' | 'dislike';
+  visibility: 'public' | 'private';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReactionSummary {
+  target_type: string;
+  target_id: string;
+  like_count: number;
+  dislike_count: number;
+  current_reaction?: 'like' | 'dislike';
+  like_users?: { id: string; nickname: string; role: string }[];
+  dislike_users?: { id: string; nickname: string; role: string }[];
+}
+
+export interface ReactionReq {
+  target_type: 'search' | 'answer' | 'evidence' | 'physics' | 'biology' | 'model_package' | 'render_code';
+  target_id: string;
+  reaction_type: 'like' | 'dislike';
+  visibility?: 'public' | 'private';
 }
 
 // ── Recommendations ──────────────────────────────────────
@@ -570,6 +604,7 @@ export interface LLMCallRecord {
   system_pe?: string;
   user_prompt?: string;
   prompt_preview?: string;
+  user_id?: string;
   finish_reason?: string;
   error?: string;
   started_at: string;
@@ -609,6 +644,10 @@ async function request<T>(
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
+  const token = getAccessToken();
+  if (token && !headers.Authorization) {
+    headers.Authorization = `Bearer ${token}`;
+  }
 
   let res: Response;
   try {
@@ -645,8 +684,31 @@ async function request<T>(
 
 // ── API functions ────────────────────────────────────────
 
+export function setAuthTokens(accessToken: string, refreshToken?: string) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem('snowy_access_token', accessToken);
+  if (refreshToken) window.localStorage.setItem('snowy_refresh_token', refreshToken);
+}
+
+export function clearAuthTokens() {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem('snowy_access_token');
+  window.localStorage.removeItem('snowy_refresh_token');
+}
+
+function getAccessToken(): string {
+  if (typeof window === 'undefined') return '';
+  return window.localStorage.getItem('snowy_access_token') || '';
+}
+
 export const api = {
-  // User
+  // Auth / User
+  register: (data: { email: string; password: string; nickname?: string }) =>
+    request<AuthResp>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+
+  login: (data: { email: string; password: string }) =>
+    request<AuthResp>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+
   getProfile: () => request<User>('/user/profile'),
 
   getHistory: () => request<PageResponse<HistoryItem>>('/history'),
@@ -655,6 +717,17 @@ export const api = {
 
   addFavorite: (data: FavoriteReq) =>
     request<Favorite>('/favorites', { method: 'POST', body: JSON.stringify(data) }),
+
+  setReaction: (data: ReactionReq) =>
+    request<ReactionSummary>('/reactions', { method: 'PUT', body: JSON.stringify(data) }),
+
+  deleteReaction: (targetType: string, targetID: string) =>
+    request<{ deleted: boolean }>(`/reactions?target_type=${encodeURIComponent(targetType)}&target_id=${encodeURIComponent(targetID)}`, { method: 'DELETE' }),
+
+  listReactions: () => request<PageResponse<Reaction>>('/reactions'),
+
+  getReactionSummary: (targetType: string, targetID: string, includeUsers = false) =>
+    request<ReactionSummary>(`/reactions/summary?target_type=${encodeURIComponent(targetType)}&target_id=${encodeURIComponent(targetID)}&include_users=${includeUsers}`),
 
   // Recommendations
   getRecommendations: () => request<RecommendationsResp>('/recommendations'),
@@ -688,7 +761,13 @@ export const api = {
     request<SessionResp>('/agent/sessions', { method: 'POST', body: JSON.stringify({ mode }) }),
 
   // Monitoring
-  getLLMMonitoring: () => request<LLMDashboard>('/monitoring/llm'),
+  getLLMMonitoring: (params?: { user_id?: string; provider?: string; model?: string; operation?: string; since?: string; until?: string; limit?: number }) => {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') query.set(key, String(value));
+    });
+    return request<LLMDashboard>(`/monitoring/llm${query.toString() ? `?${query.toString()}` : ''}`);
+  },
 };
 
 export async function agentChatStream(
@@ -702,6 +781,7 @@ export async function agentChatStream(
       headers: {
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',
+        ...(getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : {}),
       },
       body: JSON.stringify(data),
       signal: options.signal,

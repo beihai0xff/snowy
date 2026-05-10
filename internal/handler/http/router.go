@@ -56,6 +56,13 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 	// 限流中间件
 	v1.Use(middleware.RateLimit(limiter, cfg.RateLimit))
 
+	// ── 登录注册 ──────────────────────────────────────
+	auth := v1.Group("/auth")
+	{
+		auth.POST("/register", h.User.Register)
+		auth.POST("/login", h.User.Login)
+	}
+
 	// ── 首页推荐 ──────────────────────────────────────
 	v1.GET("/recommendations", h.User.GetRecommendations)
 
@@ -109,6 +116,10 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 	v1.GET("/history", h.User.GetHistory)
 	v1.POST("/favorites", h.User.AddFavorite)
 	v1.GET("/favorites", h.User.ListFavorites)
+	v1.PUT("/reactions", h.User.SetReaction)
+	v1.DELETE("/reactions", h.User.DeleteReaction)
+	v1.GET("/reactions", h.User.ListReactions)
+	v1.GET("/reactions/summary", h.User.ReactionSummary)
 
 	return r
 }

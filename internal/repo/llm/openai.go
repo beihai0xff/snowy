@@ -90,13 +90,21 @@ func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response,
 
 	maxTokens := req.MaxTokens
 	if maxTokens <= 0 {
+		maxTokens = p.cfg.MaxTokens
+	}
+	if maxTokens <= 0 {
 		maxTokens = MaxTokens128K
+	}
+
+	temperature := req.Temperature
+	if temperature <= 0 {
+		temperature = p.cfg.Temperature
 	}
 
 	payload := openAIChatCompletionRequest{
 		Model:       model,
 		Messages:    req.Messages,
-		Temperature: req.Temperature,
+		Temperature: temperature,
 		MaxTokens:   maxTokens,
 		Stream:      false,
 	}
@@ -107,6 +115,12 @@ func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response,
 	}
 
 	timeout := p.cfg.Timeout
+	if reqCtxDeadline, ok := ctx.Deadline(); ok {
+		if remaining := time.Until(reqCtxDeadline); remaining > 0 && (timeout <= 0 || remaining < timeout) {
+			timeout = remaining
+		}
+	}
+
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
@@ -121,12 +135,14 @@ func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response,
 
 	resp, err := (&http.Client{Timeout: timeout}).Do(httpReq)
 	if err != nil {
-		return nil, err
+		return nil, NewProviderError(fmt.Sprintf("openai provider: request failed: %v", err), true)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("openai provider: http status %d", resp.StatusCode)
+		retryable := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= http.StatusInternalServerError
+
+		return nil, NewProviderError(fmt.Sprintf("openai provider: http status %d", resp.StatusCode), retryable)
 	}
 
 	var decoded openAIChatCompletionResponse

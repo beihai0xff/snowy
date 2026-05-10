@@ -18,6 +18,7 @@ import {
 } from '@ant-design/icons';
 import { api, type FavoriteReq, type SearchResponse } from '@/lib/api';
 import MarkdownText from '@/components/common/MarkdownText';
+import ReactionBar from '@/components/common/ReactionBar';
 
 const { Title, Paragraph, Text } = Typography;
 const { Search } = Input;
@@ -215,6 +216,7 @@ function SearchPageInner() {
               extra={(
                 <Space wrap>
                   {confidence && <Tag color={confidence.color}>{confidence.text} {(result.confidence * 100).toFixed(0)}%</Tag>}
+                  <ReactionBar targetType="answer" targetID={query} />
                   <Button icon={<StarOutlined />} size="small" onClick={handleFavorite}>收藏</Button>
                 </Space>
               )}

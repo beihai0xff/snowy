@@ -15,15 +15,18 @@ type staticRouter struct {
 
 // NewStaticRouter 创建基于配置的静态模型路由器。
 func NewStaticRouter(cfg config.LLMConfig) Router {
+	primary := cfg.EffectivePrimary()
+	fallback := cfg.EffectiveFallback()
+
 	return &staticRouter{
 		primary: ModelInfo{
-			Provider:  normalizeProvider(cfg.Primary.Provider),
-			Model:     cfg.Primary.EffectiveModel(),
+			Provider:  normalizeProvider(primary.Provider),
+			Model:     primary.EffectiveModel(),
 			IsPrimary: true,
 		},
 		fallback: ModelInfo{
-			Provider:  normalizeProvider(cfg.Fallback.Provider),
-			Model:     cfg.Fallback.EffectiveModel(),
+			Provider:  normalizeProvider(fallback.Provider),
+			Model:     fallback.EffectiveModel(),
 			IsPrimary: false,
 		},
 	}

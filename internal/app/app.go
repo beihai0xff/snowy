@@ -32,6 +32,7 @@ import (
 	physicsservice "github.com/beihai0xff/snowy/internal/modeling/physics/service"
 	"github.com/beihai0xff/snowy/internal/monitoring"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
+	"github.com/beihai0xff/snowy/internal/pkg/llmroute"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 	mysqlrepo "github.com/beihai0xff/snowy/internal/repo/mysql"
 	redisrepo "github.com/beihai0xff/snowy/internal/repo/redis"
@@ -133,17 +134,27 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 	_ = redisrepo.NewCacheStore(shared.rdb)
 	_ = redisrepo.NewSessionStore(shared.rdb)
 
+	modelConfigs := shared.cfg.LLM.EffectiveModels()
+	providerConfigs := make([]monitoring.LLMProviderConfig, 0, len(modelConfigs))
+	observedProviders := make([]llm.Provider, 0, len(modelConfigs))
+	for i, modelCfg := range modelConfigs {
+		role := providerRole(i)
+		providerConfigs = append(providerConfigs, monitoring.ProviderConfigFromConfig(role, modelCfg))
+	}
+
 	llmRecorder := monitoring.NewLLMRecorder(
-		monitoring.WithProviderConfigs(
-			monitoring.ProviderConfigFromConfig("primary", shared.cfg.LLM.Primary),
-			monitoring.ProviderConfigFromConfig("fallback", shared.cfg.LLM.Fallback),
-		),
+		monitoring.WithStore(mysqlrepo.NewLLMCallRecordRepository(shared.db)),
+		monitoring.WithProviderConfigs(providerConfigs...),
 		monitoring.WithPromptProfiles(monitoring.DefaultPromptProfiles(time.Now())...),
 	)
-	primaryLLM := monitoring.WrapProvider(newLLMProvider(shared.cfg.LLM.Primary), llmRecorder, "primary")
-	fallbackLLM := monitoring.WrapProvider(newLLMProvider(shared.cfg.LLM.Fallback), llmRecorder, "fallback")
+	for i, modelCfg := range modelConfigs {
+		provider := llmroute.NewRetryingProvider(newLLMProvider(modelCfg), modelCfg.MaxRetries, modelCfg.RetryInterval)
+		observedProviders = append(observedProviders, monitoring.WrapProvider(provider, llmRecorder, providerRole(i)))
+	}
+	primaryLLM, fallbackLLM := splitLLMProviders(observedProviders)
 
-	userSvc := user.NewService(userRepo, favoriteRepo, historyRepo, transactor, shared.cfg.Auth)
+	reactionRepo := mysqlrepo.NewReactionRepository(shared.db)
+	userSvc := user.NewService(userRepo, favoriteRepo, historyRepo, transactor, shared.cfg.Auth, reactionRepo)
 	agentWriteSvc := agent.NewWriteService(transactor, sessionRepo, messageRepo, runRepo, toolCallRepo)
 	searchSvc := searchservice.NewService(
 		nil,
@@ -270,6 +281,28 @@ func (a *App) Router() *gin.Engine {
 	}
 
 	return a.api.router
+}
+
+func providerRole(index int) string {
+	if index == 0 {
+		return "primary"
+	}
+	if index == 1 {
+		return "fallback"
+	}
+
+	return fmt.Sprintf("fallback_%d", index)
+}
+
+func splitLLMProviders(providers []llm.Provider) (llm.Provider, llm.Provider) {
+	if len(providers) == 0 {
+		return nil, nil
+	}
+	if len(providers) == 1 {
+		return providers[0], nil
+	}
+
+	return providers[0], llmroute.NewChain("fallback-chain", providers[1:]...)
 }
 
 func newLLMProvider(cfg config.ModelProviderConfig) llm.Provider {

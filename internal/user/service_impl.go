@@ -5,10 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/mail"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 	irepo "github.com/beihai0xff/snowy/internal/repo"
@@ -16,11 +19,12 @@ import (
 
 // serviceImpl 用户域应用服务实现。
 type serviceImpl struct {
-	repo       Repository
-	favRepo    FavoriteRepository
-	histRepo   HistoryRepository
-	transactor irepo.Transactor
-	authCfg    config.AuthConfig
+	repo         Repository
+	favRepo      FavoriteRepository
+	histRepo     HistoryRepository
+	reactionRepo ReactionRepository
+	transactor   irepo.Transactor
+	authCfg      config.AuthConfig
 }
 
 // NewService 创建用户域应用服务。
@@ -30,13 +34,20 @@ func NewService(
 	histRepo HistoryRepository,
 	transactor irepo.Transactor,
 	authCfg config.AuthConfig,
+	extraRepos ...ReactionRepository,
 ) Service {
+	var reactionRepo ReactionRepository
+	if len(extraRepos) > 0 {
+		reactionRepo = extraRepos[0]
+	}
+
 	return &serviceImpl{
-		repo:       repo,
-		favRepo:    favRepo,
-		histRepo:   histRepo,
-		transactor: transactor,
-		authCfg:    authCfg,
+		repo:         repo,
+		favRepo:      favRepo,
+		histRepo:     histRepo,
+		reactionRepo: reactionRepo,
+		transactor:   transactor,
+		authCfg:      authCfg,
 	}
 }
 
@@ -204,6 +215,172 @@ func (s *serviceImpl) generateToken(u *User, ttl time.Duration) (string, error) 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	return token.SignedString([]byte(s.authCfg.JWTSecret))
+}
+
+func (s *serviceImpl) EmailRegister(ctx context.Context, email, password, nickname string) (string, string, *User, error) {
+	email = normalizeEmail(email)
+	if _, err := mail.ParseAddress(email); err != nil {
+		return "", "", nil, errors.New("valid email is required")
+	}
+	if len(password) < 8 {
+		return "", "", nil, errors.New("password must be at least 8 characters")
+	}
+
+	if existing, err := s.repo.GetByEmail(ctx, email); err == nil && existing != nil {
+		return "", "", nil, errors.New("email already registered")
+	} else if err != nil && !errors.Is(err, ErrUserNotFound) {
+		return "", "", nil, fmt.Errorf("lookup email user: %w", err)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("hash password: %w", err)
+	}
+
+	now := time.Now()
+	if strings.TrimSpace(nickname) == "" {
+		nickname = email
+	}
+
+	u := &User{
+		ID:           uuid.New(),
+		Email:        email,
+		PasswordHash: string(hash),
+		Nickname:     strings.TrimSpace(nickname),
+		Role:         RoleStudent,
+		LastLoginAt:  now,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	history := &HistoryItem{ID: uuid.New(), UserID: u.ID, ActionType: "register", Query: "邮箱账号注册", CreatedAt: now}
+
+	err = s.withTransaction(ctx, func(txCtx context.Context) error {
+		if createErr := s.repo.Create(txCtx, u); createErr != nil {
+			return fmt.Errorf("create user: %w", createErr)
+		}
+		if s.histRepo != nil {
+			if histErr := s.histRepo.Add(txCtx, history); histErr != nil {
+				return fmt.Errorf("add register history: %w", histErr)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	access, refresh, err := s.tokenPair(u)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	return access, refresh, u, nil
+}
+
+func (s *serviceImpl) EmailLogin(ctx context.Context, email, password string) (string, string, *User, error) {
+	email = normalizeEmail(email)
+	u, err := s.repo.GetByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			return "", "", nil, errors.New("invalid email or password")
+		}
+		return "", "", nil, fmt.Errorf("lookup email user: %w", err)
+	}
+	if strings.TrimSpace(u.PasswordHash) == "" {
+		return "", "", nil, errors.New("email account has no password login enabled")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)); err != nil {
+		return "", "", nil, errors.New("invalid email or password")
+	}
+
+	if updateErr := s.repo.UpdateLastLogin(ctx, u.ID); updateErr != nil {
+		slog.WarnContext(ctx, "update last login failed", "error", updateErr)
+	}
+
+	access, refresh, err := s.tokenPair(u)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	return access, refresh, u, nil
+}
+
+func (s *serviceImpl) SetReaction(ctx context.Context, reaction *Reaction) error {
+	if s.reactionRepo == nil {
+		return errors.New("reaction repository is nil")
+	}
+	if reaction == nil {
+		return errors.New("reaction is nil")
+	}
+	if reaction.UserID == uuid.Nil {
+		return errors.New("reaction user_id is required")
+	}
+	reaction.TargetType = strings.TrimSpace(reaction.TargetType)
+	reaction.TargetID = strings.TrimSpace(reaction.TargetID)
+	if reaction.TargetType == "" || reaction.TargetID == "" {
+		return errors.New("reaction target is required")
+	}
+	if reaction.ReactionType != ReactionLike && reaction.ReactionType != ReactionDislike {
+		return errors.New("reaction_type must be like or dislike")
+	}
+	if reaction.Visibility == "" {
+		reaction.Visibility = ReactionVisibilityPublic
+	}
+	if reaction.Visibility != ReactionVisibilityPublic && reaction.Visibility != ReactionVisibilityPrivate {
+		return errors.New("visibility must be public or private")
+	}
+	now := time.Now()
+	if reaction.ID == uuid.Nil {
+		reaction.ID = uuid.New()
+	}
+	if reaction.CreatedAt.IsZero() {
+		reaction.CreatedAt = now
+	}
+	reaction.UpdatedAt = now
+
+	return s.reactionRepo.Upsert(ctx, reaction)
+}
+
+func (s *serviceImpl) DeleteReaction(ctx context.Context, userID uuid.UUID, targetType string, targetID string) error {
+	if s.reactionRepo == nil {
+		return errors.New("reaction repository is nil")
+	}
+
+	return s.reactionRepo.Delete(ctx, userID, strings.TrimSpace(targetType), strings.TrimSpace(targetID))
+}
+
+func (s *serviceImpl) ListReactions(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*Reaction, int64, error) {
+	if s.reactionRepo == nil {
+		return nil, 0, errors.New("reaction repository is nil")
+	}
+
+	return s.reactionRepo.ListByUser(ctx, userID, offset, limit)
+}
+
+func (s *serviceImpl) ReactionSummary(ctx context.Context, userID uuid.UUID, targetType string, targetID string, includeUsers bool) (*ReactionSummary, error) {
+	if s.reactionRepo == nil {
+		return nil, errors.New("reaction repository is nil")
+	}
+
+	return s.reactionRepo.Summary(ctx, userID, strings.TrimSpace(targetType), strings.TrimSpace(targetID), includeUsers)
+}
+
+func (s *serviceImpl) tokenPair(u *User) (string, string, error) {
+	access, err := s.generateToken(u, s.authCfg.AccessTokenTTL)
+	if err != nil {
+		return "", "", fmt.Errorf("generate access token: %w", err)
+	}
+
+	refresh, err := s.generateToken(u, s.authCfg.RefreshTokenTTL)
+	if err != nil {
+		return "", "", fmt.Errorf("generate refresh token: %w", err)
+	}
+
+	return access, refresh, nil
+}
+
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
 }
 
 func (s *serviceImpl) withTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
