@@ -6,14 +6,14 @@
 
 ### 1.1 重构 API / 大模型接入模块
 
-Snowy v5 的模型接入层需要从 `primary + fallback` 的简单双模型配置，升级为 **多模型优先级路由 + OpenAI-compatible 统一协议 + 可诊断错误处理**。
+Snowy v5 的模型接入层使用 **`llm.models[]` 有序模型列表 + OpenAI-compatible 统一协议 + 可诊断错误处理**；所有供应商统一经 OpenAI-compatible `/chat/completions` 链路接入。
 
 每个模型配置必须至少包含：
 
 | 配置项 | 说明 | 设计约束 |
 |---|---|---|
-| `provider` | Snowy 内部适配器名，例如 `openai` / `mimo` / `gemini` / `anthropic_compatible` | 用于选择 Provider Adapter，不允许在业务代码硬编码模型名 |
-| `model_provider` | 部分网关或聚合服务要求的厂商字段 | 可选，但 MiMo 等网关必须校验 |
+| `provider` | 统一 Provider 标识，默认 `openai` | 用于监控和脱敏展示；调用实现统一走 OpenAI-compatible Provider |
+| `model_provider` | 部分网关或聚合服务要求的厂商字段 | 可选；仅作为请求字段透传，不触发专用 Provider 分支 |
 | `base_url` | OpenAI-compatible 或厂商 API Base URL | 统一去除尾部 `/`，不得展示 API Key |
 | `api_key` | 运行时密钥 | 允许由环境变量覆盖；仓库配置文件不得写明文密钥 |
 | `model` / `model_name` | 实际模型名 | 兼容两种字段，最终归一为 `EffectiveModel()` |
@@ -21,16 +21,15 @@ Snowy v5 的模型接入层需要从 `primary + fallback` 的简单双模型配�
 | `max_tokens` | 默认输出 token 上限 | 不指定时使用 Snowy 安全上限 |
 | `max_retries` | 单模型错误重试次数 | 只对网络、限流、5xx、超时等瞬时错误重试 |
 | `retry_interval` | 单模型重试间隔 | 支持配置化，默认 1s |
-| `timeout` | 单次模型调用超时 | 不允许无限等待 |
-| `priority` | 模型路由优先级，越小越优先 | 用于多模型兜底顺序 |
+| `timeout` | 单次模型调用超时 | 默认配置为 10m，不允许无限等待 |
 
 核心机制：
 
 1. **统一 Request / Response**：业务层只依赖 `llm.Provider`，不直接调用厂商 SDK。
-2. **多模型优先级队列**：按 `priority` 排序；同优先级保持配置顺序。
+2. **有序模型列表**：按 `llm.models[]` 的 YAML 声明顺序尝试。
 3. **可观测的兜底链路**：每一次模型尝试都记录 provider、model、latency、status、error、tokens、user_id、operation。
 4. **错误分类**：参数错误、认证错误、配额/限流、超时、5xx、解析失败应能区分；只有可恢复错误进入 retry / fallback。
-5. **兼容旧配置**：保留 `llm.primary` / `llm.fallback`，同时新增 `llm.models[]`。若 `models[]` 非空，以 `models[]` 为准；否则从 primary/fallback 自动生成路由表。
+5. **单一配置入口**：模型清单只从 `llm.models[]` 读取，避免同一语义存在多套配置来源。
 
 ### 1.2 实现用户登录、收藏与学习档案
 
@@ -123,7 +122,7 @@ graph TB
     Auth[Auth Middleware\nJWT + Anonymous fallback]
     User[User Service\nEmail login / Profile]
     Learning[Learning Archive\nHistory / Favorites / Reactions]
-    ModelRouter[LLM Priority Router\nmodels[] + primary/fallback compatibility]
+    ModelRouter[LLM Ordered Router\nmodels[] declaration order]
     ProviderA[Provider Adapter A]
     ProviderB[Provider Adapter B]
     ProviderN[Provider Adapter N]
@@ -293,7 +292,7 @@ v5 扩展 `target_type`：
 
 ## 9. 验收标准
 
-1. 配置 `llm.models[]` 多个模型后，调用链路按 priority 尝试，主模型失败会进入下一模型。
+1. 配置 `llm.models[]` 多个模型后，调用链路按 YAML 声明顺序尝试，当前模型失败会进入下一模型。
 2. 通过邮箱注册 / 登录能获得 JWT；携带 JWT 请求 `/user/profile` 返回真实用户。
 3. 未携带 JWT 的旧链路仍可匿名使用，避免破坏现有体验。
 4. 用户对同一目标设置 like 后再设置 dislike，聚合计数应从 like 转移到 dislike。

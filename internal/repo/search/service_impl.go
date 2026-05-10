@@ -142,7 +142,7 @@ func (s *serviceImpl) queryWithLLM(ctx context.Context, q *Query, parsed *Parsed
 			continue
 		}
 
-		requestCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
+		requestCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 		response, err := provider.Generate(requestCtx, &llm.Request{
 			Model: providerConfiguredModel(provider),
 			Messages: []llm.Message{

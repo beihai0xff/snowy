@@ -38,22 +38,22 @@ func (f *fakeProvider) ConfiguredModel() string         { return f.model }
 func (f *fakeProvider) ConfiguredBaseURL() string       { return "" }
 func (f *fakeProvider) ConfiguredModelProvider() string { return "" }
 
-func TestChainFallsBackAndInjectsProviderModel(t *testing.T) {
-	primary := &fakeProvider{name: "primary", model: "m1", generate: func(*llm.Request) (*llm.Response, error) {
+func TestChainFailoverAndInjectsProviderModel(t *testing.T) {
+	first := &fakeProvider{name: "first", model: "m1", generate: func(*llm.Request) (*llm.Response, error) {
 		return nil, errors.New("down")
 	}}
-	fallback := &fakeProvider{name: "fallback", model: "m2", generate: func(req *llm.Request) (*llm.Response, error) {
+	second := &fakeProvider{name: "second", model: "m2", generate: func(req *llm.Request) (*llm.Response, error) {
 		assert.Equal(t, "m2", req.Model)
 		return &llm.Response{Content: "ok", Model: req.Model}, nil
 	}}
 
-	provider := NewChain("test", primary, fallback)
+	provider := NewChain("test", first, second)
 	resp, err := provider.Generate(context.Background(), &llm.Request{})
 
 	require.NoError(t, err)
 	assert.Equal(t, "m2", resp.Model)
-	assert.Equal(t, 1, primary.calls)
-	assert.Equal(t, 1, fallback.calls)
+	assert.Equal(t, 1, first.calls)
+	assert.Equal(t, 1, second.calls)
 }
 
 func TestRetryingProviderRetriesOnlyRetryableErrors(t *testing.T) {

@@ -5,7 +5,7 @@ server:
   run_mode: "all"                  # all / api / worker
   mode: "release"                  # debug / release / test
   read_timeout: 30s
-  write_timeout: 180s
+  write_timeout: 10m
   shutdown_timeout: 10s
 
 database:
@@ -28,52 +28,18 @@ redis:
   pool_size: 20
 
 llm:
-  # v5 推荐使用 models[]：按 priority 从小到大尝试；primary/fallback 仍保留向后兼容。
+  # v5 使用 models[] 声明顺序作为调用顺序；所有供应商统一走 OpenAI-compatible 协议。
   models:
-    - provider: "mimo"
-      model_provider: "mimo"
-      model: "mimo-v2.5-pro"
+    - provider: "openai"
+      model_provider: "openai"
+      model: "gateway-test-model"
       api_key: ""
-      base_url: "https://token-plan-cn.xiaomimimo.com/v1"
-      timeout: 180s
+      base_url: "https://api.openai.com/v1"
+      timeout: 10m
       temperature: 0.2
       max_tokens: 131072
       max_retries: 2
       retry_interval: 1s
-      priority: 10
-    - provider: "google"
-      model: "gemini3"
-      api_key: ""
-      base_url: "https://generativelanguage.googleapis.com/v1"
-      timeout: 30s
-      temperature: 0.2
-      max_tokens: 131072
-      max_retries: 2
-      retry_interval: 1s
-      priority: 20
-  primary:
-    provider: "mimo"
-    model_provider: "mimo"
-    model: "mimo-v2.5-pro"
-    api_key: ""
-    base_url: "https://token-plan-cn.xiaomimimo.com/v1"
-    timeout: 180s
-    temperature: 0.2
-    max_tokens: 131072
-    max_retries: 2
-    retry_interval: 1s
-    priority: 10
-  fallback:
-    provider: "google"
-    model: "gemini3"
-    api_key: ""
-    base_url: "https://generativelanguage.googleapis.com/v1"
-    timeout: 30s
-    temperature: 0.2
-    max_tokens: 131072
-    max_retries: 2
-    retry_interval: 1s
-    priority: 20
 
 auth:
   jwt_secret: "change-me-in-production"

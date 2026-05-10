@@ -14,7 +14,7 @@
 | 📐 **物理 / 3D 场景建模** | 条件抽取 → 推导说明 → 前端代码生成 → 浏览器沙箱渲染 → 参数调节 |
 | 🧬 **生物建模** | 概念识别 → 关系抽取 → 过程拆解 → 实验变量分析 → 结构图/流程图 |
 | 🤖 **Agent 编排** | 基于 Eino Graph 的意图识别、工具调用、多模型路由与结构化输出 |
-| 🔄 **多模型路由** | v5 支持 `llm.models[]` 优先级队列，兼容 `primary/fallback`，自动重试、回退与成本管控 |
+| 🔄 **多模型路由** | v5 使用 `llm.models[]` 声明顺序作为调用顺序，支持自动重试、失败切换与成本管控 |
 
 ---
 
@@ -139,14 +139,14 @@ make dev
 make docker-build
 
 # 通过 docker compose 一键启动 Snowy / Web
-MIMO_API_KEY='<runtime only>' make docker-run
+OPENAI_API_KEY='<runtime only>' make docker-run
 ```
 
 说明：
 
 - `make docker-run` 会一次启动 `snowy` / `snowy-web`
 - 该目标会先确保必需基础设施（MySQL / Redis）已启动、健康检查通过，并完成 MySQL migration
-- 大模型运行参数优先从 `configs/config*.yaml` 的 `llm.models[]` 读取，并兼容旧的 `llm.primary/fallback`；也可用环境变量覆盖：`SNOWY_LLM_PRIMARY_BASE_URL` / `SNOWY_LLM_PRIMARY_BASEURL`、`SNOWY_LLM_PRIMARY_MODEL` / `SNOWY_LLM_PRIMARY_MODEL_NAME`、`SNOWY_LLM_PRIMARY_MODEL_PROVIDER`、`SNOWY_LLM_FALLBACK_BASE_URL`、`SNOWY_LLM_FALLBACK_MODEL` 等；密钥仅运行时注入（如 `MIMO_API_KEY` 或 `SNOWY_LLM_PRIMARY_API_KEY`），不要写入仓库
+- 大模型运行参数从 `configs/config*.yaml` 的 `llm.models[]` 读取，调用顺序严格等于 YAML 声明顺序；所有 LLM 供应商统一走 OpenAI-compatible `/chat/completions` 协议链路；密钥仅运行时通过 `OPENAI_API_KEY` 注入，不要写入仓库
 - 应用容器通过 Docker Compose 网络以服务名（`mysql` / `redis`）访问必需基础设施
 - 默认运行模式为 `server.run_mode=all`，同一进程内同时启动 HTTP API 与 embedded Asynq worker；如需临时拆分，可通过配置或环境变量 `SNOWY_SERVER_RUN_MODE=api|worker` 切换
 

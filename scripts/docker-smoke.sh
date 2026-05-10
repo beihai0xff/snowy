@@ -51,12 +51,12 @@ tags=data.get('knowledge_tags') or []
 if 'api key is empty' in answer:
     print({'error':'search returned api-key diagnostic','answer':answer[:500]}, file=sys.stderr)
     sys.exit(1)
-if '大模型直答' in tags and 'mimo' in tags:
+if '大模型直答' in tags:
     sys.exit(0)
 if '本地兜底' in tags and answer:
-    print({'warning':'MiMo direct answer unavailable during smoke; accepted structured fallback','tags':tags,'answer':answer[:180]}, file=sys.stderr)
+    print({'warning':'LLM direct answer unavailable during smoke; accepted structured fallback','tags':tags,'answer':answer[:180]}, file=sys.stderr)
     sys.exit(0)
-print({'error':'search response is neither MiMo direct answer nor structured fallback','tags':tags,'answer':answer[:240]}, file=sys.stderr)
+print({'error':'search response is neither LLM direct answer nor structured fallback','tags':tags,'answer':answer[:240]}, file=sys.stderr)
 sys.exit(1)
 PY
 }
@@ -86,7 +86,7 @@ log "checking core APIs"
 http_get "$WEB_BASE/api/v1/recommendations" || fail "recommendations failed"
 http_get "$WEB_BASE/api/v1/monitoring/llm" || fail "monitoring dashboard api failed"
 http_post_json "$WEB_BASE/api/v1/search/query" '{"query":"牛顿第二定律","filters":{"subject":"physics"}}' || fail "search query failed"
-assert_search_llm_answer || fail "search query did not use real MiMo LLM"
+assert_search_llm_answer || fail "search query did not use real LLM"
 http_post_json "$WEB_BASE/api/v1/modeling/biology/analyze" '{"question":"光合作用中光照强度对有机物积累的影响"}' || fail "biology analyze failed"
 http_post_json "$WEB_BASE/api/v1/agent/chat" '{"message":"你好","mode":"search","filters":{"subject":"physics"}}' || fail "agent chat failed"
 ok "core APIs are OK"

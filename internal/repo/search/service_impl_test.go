@@ -104,7 +104,7 @@ func TestService_QueryUsesLLMDirectAnswer(t *testing.T) {
 		fakeRanker{},
 		nil,
 		nil,
-		WithLLMProviders(fakeLLMProvider{name: "mimo", model: "configured-mimo-model", generateFn: func(_ context.Context, req *llm.Request) (*llm.Response, error) {
+		WithLLMProviders(fakeLLMProvider{name: "openai", model: "configured-gateway-model", generateFn: func(_ context.Context, req *llm.Request) (*llm.Response, error) {
 			captured = req
 			return &llm.Response{Content: "结论：牛顿第二定律说明物体加速度与合外力成正比。"}, nil
 		}}, nil),
@@ -123,7 +123,7 @@ func TestService_QueryUsesLLMDirectAnswer(t *testing.T) {
 	assert.NotEmpty(t, resp.ExamMappings)
 	assert.NotEmpty(t, resp.NextActions)
 	assert.Contains(t, resp.KnowledgeTags, "大模型直答")
-	assert.Contains(t, resp.KnowledgeTags, "mimo")
+	assert.Contains(t, resp.KnowledgeTags, "openai")
 	assert.GreaterOrEqual(t, resp.Confidence, 0.8)
 	require.NotNil(t, captured)
 	require.Len(t, captured.Messages, 2)
@@ -132,7 +132,7 @@ func TestService_QueryUsesLLMDirectAnswer(t *testing.T) {
 	assert.NotContains(t, captured.Messages[0].Content, "Snowy")
 	assert.NotContains(t, captured.Messages[0].Content, "学习平台")
 	assert.True(t, strings.Contains(captured.Messages[1].Content, "不要进行数据库检索"))
-	assert.Equal(t, "configured-mimo-model", captured.Model)
+	assert.Equal(t, "configured-gateway-model", captured.Model)
 }
 
 func TestService_QueryLLMFailureReturnsFallback(t *testing.T) {
@@ -142,7 +142,7 @@ func TestService_QueryLLMFailureReturnsFallback(t *testing.T) {
 		fakeRanker{},
 		nil,
 		nil,
-		WithLLMProviders(fakeLLMProvider{name: "mimo", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) {
+		WithLLMProviders(fakeLLMProvider{name: "openai", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) {
 			return nil, errors.New("model unavailable")
 		}}, nil),
 	)

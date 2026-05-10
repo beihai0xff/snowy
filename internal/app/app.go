@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 	"sync"
 	"time"
 
@@ -138,7 +137,7 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 	providerConfigs := make([]monitoring.LLMProviderConfig, 0, len(modelConfigs))
 	observedProviders := make([]llm.Provider, 0, len(modelConfigs))
 	for i, modelCfg := range modelConfigs {
-		role := providerRole(i)
+		role := modelRole(i)
 		providerConfigs = append(providerConfigs, monitoring.ProviderConfigFromConfig(role, modelCfg))
 	}
 
@@ -149,9 +148,9 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 	)
 	for i, modelCfg := range modelConfigs {
 		provider := llmroute.NewRetryingProvider(newLLMProvider(modelCfg), modelCfg.MaxRetries, modelCfg.RetryInterval)
-		observedProviders = append(observedProviders, monitoring.WrapProvider(provider, llmRecorder, providerRole(i)))
+		observedProviders = append(observedProviders, monitoring.WrapProvider(provider, llmRecorder, modelRole(i)))
 	}
-	primaryLLM, fallbackLLM := splitLLMProviders(observedProviders)
+	firstLLM, remainingLLM := splitOrderedLLMProviders(observedProviders)
 
 	reactionRepo := mysqlrepo.NewReactionRepository(shared.db)
 	userSvc := user.NewService(userRepo, favoriteRepo, historyRepo, transactor, shared.cfg.Auth, reactionRepo)
@@ -162,11 +161,11 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 		searchranking.NewScoreRanker(),
 		nil,
 		nil,
-		searchservice.WithLLMProviders(primaryLLM, fallbackLLM),
+		searchservice.WithLLMProviders(firstLLM, remainingLLM),
 	)
 	physicsSvc := physicsservice.NewService(
 		physicscalculator.NewSimpleCalculator(),
-		physicsservice.WithLLMProviders(primaryLLM, fallbackLLM),
+		physicsservice.WithLLMProviders(firstLLM, remainingLLM),
 	)
 	biologySvc := biologyservice.NewService(
 		biologyexperiment.NewSimpleAnalyzer(),
@@ -177,7 +176,7 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 		physicsSvc,
 		biologySvc,
 		generativeRepo,
-		generativeservice.WithLLMProviders(primaryLLM, fallbackLLM),
+		generativeservice.WithLLMProviders(firstLLM, remainingLLM),
 	)
 
 	modelRouter := agentrouter.NewStaticRouter(shared.cfg.LLM)
@@ -200,7 +199,7 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 		agentgraph.WithBiologyAnalyzeTool(agenttool.NewBiologyAnalyzeTool(biologySvc)),
 		agentgraph.WithCitationTool(agenttool.NewCitationTool()),
 		agentgraph.WithCallbacks(callbacks...),
-		agentgraph.WithLLMProviders(primaryLLM, fallbackLLM),
+		agentgraph.WithLLMProviders(firstLLM, remainingLLM),
 	)
 
 	var agentSvc agent.Service = graphBuilder
@@ -283,18 +282,11 @@ func (a *App) Router() *gin.Engine {
 	return a.api.router
 }
 
-func providerRole(index int) string {
-	if index == 0 {
-		return "primary"
-	}
-	if index == 1 {
-		return "fallback"
-	}
-
-	return fmt.Sprintf("fallback_%d", index)
+func modelRole(index int) string {
+	return fmt.Sprintf("model_%d", index+1)
 }
 
-func splitLLMProviders(providers []llm.Provider) (llm.Provider, llm.Provider) {
+func splitOrderedLLMProviders(providers []llm.Provider) (llm.Provider, llm.Provider) {
 	if len(providers) == 0 {
 		return nil, nil
 	}
@@ -302,20 +294,11 @@ func splitLLMProviders(providers []llm.Provider) (llm.Provider, llm.Provider) {
 		return providers[0], nil
 	}
 
-	return providers[0], llmroute.NewChain("fallback-chain", providers[1:]...)
+	return providers[0], llmroute.NewChain("ordered-model-chain", providers[1:]...)
 }
 
 func newLLMProvider(cfg config.ModelProviderConfig) llm.Provider {
-	switch strings.ToLower(strings.TrimSpace(cfg.Provider)) {
-	case "mimo", "xiaomi", "xiaomi-mimo":
-		return llm.NewMiMoProvider(cfg)
-	case "openai":
-		return llm.NewOpenAIProvider(cfg)
-	case "google", "gemini":
-		return llm.NewGeminiProvider(cfg)
-	default:
-		return llm.NewUnsupportedProvider(cfg.Provider)
-	}
+	return llm.NewOpenAIProvider(cfg)
 }
 
 // Close 释放共享资源。

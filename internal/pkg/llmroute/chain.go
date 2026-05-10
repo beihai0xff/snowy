@@ -10,9 +10,9 @@ import (
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 )
 
-// Chain is an llm.Provider that tries multiple providers in priority order.
+// Chain is an llm.Provider that tries multiple providers in configured order.
 // It keeps the business layer dependent on a single Provider while preserving
-// model-level fallback and error visibility.
+// model-level failover and error visibility.
 type Chain struct {
 	name      string
 	providers []llm.Provider
@@ -105,7 +105,7 @@ func (p *RetryingProvider) ConfiguredModelProvider() string {
 func NewChain(name string, providers ...llm.Provider) llm.Provider {
 	chain := &Chain{name: strings.TrimSpace(name)}
 	if chain.name == "" {
-		chain.name = "priority-chain"
+		chain.name = "ordered-model-chain"
 	}
 
 	for _, provider := range providers {
@@ -220,7 +220,7 @@ func (c *Chain) EstimateCost(ctx context.Context, req *llm.Request) (*llm.Cost, 
 
 func (c *Chain) Name() string {
 	if c == nil || c.name == "" {
-		return "priority-chain"
+		return "ordered-model-chain"
 	}
 
 	return c.name

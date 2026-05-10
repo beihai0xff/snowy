@@ -4,7 +4,6 @@ package monitoring
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/url"
 	"os"
 	"slices"
@@ -618,18 +617,7 @@ func providerAPIKeyConfigured(role, provider, cfgKey string) bool {
 		return true
 	}
 
-	role = strings.ToUpper(strings.TrimSpace(role))
-	provider = strings.ToLower(strings.TrimSpace(provider))
-	keys := []string{fmt.Sprintf("SNOWY_LLM_%s_API_KEY", role)}
-
-	switch provider {
-	case "mimo", "xiaomi", "xiaomi-mimo":
-		keys = append(keys, "MIMO_API_KEY", "XIAOMI_MIMO_API_KEY")
-	case "openai":
-		keys = append(keys, "OPENAI_API_KEY")
-	case "google", "gemini":
-		keys = append(keys, "GEMINI_API_KEY", "GOOGLE_API_KEY")
-	}
+	keys := []string{"OPENAI_API_KEY"}
 
 	for _, key := range keys {
 		if strings.TrimSpace(os.Getenv(key)) != "" {

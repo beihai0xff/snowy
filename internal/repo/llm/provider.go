@@ -108,6 +108,16 @@ type ConfiguredProvider interface {
 	ConfiguredModelProvider() string
 }
 
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+
+	return ""
+}
+
 // NewUnsupportedProvider 创建一个显式不可用的 Provider，用于配置缺失或未知 provider 时
 // 保持调用链可降级，而不是静默切到某个硬编码默认厂商。
 func NewUnsupportedProvider(name string) Provider {

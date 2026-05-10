@@ -20,7 +20,7 @@ import (
 	searchdomain "github.com/beihai0xff/snowy/internal/repo/search"
 )
 
-const defaultCompileTimeout = 120 * time.Second
+const defaultCompileTimeout = 10 * time.Minute
 
 type CompilerOption func(*compilerService)
 

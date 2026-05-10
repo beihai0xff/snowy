@@ -101,7 +101,7 @@ func TestCompileRuleFallbackWhenLLMFails(t *testing.T) {
 	assert.NotEmpty(t, pkg.AssessmentTasks)
 }
 
-func TestDecodePackageJSONNormalizesMiMoShape(t *testing.T) {
+func TestDecodePackageJSONNormalizesGatewayShape(t *testing.T) {
 	content := `这里是结果：{"package_id":"package","domain":"physics","question":"平抛","learning_model":{"domain":"physics","grade_band":"high_school","topic":"projectile","learning_goal":"理解平抛"},"evidence_refs":["平抛运动可分解为水平方向匀速直线运动和竖直方向自由落体运动"],"reasoning_trace":{"summary":"先分解运动","confidence":0.9},"generative_model":{"domain":"physics","grade_band":"high_school","topic":"projectile","learning_goal":"理解平抛","variables":[{"name":"v0","label":"初速度","unit":"m/s","default":20,"min":0,"max":60}]},"simulation_logic":{"simulation_type":"generated_projectile_2d","runtime":"safe_math_dsl","variables":[{"name":"v0","label":"初速度","unit":"m/s","default":20,"min":0,"max":60}],"formulas":["x = v0 * t"],"render_instructions":{"coordinate_system":"2d_cartesian"},"local_recompute_allowed":true},"interaction_plan":{"regeneration_policy":{"local_recompute":["v0"],"llm_regenerate":["new_force"]}},"assessment_tasks":[],"validation_report":{"schema_valid":true},"confidence":0.91} 结束`
 	content = strings.ReplaceAll(content, `\"`, `"`)
 	pkg, err := decodePackageJSON(content)
@@ -112,7 +112,7 @@ func TestDecodePackageJSONNormalizesMiMoShape(t *testing.T) {
 	assert.Equal(t, "x = v0 * t", pkg.SimulationLogic.Formulas[0].Expr)
 }
 
-func TestDecodePackageJSONNormalizesMiMoSpringShape(t *testing.T) {
+func TestDecodePackageJSONNormalizesGatewaySpringShape(t *testing.T) {
 	content := `{
 		"package_id":"package",
 		"domain":"physics",

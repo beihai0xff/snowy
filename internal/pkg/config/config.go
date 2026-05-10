@@ -4,7 +4,6 @@ package config
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -161,7 +160,6 @@ type ModelProviderConfig struct {
 	MaxTokens           int           `mapstructure:"max_tokens"`
 	MaxRetries          int           `mapstructure:"max_retries"`
 	RetryInterval       time.Duration `mapstructure:"retry_interval"`
-	Priority            int           `mapstructure:"priority"`
 }
 
 // EffectiveModel 返回最终模型名，兼容 model_name 与 model 两种配置键。
@@ -184,58 +182,14 @@ func (m ModelProviderConfig) EffectiveBaseURL() string {
 
 // LLMConfig 大模型配置。
 //
-// v5 新增 models[] 作为优先级路由表；保留 primary/fallback 以兼容旧配置。
+// v5 只支持 models[] 显式模型列表；调用顺序严格等于配置声明顺序。
 type LLMConfig struct {
-	Primary  ModelProviderConfig   `mapstructure:"primary"`
-	Fallback ModelProviderConfig   `mapstructure:"fallback"`
-	Models   []ModelProviderConfig `mapstructure:"models"`
+	Models []ModelProviderConfig `mapstructure:"models"`
 }
 
-// EffectiveModels returns the v5 priority model list.
-// If llm.models[] is configured it wins; otherwise primary/fallback are used for backward compatibility.
+// EffectiveModels returns configured models in declaration order.
 func (c LLMConfig) EffectiveModels() []ModelProviderConfig {
-	var models []ModelProviderConfig
-	if len(c.Models) > 0 {
-		models = append(models, c.Models...)
-	} else {
-		models = append(models, c.Primary, c.Fallback)
-	}
-
-	models = filterConfiguredModels(models)
-	sort.SliceStable(models, func(i, j int) bool {
-		left := models[i].Priority
-		right := models[j].Priority
-		if left == 0 {
-			left = i + 1000
-		}
-		if right == 0 {
-			right = j + 1000
-		}
-
-		return left < right
-	})
-
-	return models
-}
-
-// EffectivePrimary returns the first effective model, preserving old call sites.
-func (c LLMConfig) EffectivePrimary() ModelProviderConfig {
-	models := c.EffectiveModels()
-	if len(models) == 0 {
-		return ModelProviderConfig{}
-	}
-
-	return models[0]
-}
-
-// EffectiveFallback returns the second effective model when available, preserving old call sites.
-func (c LLMConfig) EffectiveFallback() ModelProviderConfig {
-	models := c.EffectiveModels()
-	if len(models) < 2 {
-		return ModelProviderConfig{}
-	}
-
-	return models[1]
+	return filterConfiguredModels(c.Models)
 }
 
 func filterConfiguredModels(models []ModelProviderConfig) []ModelProviderConfig {
@@ -351,32 +305,6 @@ func Load(configPath string) (*Config, error) {
 func bindEnvironment(v *viper.Viper) error {
 	keys := []string{
 		"server.run_mode",
-		"llm.primary.provider",
-		"llm.primary.model_provider",
-		"llm.primary.model",
-		"llm.primary.model_name",
-		"llm.primary.api_key",
-		"llm.primary.base_url",
-		"llm.primary.baseurl",
-		"llm.primary.timeout",
-		"llm.primary.temperature",
-		"llm.primary.max_tokens",
-		"llm.primary.max_retries",
-		"llm.primary.retry_interval",
-		"llm.primary.priority",
-		"llm.fallback.provider",
-		"llm.fallback.model_provider",
-		"llm.fallback.model",
-		"llm.fallback.model_name",
-		"llm.fallback.api_key",
-		"llm.fallback.base_url",
-		"llm.fallback.baseurl",
-		"llm.fallback.timeout",
-		"llm.fallback.temperature",
-		"llm.fallback.max_tokens",
-		"llm.fallback.max_retries",
-		"llm.fallback.retry_interval",
-		"llm.fallback.priority",
 		"llm.models",
 		"embedding.provider",
 		"embedding.model",
