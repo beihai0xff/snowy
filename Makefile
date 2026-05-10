@@ -25,10 +25,17 @@ LDFLAGS        := -s -w \
                   -X main.Commit=$(COMMIT)
 GOTEST_FLAGS   := -race -count=1 -timeout 120s
 TEST_DEPS_SERVICES := mysql redis minio
-INFRA_SERVICES := mysql redis minio minio-init prometheus grafana
+INFRA_SERVICES := mysql redis
 
 # ── Docker 参数 ─────────────────────────────────────────────
 DOCKER_COMPOSE := docker compose -f $(DEPLOY_DIR)/docker-compose.yml -p $(PROJECT_NAME)
+
+# Load local, git-ignored runtime secrets when present (e.g. MIMO_API_KEY).
+# This keeps `make docker-run` / `make run` usable without re-exporting env vars.
+ifneq (,$(wildcard $(ROOT_DIR)/.env))
+include $(ROOT_DIR)/.env
+export
+endif
 DOCKER_REG     ?=
 IMAGE_SERVER   := $(if $(DOCKER_REG),$(DOCKER_REG)/)$(PROJECT_NAME):$(VERSION)
 
@@ -152,25 +159,20 @@ test-deps-down:
 #  Docker — 基础设施 (docker-compose)
 # ============================================================
 
-.PHONY: docker-up docker-down docker-ps docker-logs docker-clean bootstrap
+.PHONY: docker-up docker-down docker-ps docker-logs docker-observability-up docker-storage-up docker-clean bootstrap
 
-## docker-up: 启动基础设施并等待健康检查通过后自动执行 GORM migration
+## docker-up: 启动必需基础设施 (MySQL/Redis) 并等待健康检查通过后自动执行 GORM migration
 docker-up:
 	@echo "$(CYAN)▸ Starting infrastructure...$(RESET)"
 	$(DOCKER_COMPOSE) up -d $(INFRA_SERVICES)
 	@echo "$(CYAN)▸ Waiting for infrastructure health checks...$(RESET)"
 	@$(WAIT_FOR_CONTAINER) snowy-mysql 90 2
 	@$(WAIT_FOR_CONTAINER) snowy-redis 60 2
-	@$(WAIT_FOR_CONTAINER) snowy-minio 60 2
 	@$(MAKE) migrate-up
-	@echo "$(CYAN)✓ Infrastructure is healthy and MySQL schema is migrated$(RESET)"
+	@echo "$(CYAN)✓ Required infrastructure is healthy and MySQL schema is migrated$(RESET)"
 	@echo ""
 	@echo "  MySQL      : localhost:3306"
 	@echo "  Redis      : localhost:6379"
-	@echo "  MinIO API  : localhost:9000"
-	@echo "  MinIO Console: localhost:9001"
-	@echo "  Prometheus : localhost:9090"
-	@echo "  Grafana    : localhost:3000"
 
 ## docker-down: 停止全部基础设施 (保留数据卷)
 docker-down:
@@ -185,6 +187,25 @@ docker-ps:
 ## docker-logs: 查看基础设施日志（示例 make docker-logs SVC=redis）
 docker-logs:
 	$(DOCKER_COMPOSE) logs -f $(SVC)
+
+## docker-observability-up: 启动可选观测组件 (Prometheus/Grafana)
+docker-observability-up:
+	@echo "$(CYAN)▸ Starting optional observability services...$(RESET)"
+	$(DOCKER_COMPOSE) up -d prometheus grafana
+	@echo "$(CYAN)✓ Observability services are running$(RESET)"
+	@echo ""
+	@echo "  Prometheus : localhost:9090"
+	@echo "  Grafana    : localhost:3000"
+
+## docker-storage-up: 启动可选对象存储组件 (MinIO)
+docker-storage-up:
+	@echo "$(CYAN)▸ Starting optional storage services...$(RESET)"
+	$(DOCKER_COMPOSE) up -d minio minio-init
+	@$(WAIT_FOR_CONTAINER) snowy-minio 60 2
+	@echo "$(CYAN)✓ Storage services are running$(RESET)"
+	@echo ""
+	@echo "  MinIO API  : localhost:9000"
+	@echo "  MinIO Console: localhost:9001"
 
 ## docker-clean: 停止全部基础设施并删除数据卷 (⚠️ 数据将丢失)
 docker-clean:

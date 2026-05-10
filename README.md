@@ -27,10 +27,10 @@
 | **Agent 编排** | [Eino](https://github.com/cloudwego/eino) (CloudWeGo) |
 | **数据库** | MySQL 8.0+ (GORM + go-sql-driver/mysql) |
 | **缓存 & 队列** | Redis 7 + Asynq |
-| **搜索引擎** | OpenSearch（全文 + 向量 + 混合检索） |
-| **对象存储** | MinIO (S3 兼容，开发环境) |
+| **搜索引擎** | OpenSearch 适配器（可选，默认运行未接入） |
+| **对象存储** | MinIO / S3 兼容对象存储（可选，默认运行不启动） |
 | **前端** | React / Next.js + TypeScript |
-| **可观测** | OpenTelemetry + Prometheus + Grafana |
+| **可观测** | OpenTelemetry + Prometheus + Grafana（Prometheus/Grafana 可选启动） |
 
 ---
 
@@ -79,8 +79,8 @@ make bootstrap
 该命令会自动完成以下步骤：
 
 - 下载 Go 依赖
-- 启动基础设施容器
-- 等待 `MySQL` / `Redis` / `OpenSearch` / `MinIO` 健康检查通过
+- 启动必需基础设施容器（MySQL / Redis）
+- 等待 `MySQL` / `Redis` 健康检查通过
 - 自动执行 `GORM migration`
 
 其中 `make bootstrap` 本质上等价于依次执行：`make deps` → `make docker-up`。
@@ -93,11 +93,11 @@ make docker-up
 
 该命令现在会自动完成以下步骤：
 
-- 启动基础设施容器
-- 等待 `MySQL` / `Redis` / `OpenSearch` / `MinIO` 健康检查通过
+- 启动必需基础设施容器（MySQL / Redis）
+- 等待 `MySQL` / `Redis` 健康检查通过
 - 自动执行 `GORM migration`
 
-注意：`make docker-up` 只会启动基础设施相关容器，不会自动启动 `snowy` / `snowy-web` 应用容器。
+注意：`make docker-up` 只会启动必需基础设施相关容器，不会自动启动 `snowy` / `snowy-web` 应用容器；MinIO、Prometheus、Grafana 为可选组件，需要时显式启动。
 
 将启动以下服务：
 
@@ -105,8 +105,19 @@ make docker-up
 |---|---|
 | MySQL | `localhost:3306` |
 | Redis | `localhost:6379` |
-| OpenSearch | `localhost:9200` |
-| OpenSearch Dashboards | `localhost:5601` |
+
+可选组件按需启动：
+
+```bash
+# 对象存储（仅在需要 MinIO/S3 本地联调时）
+make docker-storage-up
+
+# 观测组件（仅在需要 Prometheus/Grafana 看板时）
+make docker-observability-up
+```
+
+| 可选服务 | 地址 |
+|---|---|
 | MinIO API | `localhost:9000` |
 | MinIO Console | `localhost:9001` |
 | Prometheus | `localhost:9090` |
@@ -140,9 +151,9 @@ MIMO_API_KEY='<runtime only>' make docker-run
 说明：
 
 - `make docker-run` 会一次启动 `snowy` / `snowy-web`
-- 该目标会先确保基础设施已启动、健康检查通过，并完成 MySQL migration
+- 该目标会先确保必需基础设施（MySQL / Redis）已启动、健康检查通过，并完成 MySQL migration
 - 大模型运行参数从 `configs/config*.yaml` 的 `llm.primary/fallback` 读取，也可用环境变量覆盖：`SNOWY_LLM_PRIMARY_BASE_URL` / `SNOWY_LLM_PRIMARY_BASEURL`、`SNOWY_LLM_PRIMARY_MODEL` / `SNOWY_LLM_PRIMARY_MODEL_NAME`、`SNOWY_LLM_PRIMARY_MODEL_PROVIDER`、`SNOWY_LLM_FALLBACK_BASE_URL`、`SNOWY_LLM_FALLBACK_MODEL` 等；密钥仅运行时注入（如 `MIMO_API_KEY` 或 `SNOWY_LLM_PRIMARY_API_KEY`），不要写入仓库
-- 应用容器通过 Docker Compose 网络以服务名（`mysql` / `redis` / `minio`）访问基础设施
+- 应用容器通过 Docker Compose 网络以服务名（`mysql` / `redis`）访问必需基础设施
 - 默认运行模式为 `server.run_mode=all`，同一进程内同时启动 HTTP API 与 embedded Asynq worker；如需临时拆分，可通过配置或环境变量 `SNOWY_SERVER_RUN_MODE=api|worker` 切换
 
 ### 5. 查看全部 Make 目标
@@ -156,14 +167,14 @@ make help
 推荐按分层执行测试：
 
 - `make test` / `make test-unit`：纯单元测试，默认使用 mock，速度快、适合日常开发
-- `make test-integration`：自动启动 Docker 中的 `MySQL` / `Redis` / `OpenSearch` / `MinIO`，执行带 `integration` tag 的真实依赖测试
+- `make test-integration`：自动启动 Docker 中的 `MySQL` / `Redis` / `MinIO`，执行带 `integration` tag 的真实依赖测试；OpenSearch/RAG 集成测试需额外以 `rag` tag 按需运行
 - `make test-e2e`：执行带 `e2e` tag 的端到端测试
 
 ```bash
 # 仅运行单元测试
 make test
 
-# 启动 MySQL / Redis / OpenSearch / MinIO Docker 依赖并运行集成测试
+# 启动 MySQL / Redis / MinIO Docker 依赖并运行集成测试
 make test-integration
 
 # 如需保留测试依赖容器，便于手动排查
@@ -174,7 +185,6 @@ make test-integration
 
 - MySQL：`127.0.0.1:3306`
 - Redis：`127.0.0.1:6379`
-- OpenSearch：`http://127.0.0.1:9200`
 - MinIO：`127.0.0.1:9000`
 
 可覆盖的环境变量示例：
@@ -188,10 +198,6 @@ SNOWY_DATABASE_NAME=snowy
 SNOWY_REDIS_ADDR=127.0.0.1:6379
 SNOWY_REDIS_PASSWORD=
 SNOWY_REDIS_DB=0
-SNOWY_OPENSEARCH_ADDR=http://127.0.0.1:9200
-SNOWY_OPENSEARCH_USERNAME=admin
-SNOWY_OPENSEARCH_PASSWORD=admin
-SNOWY_OPENSEARCH_INDEX=snowy-content-integration
 SNOWY_MINIO_ENDPOINT=127.0.0.1:9000
 SNOWY_MINIO_ACCESS_KEY=snowy_admin
 SNOWY_MINIO_SECRET_KEY=snowy_minio_secret
@@ -200,16 +206,15 @@ SNOWY_MINIO_BUCKET=snowy
 
 当前集成测试会在执行前自动：
 
-- 等待 MySQL / Redis / OpenSearch / MinIO 健康检查通过
+- 等待 MySQL / Redis / MinIO 健康检查通过
 - 通过 `internal/repo/mysql` 的 GORM migration runner 初始化 MySQL 表结构
-- 重建 OpenSearch 集成测试索引
 - 清理 MinIO 测试 bucket 中的对象
 - 清理 MySQL 表数据与 Redis DB，避免脏数据影响结果
 
 仓库中的 GitHub Actions 工作流会自动执行：
 
 - 单元测试 + `go vet` + `go build`
-- 基于 Docker Compose 的基础设施集成测试矩阵（MySQL / Redis / OpenSearch / MinIO）
+- 基于 Docker Compose 的基础设施集成测试矩阵（MySQL / Redis / MinIO）
 
 ---
 

@@ -38,7 +38,6 @@ import (
 	searchservice "github.com/beihai0xff/snowy/internal/repo/search"
 	searchquery "github.com/beihai0xff/snowy/internal/repo/search/query"
 	searchranking "github.com/beihai0xff/snowy/internal/repo/search/ranking"
-	"github.com/beihai0xff/snowy/internal/repo/storage"
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
@@ -143,7 +142,6 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 	)
 	primaryLLM := monitoring.WrapProvider(newLLMProvider(shared.cfg.LLM.Primary), llmRecorder, "primary")
 	fallbackLLM := monitoring.WrapProvider(newLLMProvider(shared.cfg.LLM.Fallback), llmRecorder, "fallback")
-	_ = storage.NewMinIOStorage(shared.cfg.MinIO)
 
 	userSvc := user.NewService(userRepo, favoriteRepo, historyRepo, transactor, shared.cfg.Auth)
 	agentWriteSvc := agent.NewWriteService(transactor, sessionRepo, messageRepo, runRepo, toolCallRepo)

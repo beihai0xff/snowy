@@ -1,12 +1,8 @@
 # Snowy - Local Development Docker Compose
 # 参考技术方案 §6 技术栈选型 & §18 数据库与存储设计
 #
-# 包含服务:
-#   - MySQL       : 主数据库（用户、会话、Agent 记录、内容元数据等）
-#   - Redis       : 缓存 + Asynq 异步任务队列
-#   - MinIO       : S3 兼容对象存储（开发环境替代）
-#   - Prometheus  : 指标采集
-#   - Grafana     : 可视化仪表盘
+# 默认运行只需要 MySQL / Redis。
+# MinIO、Prometheus、Grafana 保留为可选服务，可通过显式 make 目标按需启动。
 
 services:
   # ──────────────────────────────────────────────
@@ -171,8 +167,6 @@ services:
       mysql:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      minio:
         condition: service_healthy
     command: ["--config", "configs/config.docker.yaml"]
     healthcheck:
