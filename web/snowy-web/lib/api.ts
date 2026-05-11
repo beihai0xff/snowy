@@ -684,16 +684,23 @@ async function request<T>(
 
 // ── API functions ────────────────────────────────────────
 
+function emitAuthChange() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event('snowy-auth-change'));
+}
+
 export function setAuthTokens(accessToken: string, refreshToken?: string) {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem('snowy_access_token', accessToken);
   if (refreshToken) window.localStorage.setItem('snowy_refresh_token', refreshToken);
+  emitAuthChange();
 }
 
 export function clearAuthTokens() {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem('snowy_access_token');
   window.localStorage.removeItem('snowy_refresh_token');
+  emitAuthChange();
 }
 
 function getAccessToken(): string {

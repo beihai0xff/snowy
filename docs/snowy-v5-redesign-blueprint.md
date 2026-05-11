@@ -29,7 +29,7 @@ Snowy v5 的模型接入层使用 **`llm.models[]` 有序模型列表 + OpenAI-c
 2. **有序模型列表**：按 `llm.models[]` 的 YAML 声明顺序尝试。
 3. **可观测的兜底链路**：每一次模型尝试都记录 provider、model、latency、status、error、tokens、user_id、operation。
 4. **错误分类**：参数错误、认证错误、配额/限流、超时、5xx、解析失败应能区分；只有可恢复错误进入 retry / fallback。
-5. **单一配置入口**：模型清单只从 `llm.models[]` 读取，避免同一语义存在多套配置来源。
+5. **单一配置入口**：模型清单只从 `llm.models[]` 读取，确保同一语义只有一套配置来源。
 
 ### 1.2 实现用户登录、收藏与学习档案
 
