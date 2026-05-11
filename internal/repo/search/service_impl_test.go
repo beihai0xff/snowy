@@ -104,10 +104,10 @@ func TestService_QueryUsesLLMDirectAnswer(t *testing.T) {
 		fakeRanker{},
 		nil,
 		nil,
-		WithLLMProviders(fakeLLMProvider{name: "openai", model: "configured-gateway-model", generateFn: func(_ context.Context, req *llm.Request) (*llm.Response, error) {
+		WithLLMProvider(fakeLLMProvider{name: "openai", model: "configured-gateway-model", generateFn: func(_ context.Context, req *llm.Request) (*llm.Response, error) {
 			captured = req
 			return &llm.Response{Content: "结论：牛顿第二定律说明物体加速度与合外力成正比。"}, nil
-		}}, nil),
+		}}),
 	)
 
 	resp, err := svc.Query(context.Background(), &Query{Text: "牛顿第二定律是什么", Filters: Filters{Subject: "physics"}})
@@ -142,9 +142,9 @@ func TestService_QueryLLMFailureReturnsFallback(t *testing.T) {
 		fakeRanker{},
 		nil,
 		nil,
-		WithLLMProviders(fakeLLMProvider{name: "openai", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) {
+		WithLLMProvider(fakeLLMProvider{name: "openai", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) {
 			return nil, errors.New("model unavailable")
-		}}, nil),
+		}}),
 	)
 
 	resp, err := svc.Query(context.Background(), &Query{Text: "细胞膜有什么作用", Filters: Filters{Subject: "biology"}})

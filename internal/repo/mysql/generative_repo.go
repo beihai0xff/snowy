@@ -36,3 +36,17 @@ func (r *generativeModelPackageRepo) GetByID(
 
 	return row.toDomain(), nil
 }
+
+func (r *generativeModelPackageRepo) ListByUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	offset, limit int,
+) ([]*generative.GenerativeModelPackage, int64, error) {
+	return listByUserRows[generativeModelPackageRow](ctx, r.db, &generativeModelPackageRow{}, userID, offset, limit,
+		"created_at DESC",
+		"generative model packages", "generative model packages",
+		func(row *generativeModelPackageRow) (*generative.GenerativeModelPackage, error) {
+			return row.toDomain(), nil
+		},
+	)
+}

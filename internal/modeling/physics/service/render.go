@@ -44,18 +44,15 @@ func (s *serviceImpl) generateLLMRenderArtifact(
 
 	var attemptErrors []string
 
-	for _, provider := range []llm.Provider{s.primaryLLM, s.fallbackLLM} {
-		artifact, err := s.tryGenerateWithProvider(ctx, provider, &scene, mode)
-		if err == nil && artifact != nil {
-			return artifact, nil
-		}
-
-		if err != nil {
-			attemptErrors = append(attemptErrors, err.Error())
-		}
+	artifact, err := s.tryGenerateWithProvider(ctx, s.llmChain, &scene, mode)
+	if err == nil && artifact != nil {
+		return artifact, nil
+	}
+	if err != nil {
+		attemptErrors = append(attemptErrors, err.Error())
 	}
 
-	artifact, err := s.generateTemplateArtifact(&scene, mode)
+	artifact, err = s.generateTemplateArtifact(&scene, mode)
 	if err != nil {
 		attemptErrors = append(attemptErrors, err.Error())
 

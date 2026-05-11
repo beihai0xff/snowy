@@ -313,7 +313,7 @@ export interface BiologyModel {
 }
 
 
-// ── Generative Modeling v4 ───────────────────────────────
+// ── Generative Modeling v5 ───────────────────────────────
 
 export interface EvidenceRef {
   doc_id: string;
@@ -749,6 +749,8 @@ export const api = {
 
   modelingCompile: (data: ModelingCompileReq) =>
     request<GenerativeModelPackage>('/modeling/compile', { method: 'POST', body: JSON.stringify(data) }),
+
+  listModelingPackages: () => request<PageResponse<GenerativeModelPackage>>('/modeling/packages'),
 
   getModelingPackage: (id: string) =>
     request<GenerativeModelPackage>(`/modeling/packages/${encodeURIComponent(id)}`),

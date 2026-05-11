@@ -1,22 +1,31 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Alert, Card, Typography, Tabs, List, Tag, Empty, Spin, Button, Space, message, Form, Input, Segmented } from 'antd';
+import { Alert, Button, Card, Empty, Form, Input, List, message, Segmented, Space, Spin, Tabs, Tag, Typography } from 'antd';
 import {
   BookOutlined,
-  HistoryOutlined,
-  StarOutlined,
-  SearchOutlined,
-  ExperimentOutlined,
   BranchesOutlined,
-  ReloadOutlined,
-  LikeOutlined,
   DislikeOutlined,
+  ExperimentOutlined,
+  HistoryOutlined,
+  LikeOutlined,
   LoginOutlined,
   LogoutOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+  StarOutlined,
 } from '@ant-design/icons';
-import { api, clearAuthTokens, setAuthTokens, type HistoryItem, type Favorite, type Reaction, type User } from '@/lib/api';
+import {
+  api,
+  clearAuthTokens,
+  setAuthTokens,
+  type Favorite,
+  type GenerativeModelPackage,
+  type HistoryItem,
+  type Reaction,
+  type User,
+} from '@/lib/api';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -25,6 +34,7 @@ const actionTypeIcon: Record<string, React.ReactNode> = {
   physics: <ExperimentOutlined />,
   biology: <BranchesOutlined />,
   modeling: <ExperimentOutlined />,
+  model_package: <ExperimentOutlined />,
 };
 
 const actionTypeColor: Record<string, string> = {
@@ -36,6 +46,7 @@ const actionTypeColor: Record<string, string> = {
   evidence: 'gold',
   model_package: 'cyan',
   render_code: 'green',
+  model_config: 'purple',
 };
 
 const starterActions = [
@@ -43,11 +54,23 @@ const starterActions = [
   { label: '统一建模', path: '/modeling', icon: <ExperimentOutlined /> },
 ];
 
+function packageTitle(pkg: GenerativeModelPackage): string {
+  return pkg.learning_model?.learning_goal || pkg.generative_model?.learning_goal || pkg.question || pkg.package_id;
+}
+
+function formatDate(value?: string): string {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('zh-CN');
+}
+
 export default function LearningPage() {
   const router = useRouter();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [reactions, setReactions] = useState<Reaction[]>([]);
+  const [packages, setPackages] = useState<GenerativeModelPackage[]>([]);
   const [profile, setProfile] = useState<User | null>(null);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [loading, setLoading] = useState(true);
@@ -58,16 +81,18 @@ export default function LearningPage() {
     setLoading(true);
     setErrorText(null);
     try {
-      const [profileRes, historyRes, favRes, reactionRes] = await Promise.all([
+      const [profileRes, historyRes, favRes, reactionRes, packageRes] = await Promise.all([
         api.getProfile(),
         api.getHistory(),
         api.listFavorites(),
-        api.listReactions().catch(() => ({ data: { items: [] } })),
+        api.listReactions().catch(() => ({ data: { total: 0, page: 1, page_size: 20, items: [] as Reaction[] } })),
+        api.listModelingPackages().catch(() => ({ data: { total: 0, page: 1, page_size: 20, items: [] as GenerativeModelPackage[] } })),
       ]);
       setProfile(profileRes.data || null);
       setHistory(historyRes.data?.items || []);
       setFavorites(favRes.data?.items || []);
       setReactions(reactionRes.data?.items || []);
+      setPackages(packageRes.data?.items || []);
     } catch (error) {
       const messageText = error instanceof Error ? error.message : '加载数据失败';
       setErrorText(messageText);
@@ -78,7 +103,7 @@ export default function LearningPage() {
   }, []);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
   const handleAuth = async (values: { email: string; password: string; nickname?: string }) => {
@@ -105,6 +130,12 @@ export default function LearningPage() {
     void loadData();
   };
 
+  const profileLabel = useMemo(() => {
+    if (profile?.email) return `当前账户：${profile.email}`;
+    if (profile?.nickname) return `当前访客：${profile.nickname}`;
+    return '当前为访客模式';
+  }, [profile]);
+
   if (loading) {
     return <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" tip="正在加载学习记录..." /></div>;
   }
@@ -123,14 +154,19 @@ export default function LearningPage() {
   };
 
   const handleFavoriteClick = (item: Favorite) => {
+    if (item.target_type === 'model_package' && item.target_id) {
+      router.push(`/modeling?package_id=${encodeURIComponent(item.target_id)}`);
+      return;
+    }
+
     const routeMap: Record<string, string> = {
       search: '/search',
       answer: '/search',
       evidence: '/search',
       physics: '/modeling?type=physics',
       biology: '/modeling?type=biology',
-      model_package: '/modeling',
       render_code: '/modeling',
+      model_config: '/monitoring',
     };
     const route = routeMap[item.target_type];
     if (route) {
@@ -163,7 +199,7 @@ export default function LearningPage() {
         <List
           dataSource={history}
           renderItem={(item) => (
-            <List.Item style={{ cursor: 'pointer' }} onClick={() => handleHistoryClick(item)} actions={[<Text key="time" type="secondary" style={{ fontSize: 12 }}>{new Date(item.created_at).toLocaleDateString('zh-CN')}</Text>]}>
+            <List.Item style={{ cursor: 'pointer' }} onClick={() => handleHistoryClick(item)} actions={[<Text key="time" type="secondary" style={{ fontSize: 12 }}>{formatDate(item.created_at)}</Text>]}>
               <List.Item.Meta avatar={actionTypeIcon[item.action_type] || <HistoryOutlined />} title={item.query} description={<Tag color={actionTypeColor[item.action_type] || 'default'}>{item.action_type}</Tag>} />
             </List.Item>
           )}
@@ -177,7 +213,7 @@ export default function LearningPage() {
         <List
           dataSource={favorites}
           renderItem={(item) => (
-            <List.Item style={{ cursor: 'pointer' }} onClick={() => handleFavoriteClick(item)} actions={[<Text key="time" type="secondary" style={{ fontSize: 12 }}>{new Date(item.created_at).toLocaleDateString('zh-CN')}</Text>]}>
+            <List.Item style={{ cursor: 'pointer' }} onClick={() => handleFavoriteClick(item)} actions={[<Text key="time" type="secondary" style={{ fontSize: 12 }}>{formatDate(item.created_at)}</Text>]}>
               <List.Item.Meta avatar={<StarOutlined style={{ color: '#faad14' }} />} title={item.title} description={<Tag color={actionTypeColor[item.target_type] || 'default'}>{item.target_type}</Tag>} />
             </List.Item>
           )}
@@ -191,11 +227,39 @@ export default function LearningPage() {
         <List
           dataSource={reactions}
           renderItem={(item) => (
-            <List.Item actions={[<Text key="time" type="secondary" style={{ fontSize: 12 }}>{new Date(item.updated_at).toLocaleDateString('zh-CN')}</Text>]}>
+            <List.Item actions={[<Text key="time" type="secondary" style={{ fontSize: 12 }}>{formatDate(item.updated_at)}</Text>]}>
               <List.Item.Meta
                 avatar={item.reaction_type === 'like' ? <LikeOutlined style={{ color: '#52c41a' }} /> : <DislikeOutlined style={{ color: '#ff4d4f' }} />}
                 title={<Space><Text>{item.target_id}</Text><Tag color={item.reaction_type === 'like' ? 'green' : 'red'}>{item.reaction_type}</Tag></Space>}
                 description={<Space><Tag color={actionTypeColor[item.target_type] || 'default'}>{item.target_type}</Tag><Tag>{item.visibility}</Tag></Space>}
+              />
+            </List.Item>
+          )}
+        />
+      ),
+    },
+    {
+      key: 'packages',
+      label: <><ExperimentOutlined /> 生成式模型包</>,
+      children: packages.length === 0 ? emptyActions('暂无模型包。完成一次科学建模后，这里会展示可回看的模型包、可信度和校验状态。') : (
+        <List
+          dataSource={packages}
+          renderItem={(pkg) => (
+            <List.Item
+              style={{ cursor: 'pointer' }}
+              onClick={() => router.push(`/modeling?package_id=${encodeURIComponent(pkg.package_id)}`)}
+              actions={[<Text key="time" type="secondary" style={{ fontSize: 12 }}>{formatDate(pkg.created_at)}</Text>]}
+            >
+              <List.Item.Meta
+                avatar={pkg.domain === 'biology' ? <BranchesOutlined /> : <ExperimentOutlined />}
+                title={<Space wrap><Text>{packageTitle(pkg)}</Text><Tag color={pkg.domain === 'biology' ? 'gold' : 'green'}>{pkg.domain}</Tag></Space>}
+                description={(
+                  <Space wrap>
+                    <Tag color={pkg.status === 'success' ? 'green' : pkg.status === 'fallback' ? 'orange' : 'red'}>{pkg.status || 'unknown'}</Tag>
+                    <Tag color="cyan">可信度 {Math.round((pkg.validation_report?.confidence || pkg.confidence || 0) * 100)}%</Tag>
+                    <Text type="secondary">{pkg.question}</Text>
+                  </Space>
+                )}
               />
             </List.Item>
           )}
@@ -216,11 +280,12 @@ export default function LearningPage() {
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
           <Space wrap style={{ justifyContent: 'space-between', width: '100%' }}>
             <div>
-              <Text strong>{profile?.email ? `当前账户：${profile.email}` : '当前为访客模式'}</Text>
+              <Text strong>{profileLabel}</Text>
               <Paragraph type="secondary" style={{ marginBottom: 0 }}>v5 支持邮箱登录，历史、收藏、反馈和模型包将沉淀为个人学习档案。</Paragraph>
             </div>
             <Space wrap>
               {starterActions.map((item) => <Button key={item.path} icon={item.icon} onClick={() => router.push(item.path)}>{item.label}</Button>)}
+              <Button icon={<ReloadOutlined />} onClick={loadData}>刷新档案</Button>
               <Button icon={<LogoutOutlined />} onClick={logout}>退出</Button>
             </Space>
           </Space>

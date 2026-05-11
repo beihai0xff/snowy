@@ -247,7 +247,7 @@ v5 扩展 `target_type`：
 
 ### 7.1 可靠性
 
-- 模型调用按优先级路由；
+- 模型调用按 `llm.models[]` 声明顺序路由；
 - 单模型可配置 retry；
 - 所有生成式模型包继续经过 schema / domain / safety 校验；
 - LLM 失败时保留规则兜底或模板兜底；
@@ -267,7 +267,7 @@ v5 扩展 `target_type`：
 ### Phase 1：v5 基础闭环（当前实施）
 
 - [x] 完善 v5 蓝图文档；
-- [x] `llm.models[]` 多模型配置与优先级路由；
+- [x] `llm.models[]` 多模型配置与声明顺序路由；
 - [x] 邮箱注册 / 登录；
 - [x] JWT 鉴权从“永远匿名”升级为“有效 token 使用真实用户，无 token 回落匿名”；
 - [x] `reactions` 反馈持久化与聚合 API；

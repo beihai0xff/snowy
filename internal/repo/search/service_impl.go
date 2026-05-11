@@ -19,23 +19,21 @@ const (
 )
 
 type serviceImpl struct {
-	repo        Repository
-	parser      QueryParser
-	ranker      ResultRanker
-	embedding   embedding.Provider
-	logs        LogRepository
-	primaryLLM  llm.Provider
-	fallbackLLM llm.Provider
+	repo      Repository
+	parser    QueryParser
+	ranker    ResultRanker
+	embedding embedding.Provider
+	logs      LogRepository
+	llmChain  llm.Provider
 }
 
 // Option 配置 Search Service 的可选依赖。
 type Option func(*serviceImpl)
 
-// WithLLMProviders 配置知识点问答的大模型直答 provider。
-func WithLLMProviders(primary, fallback llm.Provider) Option {
+// WithLLMProvider configures the ordered OpenAI-compatible model chain used for direct answers.
+func WithLLMProvider(provider llm.Provider) Option {
 	return func(s *serviceImpl) {
-		s.primaryLLM = primary
-		s.fallbackLLM = fallback
+		s.llmChain = provider
 	}
 }
 
@@ -130,52 +128,36 @@ func (s *serviceImpl) parseQuery(raw string) (*ParsedQuery, error) {
 }
 
 func (s *serviceImpl) hasLLMProvider() bool {
-	return s.primaryLLM != nil || s.fallbackLLM != nil
+	return s.llmChain != nil
 }
 
 func (s *serviceImpl) queryWithLLM(ctx context.Context, q *Query, parsed *ParsedQuery) (*Response, error) {
-	providers := []llm.Provider{s.primaryLLM, s.fallbackLLM}
-
-	failures := make([]string, 0, len(providers))
-	for _, provider := range providers {
-		if provider == nil {
-			continue
-		}
-
-		requestCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-		response, err := provider.Generate(requestCtx, &llm.Request{
-			Model: providerConfiguredModel(provider),
-			Messages: []llm.Message{
-				{Role: "system", Content: knowledgeAnswerSystemPrompt()},
-				{Role: "user", Content: buildKnowledgeAnswerUserPrompt(q, parsed)},
-			},
-			MaxTokens:   llm.MaxTokens128K,
-			Temperature: 0.2,
-		})
-
-		cancel()
-
-		if err != nil {
-			failures = append(failures, fmt.Sprintf("%s: %v", provider.Name(), err))
-
-			continue
-		}
-
-		answer := strings.TrimSpace(response.Content)
-		if answer == "" {
-			failures = append(failures, provider.Name()+": empty response")
-
-			continue
-		}
-
-		return assembleLLMResponse(q, parsed, answer, provider.Name()), nil
-	}
-
-	if len(failures) == 0 {
+	if s.llmChain == nil {
 		return nil, errors.New("no llm provider configured")
 	}
 
-	return nil, errors.New(strings.Join(failures, "; "))
+	requestCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	response, err := s.llmChain.Generate(requestCtx, &llm.Request{
+		Model: providerConfiguredModel(s.llmChain),
+		Messages: []llm.Message{
+			{Role: "system", Content: knowledgeAnswerSystemPrompt()},
+			{Role: "user", Content: buildKnowledgeAnswerUserPrompt(q, parsed)},
+		},
+		MaxTokens:   llm.MaxTokens128K,
+		Temperature: 0.2,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	answer := strings.TrimSpace(response.Content)
+	if answer == "" {
+		return nil, errors.New(s.llmChain.Name() + ": empty response")
+	}
+
+	return assembleLLMResponse(q, parsed, answer, s.llmChain.Name()), nil
 }
 
 func providerConfiguredModel(provider llm.Provider) string {

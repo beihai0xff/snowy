@@ -20,16 +20,14 @@ type Option func(*serviceImpl)
 
 type serviceImpl struct {
 	calculator    calculator.Calculator
-	primaryLLM    llm.Provider
-	fallbackLLM   llm.Provider
+	llmChain      llm.Provider
 	codeValidator physicsvalidator.CodeValidator
 }
 
-// WithLLMProviders 注入主/备选模型提供方。
-func WithLLMProviders(primary, fallback llm.Provider) Option {
+// WithLLMProvider injects the ordered OpenAI-compatible model chain.
+func WithLLMProvider(provider llm.Provider) Option {
 	return func(s *serviceImpl) {
-		s.primaryLLM = primary
-		s.fallbackLLM = fallback
+		s.llmChain = provider
 	}
 }
 

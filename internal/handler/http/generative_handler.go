@@ -84,6 +84,36 @@ func (h *GenerativeHandler) Compile(c *gin.Context) {
 	c.JSON(http.StatusOK, common.Success(pkg))
 }
 
+// ListPackages GET /api/v1/modeling/packages.
+func (h *GenerativeHandler) ListPackages(c *gin.Context) {
+	reqID := common.RequestIDFromContext(c.Request.Context())
+	userID := common.DefaultUserID
+	if fromCtx := common.UserIDFromContext(c.Request.Context()); fromCtx != "" {
+		userID = fromCtx
+	}
+
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage("invalid user id"), reqID))
+
+		return
+	}
+
+	items, total, err := h.generativeSvc.ListPackages(c.Request.Context(), uid, 0, 20)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	c.JSON(http.StatusOK, common.Success(common.PageResponse{
+		Total:    total,
+		Page:     1,
+		PageSize: 20,
+		Items:    items,
+	}))
+}
+
 // GetPackage GET /api/v1/modeling/packages/:id.
 func (h *GenerativeHandler) GetPackage(c *gin.Context) {
 	reqID := common.RequestIDFromContext(c.Request.Context())

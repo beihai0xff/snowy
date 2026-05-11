@@ -136,7 +136,7 @@ function SearchPageInner() {
         <span className="snowy-kicker"><FileSearchOutlined /> Evidence Star Map</span>
         <Title level={1}>知识星图</Title>
         <Paragraph>
-          v4 检索不只返回答案，而是把引用、公式卡、易错点、题型映射和下一步建模任务连成证据链，帮助你判断 AI 结论是否可信。
+          v5 检索不只返回答案，而是把引用、公式卡、易错点、题型映射和下一步建模任务连成证据链，帮助你判断 AI 结论是否可信。
         </Paragraph>
       </div>
 

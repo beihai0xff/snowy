@@ -5,7 +5,7 @@ import 'katex/dist/katex.min.css';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Snowy V4 - AI 科学任务舱',
+  title: 'Snowy V5 - AI 科学任务舱',
   description: '面向高中生的 AIGC 知识检索、物理仿真与生物可视化统一建模工具',
 };
 

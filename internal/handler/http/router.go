@@ -86,6 +86,7 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 	{
 		if h.Generative != nil {
 			modeling.POST("/compile", h.Generative.Compile)
+			modeling.GET("/packages", h.Generative.ListPackages)
 			modeling.GET("/packages/:id", h.Generative.GetPackage)
 		}
 

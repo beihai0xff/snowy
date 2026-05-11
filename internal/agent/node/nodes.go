@@ -43,8 +43,7 @@ type State struct {
 	History            []*agent.Message
 	ResolvedMode       agent.Mode
 	TaskType           agentrouter.TaskType
-	PrimaryModel       *agentrouter.ModelInfo
-	FallbackModel      *agentrouter.ModelInfo
+	RouteModel         *agentrouter.ModelInfo
 	ToolOutputs        map[string]any
 	ToolCalls          []agent.ToolCall
 	Response           *agent.ChatResponse
@@ -147,14 +146,9 @@ func (n *IntentNode) Run(ctx context.Context, input any) (any, error) {
 
 	state.TaskType = resolveTaskType(mode)
 	if n.router != nil {
-		primary, err := n.router.Route(ctx, state.TaskType)
+		model, err := n.router.Route(ctx, state.TaskType)
 		if err == nil {
-			state.PrimaryModel = primary
-		}
-
-		fallback, err := n.router.Fallback(ctx, state.TaskType)
-		if err == nil {
-			state.FallbackModel = fallback
+			state.RouteModel = model
 		}
 	}
 
@@ -182,7 +176,7 @@ func (n *ValidateNode) Run(_ context.Context, input any) (any, error) {
 	return state, nil
 }
 
-// FallbackNode 备选模型重试节点。
+// FallbackNode 低可信降级节点。
 type FallbackNode struct{}
 
 func (n *FallbackNode) Name() string { return "FallbackNode" }
@@ -205,13 +199,6 @@ func (n *FallbackNode) Run(_ context.Context, input any) (any, error) {
 		Confidence:  0.35,
 		NextActions: []string{"补充更具体的题干条件", "切换到对应学科模式后再试"},
 	}
-	if state.FallbackModel != nil {
-		state.Response.NextActions = append(
-			state.Response.NextActions,
-			fmt.Sprintf("已切换备选模型 %s/%s", state.FallbackModel.Provider, state.FallbackModel.Model),
-		)
-	}
-
 	return state, nil
 }
 

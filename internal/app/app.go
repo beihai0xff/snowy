@@ -135,7 +135,6 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 
 	modelConfigs := shared.cfg.LLM.EffectiveModels()
 	providerConfigs := make([]monitoring.LLMProviderConfig, 0, len(modelConfigs))
-	observedProviders := make([]llm.Provider, 0, len(modelConfigs))
 	for i, modelCfg := range modelConfigs {
 		role := modelRole(i)
 		providerConfigs = append(providerConfigs, monitoring.ProviderConfigFromConfig(role, modelCfg))
@@ -146,11 +145,7 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 		monitoring.WithProviderConfigs(providerConfigs...),
 		monitoring.WithPromptProfiles(monitoring.DefaultPromptProfiles(time.Now())...),
 	)
-	for i, modelCfg := range modelConfigs {
-		provider := llmroute.NewRetryingProvider(newLLMProvider(modelCfg), modelCfg.MaxRetries, modelCfg.RetryInterval)
-		observedProviders = append(observedProviders, monitoring.WrapProvider(provider, llmRecorder, modelRole(i)))
-	}
-	firstLLM, remainingLLM := splitOrderedLLMProviders(observedProviders)
+	llmChain := buildOrderedLLMChain(modelConfigs, llmRecorder)
 
 	reactionRepo := mysqlrepo.NewReactionRepository(shared.db)
 	userSvc := user.NewService(userRepo, favoriteRepo, historyRepo, transactor, shared.cfg.Auth, reactionRepo)
@@ -161,11 +156,11 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 		searchranking.NewScoreRanker(),
 		nil,
 		nil,
-		searchservice.WithLLMProviders(firstLLM, remainingLLM),
+		searchservice.WithLLMProvider(llmChain),
 	)
 	physicsSvc := physicsservice.NewService(
 		physicscalculator.NewSimpleCalculator(),
-		physicsservice.WithLLMProviders(firstLLM, remainingLLM),
+		physicsservice.WithLLMProvider(llmChain),
 	)
 	biologySvc := biologyservice.NewService(
 		biologyexperiment.NewSimpleAnalyzer(),
@@ -176,7 +171,7 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 		physicsSvc,
 		biologySvc,
 		generativeRepo,
-		generativeservice.WithLLMProviders(firstLLM, remainingLLM),
+		generativeservice.WithLLMProvider(llmChain),
 	)
 
 	modelRouter := agentrouter.NewStaticRouter(shared.cfg.LLM)
@@ -199,7 +194,6 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 		agentgraph.WithBiologyAnalyzeTool(agenttool.NewBiologyAnalyzeTool(biologySvc)),
 		agentgraph.WithCitationTool(agenttool.NewCitationTool()),
 		agentgraph.WithCallbacks(callbacks...),
-		agentgraph.WithLLMProviders(firstLLM, remainingLLM),
 	)
 
 	var agentSvc agent.Service = graphBuilder
@@ -286,19 +280,14 @@ func modelRole(index int) string {
 	return fmt.Sprintf("model_%d", index+1)
 }
 
-func splitOrderedLLMProviders(providers []llm.Provider) (llm.Provider, llm.Provider) {
-	if len(providers) == 0 {
-		return nil, nil
-	}
-	if len(providers) == 1 {
-		return providers[0], nil
+func buildOrderedLLMChain(modelConfigs []config.ModelProviderConfig, recorder *monitoring.LLMRecorder) llm.Provider {
+	providers := make([]llm.Provider, 0, len(modelConfigs))
+	for i, modelCfg := range modelConfigs {
+		provider := llmroute.NewRetryingProvider(llm.NewOpenAIProvider(modelCfg), modelCfg.MaxRetries, modelCfg.RetryInterval)
+		providers = append(providers, monitoring.WrapProvider(provider, recorder, modelRole(i)))
 	}
 
-	return providers[0], llmroute.NewChain("ordered-model-chain", providers[1:]...)
-}
-
-func newLLMProvider(cfg config.ModelProviderConfig) llm.Provider {
-	return llm.NewOpenAIProvider(cfg)
+	return llmroute.NewChain("ordered-model-chain", providers...)
 }
 
 // Close 释放共享资源。

@@ -11,6 +11,7 @@ import (
 
 	biologydomain "github.com/beihai0xff/snowy/internal/modeling/biology/domain"
 	physicsdomain "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
+	"github.com/beihai0xff/snowy/internal/pkg/llmroute"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 )
 
@@ -60,9 +61,9 @@ func (fakeBiology) Analyze(context.Context, string, string) (*biologydomain.Biol
 
 func TestCompileUsesLLMJSON(t *testing.T) {
 	content := `{"domain":"physics","question":"平抛","learning_model":{"domain":"physics","grade_band":"high_school","topic":"projectile","learning_goal":"理解平抛"},"evidence_refs":["平抛运动可分解为水平方向匀速直线运动和竖直方向自由落体运动"],"reasoning_trace":{"summary":"先分解运动","confidence":0.9},"generative_model":{"domain":"physics","grade_band":"high_school","topic":"projectile","learning_goal":"理解平抛","variables":[{"name":"v0","label":"初速度","unit":"m/s","default":20,"min":0,"max":60}]},"simulation_logic":{"simulation_type":"generated_projectile_2d","runtime":"safe_math_dsl","variables":[{"name":"v0","label":"初速度","unit":"m/s","default":20,"min":0,"max":60}],"formulas":[{"id":"x","expr":"x=v0*t","meaning":"水平位移"}],"render_instructions":{"coordinate_system":"2d_cartesian"},"local_recompute_allowed":true},"interaction_plan":{"regeneration_policy":{"local_recompute":["v0"],"llm_regenerate":["new_force"]}},"assessment_tasks":[],"validation_report":{"schema_valid":true},"confidence":0.91}`
-	svc := NewCompilerService(nil, fakePhysics{}, fakeBiology{}, nil, WithLLMProviders(fakeLLM{name: "primary", model: "m1", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) {
+	svc := NewCompilerService(nil, fakePhysics{}, fakeBiology{}, nil, WithLLMProvider(fakeLLM{name: "model_1", model: "m1", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) {
 		return &llm.Response{Content: content, Model: "m1"}, nil
-	}}, nil))
+	}}))
 	pkg, err := svc.Compile(context.Background(), &CompileRequest{Message: "平抛运动", Domain: DomainPhysics, GradeBand: GradeBandHighSchool})
 	require.NoError(t, err)
 	assert.Equal(t, DomainPhysics, pkg.Domain)
@@ -77,9 +78,12 @@ func TestCompileUsesLLMJSON(t *testing.T) {
 
 func TestCompileFallsBackToSecondProvider(t *testing.T) {
 	content := `{"domain":"biology","question":"光合作用","learning_model":{"domain":"biology","grade_band":"high_school","topic":"photosynthesis","learning_goal":"理解光合作用"},"evidence_refs":[{"doc_id":"d1","source_type":"textbook","snippet":"光合作用","confidence":0.9}],"reasoning_trace":{"summary":"分析变量","confidence":0.9},"generative_model":{"domain":"biology","grade_band":"high_school","topic":"photosynthesis","learning_goal":"理解光合作用"},"visualization_graph":{"visualization_type":"generated_biology_process_graph","topic":"photosynthesis","nodes":[{"id":"n1","label":"光照","type":"factor"}],"edges":[],"experiment_variables":{"independent":["光照"],"dependent":["有机物"],"controlled":["温度"]}},"interaction_plan":{"regeneration_policy":{}},"assessment_tasks":[],"validation_report":{},"confidence":0.88}`
-	svc := NewCompilerService(nil, fakePhysics{}, fakeBiology{}, nil, WithLLMProviders(fakeLLM{name: "primary", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) { return nil, errors.New("down") }}, fakeLLM{name: "fallback", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) {
-		return &llm.Response{Content: content, Model: "m2"}, nil
-	}}))
+	svc := NewCompilerService(nil, fakePhysics{}, fakeBiology{}, nil, WithLLMProvider(llmroute.NewChain("ordered-model-chain",
+		fakeLLM{name: "model_1", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) { return nil, errors.New("down") }},
+		fakeLLM{name: "model_2", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) {
+			return &llm.Response{Content: content, Model: "m2"}, nil
+		}},
+	)))
 	pkg, err := svc.Compile(context.Background(), &CompileRequest{Message: "光合作用", Domain: DomainBiology})
 	require.NoError(t, err)
 	assert.Equal(t, "m2", pkg.ModelName)
@@ -90,7 +94,7 @@ func TestCompileFallsBackToSecondProvider(t *testing.T) {
 }
 
 func TestCompileRuleFallbackWhenLLMFails(t *testing.T) {
-	svc := NewCompilerService(nil, fakePhysics{}, fakeBiology{}, nil, WithLLMProviders(fakeLLM{name: "primary", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) { return nil, errors.New("down") }}, nil))
+	svc := NewCompilerService(nil, fakePhysics{}, fakeBiology{}, nil, WithLLMProvider(fakeLLM{name: "model_1", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) { return nil, errors.New("down") }}))
 	pkg, err := svc.Compile(context.Background(), &CompileRequest{Message: "平抛运动", Domain: DomainPhysics})
 	require.NoError(t, err)
 	assert.Equal(t, "fallback", pkg.Status)

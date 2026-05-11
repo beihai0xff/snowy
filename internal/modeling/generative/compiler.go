@@ -25,14 +25,13 @@ const defaultCompileTimeout = 10 * time.Minute
 type CompilerOption func(*compilerService)
 
 type compilerService struct {
-	searchSvc   searchdomain.Service
-	physicsSvc  physicsservice.PhysicsService
-	biologySvc  biologyservice.BiologyService
-	primaryLLM  llm.Provider
-	fallbackLLM llm.Provider
-	repo        Repository
-	validator   Validator
-	now         func() time.Time
+	searchSvc  searchdomain.Service
+	physicsSvc physicsservice.PhysicsService
+	biologySvc biologyservice.BiologyService
+	llmChain   llm.Provider
+	repo       Repository
+	validator  Validator
+	now        func() time.Time
 }
 
 func NewCompilerService(
@@ -60,10 +59,9 @@ func NewCompilerService(
 	return svc
 }
 
-func WithLLMProviders(primary, fallback llm.Provider) CompilerOption {
+func WithLLMProvider(provider llm.Provider) CompilerOption {
 	return func(s *compilerService) {
-		s.primaryLLM = primary
-		s.fallbackLLM = fallback
+		s.llmChain = provider
 	}
 }
 
@@ -180,59 +178,58 @@ func (s *compilerService) GetPackage(ctx context.Context, id string) (*Generativ
 	return s.repo.GetByID(ctx, uid)
 }
 
+func (s *compilerService) ListPackages(
+	ctx context.Context,
+	userID uuid.UUID,
+	offset, limit int,
+) ([]*GenerativeModelPackage, int64, error) {
+	if s.repo == nil {
+		return nil, 0, errors.New("generative package repository is nil")
+	}
+
+	return s.repo.ListByUser(ctx, userID, offset, limit)
+}
+
 func (s *compilerService) compileWithLLM(
 	ctx context.Context,
 	req *CompileRequest,
 	domain string,
 	evidence []EvidenceRef,
 ) (*GenerativeModelPackage, string, error) {
-	providers := []llm.Provider{s.primaryLLM, s.fallbackLLM}
-
-	failures := make([]string, 0, len(providers))
-	for _, provider := range providers {
-		if provider == nil {
-			continue
-		}
-
-		requestCtx, cancel := context.WithTimeout(ctx, defaultCompileTimeout)
-		resp, err := provider.Generate(requestCtx, &llm.Request{
-			Model: providerConfiguredModel(provider),
-			Messages: []llm.Message{
-				{Role: "system", Content: compileSystemPrompt()},
-				{Role: "user", Content: buildCompileUserPrompt(req, domain, evidence)},
-			},
-			MaxTokens:   llm.MaxTokens128K,
-			Temperature: 0.2,
-		})
-
-		cancel()
-
-		if err != nil {
-			failures = append(failures, fmt.Sprintf("%s: %v", provider.Name(), err))
-
-			continue
-		}
-
-		pkg, err := decodePackageJSON(resp.Content)
-		if err != nil {
-			failures = append(failures, fmt.Sprintf("%s: %v", provider.Name(), err))
-
-			continue
-		}
-
-		modelName := resp.Model
-		if modelName == "" {
-			modelName = provider.Name()
-		}
-
-		return pkg, modelName, nil
-	}
-
-	if len(failures) == 0 {
+	if s.llmChain == nil {
 		return nil, "", errors.New("no llm provider configured")
 	}
 
-	return nil, "", errors.New(strings.Join(failures, "; "))
+	requestCtx, cancel := context.WithTimeout(ctx, defaultCompileTimeout)
+	defer cancel()
+
+	resp, err := s.llmChain.Generate(requestCtx, &llm.Request{
+		Model: providerConfiguredModel(s.llmChain),
+		Messages: []llm.Message{
+			{Role: "system", Content: compileSystemPrompt()},
+			{Role: "user", Content: buildCompileUserPrompt(req, domain, evidence)},
+		},
+		MaxTokens:   llm.MaxTokens128K,
+		Temperature: 0.2,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+
+	pkg, err := decodePackageJSON(resp.Content)
+	if err != nil {
+		return nil, "", err
+	}
+
+	modelName := resp.Model
+	if modelName == "" {
+		modelName = providerConfiguredModel(s.llmChain)
+	}
+	if modelName == "" {
+		modelName = s.llmChain.Name()
+	}
+
+	return pkg, modelName, nil
 }
 
 func (s *compilerService) finalizePackage(

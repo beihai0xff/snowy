@@ -129,13 +129,13 @@ export default function HomePage() {
       <Row gutter={[24, 24]} align="middle" style={{ marginBottom: 28 }}>
         <Col xs={24} xl={13}>
           <Space direction="vertical" size="large" style={{ width: '100%' }}>
-            <span className="snowy-kicker"><RocketOutlined /> Snowy V4 Mission Cockpit</span>
+            <span className="snowy-kicker"><RocketOutlined /> Snowy V5 Mission Cockpit</span>
             <div>
               <Title className="snowy-hero-title" style={{ fontSize: 'clamp(46px, 7vw, 86px)' }}>
                 AI 科学任务舱，<span className="snowy-gradient-text">把问题变成模型</span>
               </Title>
               <Paragraph className="snowy-hero-copy">
-                面向高中生的 AIGC 知识检索、物理仿真与生物可视化统一建模工具。Snowy V4 以可信证据为燃料，以结构化模型包为核心，用任务、挑战和即时反馈完成学习闭环。
+                面向高中生的 AIGC 知识检索、物理仿真与生物可视化统一建模工具。Snowy V5 以可信证据为燃料，以结构化模型包为核心，用任务、挑战和即时反馈完成学习闭环。
               </Paragraph>
             </div>
             <Search
@@ -202,7 +202,7 @@ export default function HomePage() {
 
       <Row gutter={[18, 18]} style={{ marginBottom: 28 }}>
         <Col xs={24} xl={17}>
-          <Card title={<Space><AimOutlined /> v4 统一学习链路</Space>} className="snowy-glass">
+          <Card title={<Space><AimOutlined /> v5 统一学习链路</Space>} className="snowy-glass">
             <div className="snowy-chain">
               {learningChain.map(([title, desc], index) => (
                 <div className="snowy-chain-step" key={title}>
@@ -230,7 +230,7 @@ export default function HomePage() {
 
       <Card
         title={<Space><FireOutlined /> 今日任务卡</Space>}
-        extra={<Tag color="cyan">Level v4.0</Tag>}
+        extra={<Tag color="cyan">Level v5.0</Tag>}
         className="snowy-glass"
       >
         {loading ? (

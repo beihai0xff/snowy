@@ -75,7 +75,7 @@ func (f *renderFakeLLMProvider) ConfiguredModelProvider() string { return "" }
 
 func TestBiologyRenderPassesConfiguredProviderModel(t *testing.T) {
 	provider := &renderFakeLLMProvider{model: "configured-render-model"}
-	svc := &serviceImpl{primaryLLM: provider, codeValidator: nil}
+	svc := &serviceImpl{llmChain: provider, codeValidator: nil}
 
 	_, err := svc.GenerateRender(context.Background(), &domain.SceneSpec{
 		SceneType:    "biology_concept_flow",
@@ -99,7 +99,7 @@ func TestPhysicsRenderReturnsNativeEngineArtifactWithoutLLM(t *testing.T) {
 		t.Fatalf("physics render should not call LLM provider")
 		return nil, nil
 	}}
-	svc := NewService(nil, WithLLMProviders(provider, nil))
+	svc := NewService(nil, WithLLMProvider(provider))
 	artifact, err := svc.GenerateRender(context.Background(), &domain.SceneSpec{
 		SceneType:    "physics_force_3d",
 		Summary:      "force 3d",
@@ -157,7 +157,7 @@ func TestBiologyUsesOptimizedPromptAndGenerationOptions(t *testing.T) {
 	provider := &renderFakeLLMProvider{generateFn: func(ctx context.Context, req *llm.Request) (*llm.Response, error) {
 		return nil, errors.New("stop after capture")
 	}}
-	svc := NewService(nil, WithLLMProviders(provider, nil))
+	svc := NewService(nil, WithLLMProvider(provider))
 	_, _ = svc.GenerateRender(context.Background(), &domain.SceneSpec{
 		SceneType:    "biology_concept_flow",
 		Summary:      "biology",
@@ -189,7 +189,7 @@ func TestNonPhysicsNonBiologyUsesDefaultGenerationOptions(t *testing.T) {
 	provider := &renderFakeLLMProvider{generateFn: func(ctx context.Context, req *llm.Request) (*llm.Response, error) {
 		return nil, errors.New("stop after capture")
 	}}
-	svc := NewService(nil, WithLLMProviders(provider, nil))
+	svc := NewService(nil, WithLLMProvider(provider))
 	_, _ = svc.GenerateRender(context.Background(), &domain.SceneSpec{
 		SceneType:    "custom_motion_2d",
 		Summary:      "custom",
@@ -314,7 +314,7 @@ func TestNewPhysicsScenesRenderNativeArtifactWithoutLLM(t *testing.T) {
 		t.Fatalf("physics render should not call LLM provider")
 		return nil, nil
 	}}
-	svc := NewService(nil, WithLLMProviders(provider, nil))
+	svc := NewService(nil, WithLLMProvider(provider))
 
 	tests := []struct {
 		sceneType string

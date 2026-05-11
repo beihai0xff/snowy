@@ -18,9 +18,9 @@ func NewStaticRouter(cfg config.LLMConfig) Router {
 	models := make([]ModelInfo, 0, len(configuredModels))
 	for i, model := range configuredModels {
 		models = append(models, ModelInfo{
-			Provider:  normalizeProvider(model.Provider),
-			Model:     model.EffectiveModel(),
-			IsPrimary: i == 0,
+			Provider: normalizeProvider(model.Provider),
+			Model:    model.EffectiveModel(),
+			Order:    i + 1,
 		})
 	}
 
@@ -33,16 +33,6 @@ func (r *staticRouter) Route(_ context.Context, _ TaskType) (*ModelInfo, error) 
 	}
 
 	model := r.models[0]
-
-	return &model, nil
-}
-
-func (r *staticRouter) Fallback(_ context.Context, _ TaskType) (*ModelInfo, error) {
-	if len(r.models) < 2 || r.models[1].Model == "" {
-		return nil, errors.New("secondary model is not configured")
-	}
-
-	model := r.models[1]
 
 	return &model, nil
 }

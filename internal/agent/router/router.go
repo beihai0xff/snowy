@@ -16,16 +16,14 @@ const (
 
 // ModelInfo 模型信息。
 type ModelInfo struct {
-	Provider  string `json:"provider"`
-	Model     string `json:"model"`
-	IsPrimary bool   `json:"is_primary"`
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+	Order    int    `json:"order"`
 }
 
 // Router 模型路由接口。
-// 路由规则：默认走配置中的主模型；失败/超时/校验失败/预算超限时切换到配置中的备选模型。
+// 路由规则：按照 llm.models 的声明顺序选择当前任务入口；链路内部继续按声明顺序重试可用模型。
 type Router interface {
 	// Route 根据任务类型路由到合适的模型。
 	Route(ctx context.Context, taskType TaskType) (*ModelInfo, error)
-	// Fallback 获取备选模型。
-	Fallback(ctx context.Context, taskType TaskType) (*ModelInfo, error)
 }

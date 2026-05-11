@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Alert,
@@ -99,6 +99,7 @@ function ModelingPageInner() {
   const [loading, setLoading] = useState(false);
   const [stage, setStage] = useState<Stage>('idle');
   const [errorText, setErrorText] = useState<string | null>(null);
+  const loadedPackageRef = useRef<string | null>(null);
 
   const examples = subjectExamples[subject];
   const isPhysics = subject === 'physics';
@@ -155,7 +156,7 @@ function ModelingPageInner() {
         grade_band: 'high_school',
         target_mode: 'interactive_model',
         context: {
-          source_page: 'modeling-v4',
+          source_page: 'modeling-v5',
           user_notes: context || undefined,
           citations: compileGrounding.citations,
           knowledge_tags: compileGrounding.knowledge_tags,
@@ -178,6 +179,32 @@ function ModelingPageInner() {
   }, [context, question, subject]);
 
   useEffect(() => {
+    const packageID = searchParams.get('package_id');
+    if (packageID) {
+      if (loadedPackageRef.current === packageID) return;
+      loadedPackageRef.current = packageID;
+      setLoading(true);
+      setErrorText(null);
+      void api.getModelingPackage(packageID)
+        .then((res) => {
+          const data = res.data ?? null;
+          setPkg(data);
+          setValues(initialValues(data));
+          if (data?.question) setQuestion(data.question);
+          if (data?.domain === 'biology' || data?.domain === 'physics') setSubject(data.domain);
+          setStage(data ? 'done' : 'idle');
+        })
+        .catch((error) => {
+          const msg = error instanceof Error ? error.message : '模型包加载失败';
+          setErrorText(msg);
+          setStage('error');
+          message.error(msg);
+        })
+        .finally(() => setLoading(false));
+      return;
+    }
+
+    loadedPackageRef.current = null;
     const q = searchParams.get('q');
     const nextSubject = normalizeSubject(searchParams.get('type') || searchParams.get('subject'));
     setSubject(nextSubject);
@@ -190,7 +217,7 @@ function ModelingPageInner() {
 
   const handleFavorite = async () => {
     try {
-      await api.addFavorite({ target_type: subject, target_id: pkg?.package_id || question, title: question || pkg?.learning_model.learning_goal || 'Snowy v4 模型包' });
+      await api.addFavorite({ target_type: pkg?.package_id ? 'model_package' : subject, target_id: pkg?.package_id || question, title: pkg?.learning_model.learning_goal || question || 'Snowy v5 模型包' });
       message.success('收藏成功');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '收藏失败');
@@ -208,7 +235,7 @@ function ModelingPageInner() {
         <Empty
           description={(
             <Space direction="vertical" align="center">
-              <Text type="secondary">输入问题后，Snowy v4 会先绑定证据，再生成结构化模型包。</Text>
+              <Text type="secondary">输入问题后，Snowy v5 会先绑定证据，再生成结构化模型包。</Text>
               <Space wrap>
                 {examples.slice(0, 2).map((example) => (
                   <Button key={example} icon={<PlayCircleOutlined />} onClick={() => { setQuestion(example); void handleCompile(example); }}>
@@ -235,7 +262,7 @@ function ModelingPageInner() {
               <span className="snowy-kicker"><RadarChartOutlined /> Science Modeling Cockpit</span>
               <Title level={1}>科学建模舱</Title>
               <Paragraph>
-                v4 三栏工作台：左侧锁定问题与证据，中间渲染模型画布，右侧由 AI 教练管理参数、挑战、微练习和校验报告。
+                v5 三栏工作台：左侧锁定问题与证据，中间渲染模型画布，右侧由 AI 教练管理参数、挑战、微练习和校验报告。
               </Paragraph>
             </div>
 
@@ -265,7 +292,7 @@ function ModelingPageInner() {
             <TextArea rows={2} placeholder={isPhysics ? '输入物理题目或建模目标，例如：平抛运动怎样命中目标区？' : '输入生物问题、过程或实验题，例如：光照强度如何影响有机物积累？'} value={question} onChange={(event) => setQuestion(event.target.value)} />
             <TextArea rows={1} placeholder="补充上下文（可选）：实验条件、题干补充、想观察的变量、希望挑战的目标区..." value={context} onChange={(event) => setContext(event.target.value)} />
             <Space wrap>
-              <Button type="primary" size="large" icon={<ThunderboltOutlined />} loading={loading} onClick={() => void handleCompile()}>生成 v4 模型包</Button>
+              <Button type="primary" size="large" icon={<ThunderboltOutlined />} loading={loading} onClick={() => void handleCompile()}>生成 v5 模型包</Button>
               <Button disabled={!question.trim() || loading} icon={<ReloadOutlined />} onClick={handleRegenerate}>再推理</Button>
               <Button disabled={!question.trim()} icon={<StarOutlined />} onClick={handleFavorite}>收藏任务</Button>
               {examples.map((example) => <Button key={example} size="small" disabled={loading} onClick={() => { setQuestion(example); void handleCompile(example); }}>{example.slice(0, 14)}...</Button>)}

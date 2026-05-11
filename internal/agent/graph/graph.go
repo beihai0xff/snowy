@@ -21,7 +21,6 @@ import (
 	biologydomain "github.com/beihai0xff/snowy/internal/modeling/biology/domain"
 	physicsdomain "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
-	"github.com/beihai0xff/snowy/internal/repo/llm"
 	searchdomain "github.com/beihai0xff/snowy/internal/repo/search"
 )
 
@@ -46,8 +45,6 @@ type Builder struct {
 	biologyAnalyzeTool *tool.BiologyAnalyzeTool
 	citationTool       *tool.CitationTool
 	callbacks          []callback.NodeCallback
-	primaryLLM         llm.Provider
-	fallbackLLM        llm.Provider
 
 	buildOnce sync.Once
 	buildErr  error
@@ -88,13 +85,6 @@ func WithCitationTool(citationTool *tool.CitationTool) Option {
 
 func WithCallbacks(callbacks ...callback.NodeCallback) Option {
 	return func(b *Builder) { b.callbacks = append(b.callbacks, callbacks...) }
-}
-
-func WithLLMProviders(primary, fallback llm.Provider) Option {
-	return func(b *Builder) {
-		b.primaryLLM = primary
-		b.fallbackLLM = fallback
-	}
 }
 
 // NewBuilder 创建 Graph Builder。
