@@ -47,7 +47,7 @@ func TestTransactor_Transaction_CommitsAcrossRepositories(t *testing.T) {
 		WithArgs(u.ID, u.GoogleID, u.Email, u.PasswordHash, u.Phone, u.Nickname, u.Role, u.AvatarURL, u.LastLoginAt, u.CreatedAt, u.UpdatedAt).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("INSERT INTO `favorites`").
-		WithArgs(fav.ID, fav.UserID, fav.TargetType, fav.TargetID, fav.Title, fav.CreatedAt).
+		WithArgs(fav.ID, fav.UserID, fav.TargetType, fav.TargetID, fav.Title, sqlmock.AnyArg(), fav.CreatedAt).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 

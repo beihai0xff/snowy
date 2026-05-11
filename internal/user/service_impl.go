@@ -140,10 +140,78 @@ func (s *serviceImpl) AddHistory(ctx context.Context, item *HistoryItem) error {
 }
 
 func (s *serviceImpl) AddFavorite(ctx context.Context, fav *Favorite) error {
+	if fav == nil {
+		return errors.New("favorite is nil")
+	}
 	fav.ID = uuid.New()
 	fav.CreatedAt = time.Now()
+	fav.TargetType = strings.TrimSpace(fav.TargetType)
+	fav.TargetID = strings.TrimSpace(fav.TargetID)
+	fav.Title = strings.TrimSpace(fav.Title)
+	fav.MetadataJSON = sanitizeFavoriteMetadata(fav.MetadataJSON)
 
 	return s.favRepo.Add(ctx, fav)
+}
+
+func sanitizeFavoriteMetadata(metadata map[string]any) map[string]any {
+	if len(metadata) == 0 {
+		return nil
+	}
+
+	cleaned := make(map[string]any, len(metadata))
+	for key, value := range metadata {
+		key = strings.TrimSpace(key)
+		if key == "" || isSensitiveMetadataKey(key) {
+			continue
+		}
+		cleaned[key] = sanitizeMetadataValue(value)
+	}
+	if len(cleaned) == 0 {
+		return nil
+	}
+
+	return cleaned
+}
+
+func isSensitiveMetadataKey(key string) bool {
+	lower := strings.ToLower(key)
+	for _, part := range []string{"api_key", "apikey", "authorization", "password", "secret", "token"} {
+		if strings.Contains(lower, part) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func sanitizeMetadataValue(value any) any {
+	switch v := value.(type) {
+	case string:
+		return truncateString(v, 2000)
+	case []any:
+		out := make([]any, 0, min(len(v), 20))
+		for i, item := range v {
+			if i >= 20 {
+				break
+			}
+			out = append(out, sanitizeMetadataValue(item))
+		}
+		return out
+	case map[string]any:
+		return sanitizeFavoriteMetadata(v)
+	default:
+		return v
+	}
+}
+
+func truncateString(text string, limit int) string {
+	text = strings.TrimSpace(text)
+	runes := []rune(text)
+	if len(runes) <= limit {
+		return text
+	}
+
+	return string(runes[:limit]) + "…"
 }
 
 func (s *serviceImpl) ListFavorites(

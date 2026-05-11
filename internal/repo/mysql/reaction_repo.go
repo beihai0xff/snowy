@@ -9,12 +9,13 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	searchdomain "github.com/beihai0xff/snowy/internal/repo/search"
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
 type reactionRepo struct{ db *gorm.DB }
 
-func NewReactionRepository(db *gorm.DB) user.ReactionRepository {
+func NewReactionRepository(db *gorm.DB) *reactionRepo {
 	return &reactionRepo{db: db}
 }
 
@@ -60,6 +61,25 @@ func (r *reactionRepo) ListByUser(
 		"reactions", "reactions",
 		func(row *reactionRow) (*user.Reaction, error) { return row.toDomain(), nil },
 	)
+}
+
+func (r *reactionRepo) TargetFeedback(ctx context.Context, targetType string, targetID string) (searchdomain.FeedbackSummary, error) {
+	var summary searchdomain.FeedbackSummary
+	gdb := dbFromContext(ctx, r.db)
+
+	if err := gdb.Model(&reactionRow{}).
+		Where("target_type = ? AND target_id = ? AND reaction_type = ?", targetType, targetID, user.ReactionLike).
+		Count(&summary.LikeCount).Error; err != nil {
+		return summary, fmt.Errorf("count feedback likes: %w", err)
+	}
+
+	if err := gdb.Model(&reactionRow{}).
+		Where("target_type = ? AND target_id = ? AND reaction_type = ?", targetType, targetID, user.ReactionDislike).
+		Count(&summary.DislikeCount).Error; err != nil {
+		return summary, fmt.Errorf("count feedback dislikes: %w", err)
+	}
+
+	return summary, nil
 }
 
 func (r *reactionRepo) Summary(

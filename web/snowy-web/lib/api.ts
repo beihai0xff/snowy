@@ -50,6 +50,22 @@ export interface Favorite {
   target_type: string;
   target_id: string;
   title: string;
+  metadata_json?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AnswerRecord {
+  id: string;
+  user_id: string;
+  session_id?: string;
+  query: string;
+  answer_summary: string;
+  knowledge_tags: string[];
+  citations: Citation[];
+  confidence: number;
+  source: string;
+  model_name?: string;
+  metadata?: Record<string, unknown>;
   created_at: string;
 }
 
@@ -57,6 +73,7 @@ export interface FavoriteReq {
   target_type: 'search' | 'answer' | 'evidence' | 'physics' | 'biology' | 'model_package' | 'render_code' | 'model_config';
   target_id: string;
   title: string;
+  metadata_json?: Record<string, unknown>;
 }
 
 export interface AuthResp {
@@ -166,6 +183,7 @@ export interface LearningAction {
 }
 
 export interface SearchResponse {
+  answer_id?: string;
   answer: string;
   knowledge_tags: string[];
   citations: Citation[];
@@ -719,6 +737,10 @@ export const api = {
   getProfile: () => request<User>('/user/profile'),
 
   getHistory: () => request<PageResponse<HistoryItem>>('/history'),
+
+  listAnswers: () => request<PageResponse<AnswerRecord>>('/answers'),
+
+  getAnswer: (id: string) => request<AnswerRecord>(`/answers/${encodeURIComponent(id)}`),
 
   listFavorites: () => request<PageResponse<Favorite>>('/favorites'),
 

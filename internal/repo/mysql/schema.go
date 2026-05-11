@@ -56,15 +56,33 @@ type userSchema struct {
 func (userSchema) TableName() string { return "users" }
 
 type favoriteSchema struct {
-	ID         uuid.UUID `gorm:"column:id;type:char(36);primaryKey"`
-	UserID     uuid.UUID `gorm:"column:user_id;type:char(36);not null;index:idx_favorites_user,priority:1"`
-	TargetType string    `gorm:"column:target_type;type:varchar(32);not null"`
-	TargetID   string    `gorm:"column:target_id;type:varchar(64);not null"`
-	Title      string    `gorm:"column:title;type:text;not null"`
-	CreatedAt  time.Time `gorm:"column:created_at;type:datetime(3);not null;index:idx_favorites_user,priority:2,sort:desc"`
+	ID           uuid.UUID `gorm:"column:id;type:char(36);primaryKey"`
+	UserID       uuid.UUID `gorm:"column:user_id;type:char(36);not null;index:idx_favorites_user,priority:1"`
+	TargetType   string    `gorm:"column:target_type;type:varchar(32);not null"`
+	TargetID     string    `gorm:"column:target_id;type:varchar(128);not null"`
+	Title        string    `gorm:"column:title;type:text;not null"`
+	MetadataJSON jsonMap   `gorm:"column:metadata_json;type:json"`
+	CreatedAt    time.Time `gorm:"column:created_at;type:datetime(3);not null;index:idx_favorites_user,priority:2,sort:desc"`
 }
 
 func (favoriteSchema) TableName() string { return "favorites" }
+
+type answerRecordSchema struct {
+	ID            uuid.UUID  `gorm:"column:id;type:char(36);primaryKey"`
+	UserID        uuid.UUID  `gorm:"column:user_id;type:char(36);not null;index:idx_answer_records_user,priority:1"`
+	SessionID     *uuid.UUID `gorm:"column:session_id;type:char(36);index:idx_answer_records_session"`
+	Query         string     `gorm:"column:query;type:text;not null"`
+	AnswerSummary string     `gorm:"column:answer_summary;type:mediumtext;not null"`
+	KnowledgeTags jsonValue  `gorm:"column:knowledge_tags;type:json;not null"`
+	Citations     jsonValue  `gorm:"column:citations;type:json;not null"`
+	Confidence    float64    `gorm:"column:confidence;type:decimal(5,4);not null;default:0"`
+	Source        string     `gorm:"column:source;type:varchar(32);not null;default:'';index:idx_answer_records_source,priority:1"`
+	ModelName     string     `gorm:"column:model_name;type:varchar(128);not null;default:''"`
+	Metadata      jsonMap    `gorm:"column:metadata;type:json"`
+	CreatedAt     time.Time  `gorm:"column:created_at;type:datetime(3);not null;index:idx_answer_records_user,priority:2,sort:desc;index:idx_answer_records_source,priority:2,sort:desc"`
+}
+
+func (answerRecordSchema) TableName() string { return "answer_records" }
 
 type reactionSchema struct {
 	ID           uuid.UUID `gorm:"column:id;type:char(36);primaryKey"`
@@ -262,6 +280,7 @@ func schemaModels() []any {
 		&llmCallRecordSchema{},
 		&userSchema{},
 		&favoriteSchema{},
+		&answerRecordSchema{},
 		&reactionSchema{},
 		&agentSessionSchema{},
 		&agentMessageSchema{},

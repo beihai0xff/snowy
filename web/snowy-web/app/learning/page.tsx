@@ -20,6 +20,7 @@ import {
   api,
   clearAuthTokens,
   setAuthTokens,
+  type AnswerRecord,
   type Favorite,
   type GenerativeModelPackage,
   type HistoryItem,
@@ -69,6 +70,7 @@ export default function LearningPage() {
   const router = useRouter();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
+  const [answers, setAnswers] = useState<AnswerRecord[]>([]);
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [packages, setPackages] = useState<GenerativeModelPackage[]>([]);
   const [profile, setProfile] = useState<User | null>(null);
@@ -81,16 +83,18 @@ export default function LearningPage() {
     setLoading(true);
     setErrorText(null);
     try {
-      const [profileRes, historyRes, favRes, reactionRes, packageRes] = await Promise.all([
+      const [profileRes, historyRes, favRes, answerRes, reactionRes, packageRes] = await Promise.all([
         api.getProfile(),
         api.getHistory(),
         api.listFavorites(),
+        api.listAnswers().catch(() => ({ data: { total: 0, page: 1, page_size: 20, items: [] as AnswerRecord[] } })),
         api.listReactions().catch(() => ({ data: { total: 0, page: 1, page_size: 20, items: [] as Reaction[] } })),
         api.listModelingPackages().catch(() => ({ data: { total: 0, page: 1, page_size: 20, items: [] as GenerativeModelPackage[] } })),
       ]);
       setProfile(profileRes.data || null);
       setHistory(historyRes.data?.items || []);
       setFavorites(favRes.data?.items || []);
+      setAnswers(answerRes.data?.items || []);
       setReactions(reactionRes.data?.items || []);
       setPackages(packageRes.data?.items || []);
     } catch (error) {
@@ -207,6 +211,33 @@ export default function LearningPage() {
       ),
     },
     {
+      key: 'answers',
+      label: <><SearchOutlined /> 答案归档</>,
+      children: answers.length === 0 ? emptyActions('暂无答案归档。完成一次知识检索后，答案摘要、标签和引用证据会持久化到这里。') : (
+        <List
+          dataSource={answers}
+          renderItem={(item) => (
+            <List.Item
+              style={{ cursor: 'pointer' }}
+              onClick={() => router.push(`/search?q=${encodeURIComponent(item.query)}`)}
+              actions={[<Text key="time" type="secondary" style={{ fontSize: 12 }}>{formatDate(item.created_at)}</Text>]}
+            >
+              <List.Item.Meta
+                avatar={<SearchOutlined style={{ color: '#69c0ff' }} />}
+                title={<Space wrap><Text>{item.query}</Text><Tag color="geekblue">{item.source}</Tag><Tag color="cyan">{Math.round((item.confidence || 0) * 100)}%</Tag></Space>}
+                description={(
+                  <Space direction="vertical" size={4}>
+                    <Text type="secondary" ellipsis>{item.answer_summary}</Text>
+                    <Space wrap>{(item.knowledge_tags || []).slice(0, 6).map((tag) => <Tag key={tag}>{tag}</Tag>)}</Space>
+                  </Space>
+                )}
+              />
+            </List.Item>
+          )}
+        />
+      ),
+    },
+    {
       key: 'favorites',
       label: <><StarOutlined /> 收藏内容</>,
       children: favorites.length === 0 ? emptyActions('暂无收藏。搜索、答案、证据和模型包都可以进入收藏。') : (
@@ -214,7 +245,20 @@ export default function LearningPage() {
           dataSource={favorites}
           renderItem={(item) => (
             <List.Item style={{ cursor: 'pointer' }} onClick={() => handleFavoriteClick(item)} actions={[<Text key="time" type="secondary" style={{ fontSize: 12 }}>{formatDate(item.created_at)}</Text>]}>
-              <List.Item.Meta avatar={<StarOutlined style={{ color: '#faad14' }} />} title={item.title} description={<Tag color={actionTypeColor[item.target_type] || 'default'}>{item.target_type}</Tag>} />
+              <List.Item.Meta
+                avatar={<StarOutlined style={{ color: '#faad14' }} />}
+                title={item.title}
+                description={(
+                  <Space direction="vertical" size={4}>
+                    <Space wrap>
+                      <Tag color={actionTypeColor[item.target_type] || 'default'}>{item.target_type}</Tag>
+                      {item.metadata_json && <Tag color="cyan">已保存快照</Tag>}
+                    </Space>
+                    {typeof item.metadata_json?.answer_summary === 'string' && <Text type="secondary" ellipsis>{item.metadata_json.answer_summary}</Text>}
+                    {typeof item.metadata_json?.learning_goal === 'string' && <Text type="secondary" ellipsis>{item.metadata_json.learning_goal}</Text>}
+                  </Space>
+                )}
+              />
             </List.Item>
           )}
         />
@@ -281,7 +325,7 @@ export default function LearningPage() {
           <Space wrap style={{ justifyContent: 'space-between', width: '100%' }}>
             <div>
               <Text strong>{profileLabel}</Text>
-              <Paragraph type="secondary" style={{ marginBottom: 0 }}>v5 支持邮箱登录，历史、收藏、反馈和模型包将沉淀为个人学习档案。</Paragraph>
+              <Paragraph type="secondary" style={{ marginBottom: 0 }}>v5 支持邮箱登录，历史、答案归档、收藏、反馈和模型包将沉淀为个人学习档案。</Paragraph>
             </div>
             <Space wrap>
               {starterActions.map((item) => <Button key={item.path} icon={item.icon} onClick={() => router.push(item.path)}>{item.label}</Button>)}

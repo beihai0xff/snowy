@@ -212,6 +212,30 @@ paths:
         '200':
           description: 成功
 
+  /answers:
+    get:
+      summary: 搜索答案归档
+      description: 返回当前用户持久化的 answer_records，包括答案摘要、知识标签、引用证据和置信度。
+      tags: [User]
+      responses:
+        '200':
+          description: 成功
+
+  /answers/{id}:
+    get:
+      summary: 获取搜索答案归档详情
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 成功
+
   /reactions:
     get:
       summary: 当前用户反馈列表
@@ -459,6 +483,10 @@ components:
     SearchResponse:
       type: object
       properties:
+        answer_id:
+          type: string
+          format: uuid
+          description: 已持久化 answer_records ID；持久化不可用时可能为空。
         answer:
           type: string
         knowledge_tags:
@@ -503,6 +531,40 @@ components:
           type: string
         score:
           type: number
+
+    AnswerRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        query:
+          type: string
+        answer_summary:
+          type: string
+        knowledge_tags:
+          type: array
+          items:
+            type: string
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchCitation'
+        confidence:
+          type: number
+        source:
+          type: string
+        model_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
 
     RelatedQuestion:
       type: object
@@ -795,6 +857,10 @@ components:
           type: string
         title:
           type: string
+        metadata_json:
+          type: object
+          additionalProperties: true
+          description: 收藏时保存的脱敏快照，例如答案摘要、引用证据、模型包配置摘要。服务端会过滤 token/password/secret/api_key 等敏感键。
 
     ReactionRequest:
       type: object

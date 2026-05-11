@@ -3,11 +3,16 @@
 // 参考技术方案 §9.3 & §11.1。
 package search
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // Query 检索请求领域模型。
 type Query struct {
 	SessionID uuid.UUID `json:"session_id,omitempty"`
+	UserID    uuid.UUID `json:"user_id,omitempty"`
 	Text      string    `json:"text"`
 	Filters   Filters   `json:"filters,omitempty"`
 }
@@ -89,6 +94,7 @@ type LearningAction struct {
 
 // Response 检索响应，参考技术方案 §13.3。
 type Response struct {
+	AnswerID         string             `json:"answer_id,omitempty"`
 	Answer           string             `json:"answer"`
 	KnowledgeTags    []string           `json:"knowledge_tags"`
 	Citations        []Citation         `json:"citations"`
@@ -98,4 +104,22 @@ type Response struct {
 	ExamMappings     []ExamMapping      `json:"exam_mappings,omitempty"`
 	NextActions      []LearningAction   `json:"next_actions,omitempty"`
 	Confidence       float64            `json:"confidence"`
+}
+
+// AnswerRecord stores the durable learning value produced by a search answer.
+// It intentionally keeps evidence and tags as structured fields so later ranking,
+// recommendation and audit jobs can consume them without replaying the LLM call.
+type AnswerRecord struct {
+	ID            uuid.UUID      `json:"id"`
+	UserID        uuid.UUID      `json:"user_id"`
+	SessionID     uuid.UUID      `json:"session_id,omitempty"`
+	Query         string         `json:"query"`
+	AnswerSummary string         `json:"answer_summary"`
+	KnowledgeTags []string       `json:"knowledge_tags"`
+	Citations     []Citation     `json:"citations"`
+	Confidence    float64        `json:"confidence"`
+	Source        string         `json:"source"`
+	ModelName     string         `json:"model_name,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
+	CreatedAt     time.Time      `json:"created_at"`
 }

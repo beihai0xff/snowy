@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/beihai0xff/snowy/internal/repo/embedding"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
@@ -19,12 +22,14 @@ const (
 )
 
 type serviceImpl struct {
-	repo      Repository
-	parser    QueryParser
-	ranker    ResultRanker
-	embedding embedding.Provider
-	logs      LogRepository
-	llmChain  llm.Provider
+	repo          Repository
+	parser        QueryParser
+	ranker        ResultRanker
+	embedding     embedding.Provider
+	logs          LogRepository
+	answerRecords AnswerRecordRepository
+	feedback      FeedbackRepository
+	llmChain      llm.Provider
 }
 
 // Option 配置 Search Service 的可选依赖。
@@ -34,6 +39,20 @@ type Option func(*serviceImpl)
 func WithLLMProvider(provider llm.Provider) Option {
 	return func(s *serviceImpl) {
 		s.llmChain = provider
+	}
+}
+
+// WithAnswerRecordRepository enables durable answer_records persistence for search answers.
+func WithAnswerRecordRepository(repo AnswerRecordRepository) Option {
+	return func(s *serviceImpl) {
+		s.answerRecords = repo
+	}
+}
+
+// WithFeedbackRepository lets community reactions influence ranking and suggestions.
+func WithFeedbackRepository(repo FeedbackRepository) Option {
+	return func(s *serviceImpl) {
+		s.feedback = repo
 	}
 }
 
@@ -80,12 +99,22 @@ func (s *serviceImpl) Query(ctx context.Context, q *Query) (*Response, error) {
 	}
 
 	if s.hasLLMProvider() {
+		archived := s.lookupBestArchivedAnswer(ctx, q)
 		response, directErr := s.queryWithLLM(ctx, q, parsed)
 		if directErr != nil {
 			response = fallbackResponse(q, parsed, fmt.Errorf("llm direct answer: %w", directErr))
 		}
 
 		s.saveLog(ctx, q.Text, 1, start, nil)
+		metadata := map[string]any{
+			"intent": parsed.Intent,
+			"mode":   "direct_answer",
+		}
+		if archived != nil {
+			response = s.applyArchivedQualitySignals(ctx, response, archived)
+			metadata["ranked_by_answer_id"] = archived.ID.String()
+		}
+		s.persistAnswerRecord(ctx, q, response, "llm_direct", providerConfiguredModel(s.llmChain), metadata)
 
 		return response, nil
 	}
@@ -100,16 +129,119 @@ func (s *serviceImpl) Query(ctx context.Context, q *Query) (*Response, error) {
 	if err != nil {
 		response := fallbackResponse(q, parsed, fmt.Errorf("search repository: %w", err))
 		s.saveLog(ctx, q.Text, 0, start, nil)
+		s.persistAnswerRecord(ctx, q, response, "fallback", "", map[string]any{
+			"intent": parsed.Intent,
+			"error":  err.Error(),
+		})
 
 		return response, nil
 	}
 
 	ranked := s.ranker.Rank(ctx, results, parsed)
 	response := assembleResponse(ranked)
+	archived := s.lookupBestArchivedAnswer(ctx, q)
+	metadata := map[string]any{
+		"intent":       parsed.Intent,
+		"result_count": total,
+	}
+	if archived != nil {
+		response = s.applyArchivedQualitySignals(ctx, response, archived)
+		metadata["ranked_by_answer_id"] = archived.ID.String()
+	}
 
 	s.saveLog(ctx, q.Text, int(total), start, ranked)
+	s.persistAnswerRecord(ctx, q, response, "retrieval", "", metadata)
 
 	return response, nil
+}
+
+func (s *serviceImpl) lookupBestArchivedAnswer(ctx context.Context, q *Query) *AnswerRecord {
+	if s.answerRecords == nil || s.feedback == nil || q == nil || strings.TrimSpace(q.Text) == "" {
+		return nil
+	}
+
+	records, _, err := s.answerRecords.ListByQuery(ctx, strings.TrimSpace(q.Text), 0, 10)
+	if err != nil {
+		slog.WarnContext(ctx, "lookup archived answers failed", "error", err)
+		return nil
+	}
+
+	var best *AnswerRecord
+	bestScore := math.Inf(-1)
+	for _, record := range records {
+		if record == nil {
+			continue
+		}
+		feedback, err := s.feedback.TargetFeedback(ctx, "answer", record.ID.String())
+		if err != nil {
+			slog.WarnContext(ctx, "lookup answer feedback failed", "answer_id", record.ID, "error", err)
+			continue
+		}
+		score := communityScore(record.Confidence, feedback)
+		if score > bestScore {
+			bestScore = score
+			best = record
+		}
+	}
+
+	return best
+}
+
+func (s *serviceImpl) applyArchivedQualitySignals(ctx context.Context, resp *Response, record *AnswerRecord) *Response {
+	if resp == nil || record == nil || s.feedback == nil {
+		return resp
+	}
+
+	feedback, err := s.feedback.TargetFeedback(ctx, "answer", record.ID.String())
+	if err != nil {
+		return resp
+	}
+
+	if feedback.DislikeCount > feedback.LikeCount && strings.TrimSpace(record.AnswerSummary) != "" {
+		resp.Answer = record.AnswerSummary + "\n\n> 社区质量信号提示：该历史答案存在较多点踩，请优先核验证据与适用条件。"
+		resp.Confidence = math.Max(0.2, resp.Confidence-0.15)
+	}
+
+	resp.KnowledgeTags = appendUnique(resp.KnowledgeTags, "社区反馈排序")
+	resp.RelatedQuestions = prependRelatedQuestion(resp.RelatedQuestions, RelatedQuestion{
+		ID:    "community-reviewed-answer",
+		Title: fmt.Sprintf("查看社区质量信号：%d 赞 / %d 踩", feedback.LikeCount, feedback.DislikeCount),
+	})
+
+	return resp
+}
+
+func communityScore(confidence float64, feedback FeedbackSummary) float64 {
+	return confidence + float64(feedback.LikeCount)*0.08 - float64(feedback.DislikeCount)*0.12
+}
+
+func appendUnique(items []string, item string) []string {
+	item = strings.TrimSpace(item)
+	if item == "" {
+		return items
+	}
+	for _, existing := range items {
+		if existing == item {
+			return items
+		}
+	}
+
+	return append(items, item)
+}
+
+func prependRelatedQuestion(items []RelatedQuestion, item RelatedQuestion) []RelatedQuestion {
+	if strings.TrimSpace(item.ID) == "" {
+		return items
+	}
+	out := make([]RelatedQuestion, 0, len(items)+1)
+	out = append(out, item)
+	for _, existing := range items {
+		if existing.ID != item.ID {
+			out = append(out, existing)
+		}
+	}
+
+	return out
 }
 
 func (s *serviceImpl) parseQuery(raw string) (*ParsedQuery, error) {
@@ -703,6 +835,47 @@ func (s *serviceImpl) saveLog(ctx context.Context, queryText string, total int, 
 		LatencyMS:   int(time.Since(start).Milliseconds()),
 		TopScore:    topScore(results),
 	})
+}
+
+func (s *serviceImpl) persistAnswerRecord(
+	ctx context.Context,
+	q *Query,
+	resp *Response,
+	source string,
+	modelName string,
+	metadata map[string]any,
+) {
+	if s.answerRecords == nil || q == nil || resp == nil {
+		return
+	}
+
+	uid := q.UserID
+	if uid == uuid.Nil {
+		uid = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	}
+
+	record := &AnswerRecord{
+		UserID:        uid,
+		SessionID:     q.SessionID,
+		Query:         strings.TrimSpace(q.Text),
+		AnswerSummary: truncateRunes(resp.Answer, 1200),
+		KnowledgeTags: append([]string(nil), resp.KnowledgeTags...),
+		Citations:     append([]Citation(nil), resp.Citations...),
+		Confidence:    resp.Confidence,
+		Source:        strings.TrimSpace(source),
+		ModelName:     strings.TrimSpace(modelName),
+		Metadata:      metadata,
+	}
+	if record.Source == "" {
+		record.Source = "unknown"
+	}
+
+	if err := s.answerRecords.Save(ctx, record); err != nil {
+		slog.WarnContext(ctx, "persist answer record failed", "error", err)
+		return
+	}
+
+	resp.AnswerID = record.ID.String()
 }
 
 func assembleResponse(results []Result) *Response {

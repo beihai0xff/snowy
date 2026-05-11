@@ -127,6 +127,7 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 	runRepo := mysqlrepo.NewAgentRunRepository(shared.db)
 	toolCallRepo := mysqlrepo.NewAgentToolCallRepository(shared.db)
 	generativeRepo := mysqlrepo.NewGenerativeModelPackageRepository(shared.db)
+	answerRecordRepo := mysqlrepo.NewAnswerRecordRepository(shared.db)
 	transactor := mysqlrepo.NewTransactor(shared.db)
 
 	rateLimiter := redisrepo.NewRateLimiter(shared.rdb)
@@ -157,6 +158,8 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 		nil,
 		nil,
 		searchservice.WithLLMProvider(llmChain),
+		searchservice.WithAnswerRecordRepository(answerRecordRepo),
+		searchservice.WithFeedbackRepository(reactionRepo),
 	)
 	physicsSvc := physicsservice.NewService(
 		physicscalculator.NewSimpleCalculator(),
@@ -205,7 +208,7 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 		Render:     handler.NewRenderHandler(physicsSvc),
 		Biology:    handler.NewBiologyHandler(biologySvc, userSvc),
 		Generative: handler.NewGenerativeHandler(generativeSvc, userSvc),
-		User:       handler.NewUserHandler(userSvc),
+		User:       handler.NewUserHandler(userSvc, answerRecordRepo),
 		Monitoring: handler.NewMonitoringHandler(llmRecorder),
 	}
 

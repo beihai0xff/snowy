@@ -114,9 +114,10 @@ type AuthResp struct {
 
 // FavoriteReq 收藏请求。
 type FavoriteReq struct {
-	TargetType string `binding:"required,oneof=search answer evidence physics biology model_package render_code model_config" json:"target_type"`
-	TargetID   string `binding:"required"                              json:"target_id"`
-	Title      string `binding:"required"                              json:"title"`
+	TargetType   string         `binding:"required,oneof=search answer evidence physics biology model_package render_code model_config" json:"target_type"`
+	TargetID     string         `binding:"required"                                                               json:"target_id"`
+	Title        string         `binding:"required"                                                               json:"title"`
+	MetadataJSON map[string]any `json:"metadata_json,omitempty"`
 }
 
 type ReactionReq struct {

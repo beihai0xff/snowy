@@ -8,6 +8,7 @@ import (
 	"github.com/beihai0xff/snowy/internal/agent"
 	"github.com/beihai0xff/snowy/internal/modeling/generative"
 	"github.com/beihai0xff/snowy/internal/monitoring"
+	searchdomain "github.com/beihai0xff/snowy/internal/repo/search"
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
@@ -155,12 +156,13 @@ func (r *userRow) toDomain() *user.User {
 
 //nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.
 type favoriteRow struct {
-	ID         uuid.UUID `gorm:"column:id"`
-	UserID     uuid.UUID `gorm:"column:user_id"`
-	TargetType string    `gorm:"column:target_type"`
-	TargetID   string    `gorm:"column:target_id"`
-	Title      string    `gorm:"column:title"`
-	CreatedAt  time.Time `gorm:"column:created_at"`
+	ID           uuid.UUID `gorm:"column:id"`
+	UserID       uuid.UUID `gorm:"column:user_id"`
+	TargetType   string    `gorm:"column:target_type"`
+	TargetID     string    `gorm:"column:target_id"`
+	Title        string    `gorm:"column:title"`
+	MetadataJSON jsonMap   `gorm:"column:metadata_json"`
+	CreatedAt    time.Time `gorm:"column:created_at"`
 }
 
 func (favoriteRow) TableName() string { return "favorites" }
@@ -171,12 +173,13 @@ func newFavoriteRow(f *user.Favorite) *favoriteRow {
 	}
 
 	return &favoriteRow{
-		ID:         f.ID,
-		UserID:     f.UserID,
-		TargetType: f.TargetType,
-		TargetID:   f.TargetID,
-		Title:      f.Title,
-		CreatedAt:  f.CreatedAt,
+		ID:           f.ID,
+		UserID:       f.UserID,
+		TargetType:   f.TargetType,
+		TargetID:     f.TargetID,
+		Title:        f.Title,
+		MetadataJSON: newJSONMap(f.MetadataJSON),
+		CreatedAt:    f.CreatedAt,
 	}
 }
 
@@ -186,13 +189,78 @@ func (r *favoriteRow) toDomain() *user.Favorite {
 	}
 
 	return &user.Favorite{
-		ID:         r.ID,
-		UserID:     r.UserID,
-		TargetType: r.TargetType,
-		TargetID:   r.TargetID,
-		Title:      r.Title,
-		CreatedAt:  r.CreatedAt,
+		ID:           r.ID,
+		UserID:       r.UserID,
+		TargetType:   r.TargetType,
+		TargetID:     r.TargetID,
+		Title:        r.Title,
+		MetadataJSON: map[string]any(r.MetadataJSON),
+		CreatedAt:    r.CreatedAt,
 	}
+}
+
+//nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.
+type answerRecordRow struct {
+	ID            uuid.UUID  `gorm:"column:id"`
+	UserID        uuid.UUID  `gorm:"column:user_id"`
+	SessionID     *uuid.UUID `gorm:"column:session_id"`
+	Query         string     `gorm:"column:query"`
+	AnswerSummary string     `gorm:"column:answer_summary"`
+	KnowledgeTags jsonValue  `gorm:"column:knowledge_tags"`
+	Citations     jsonValue  `gorm:"column:citations"`
+	Confidence    float64    `gorm:"column:confidence"`
+	Source        string     `gorm:"column:source"`
+	ModelName     string     `gorm:"column:model_name"`
+	Metadata      jsonMap    `gorm:"column:metadata"`
+	CreatedAt     time.Time  `gorm:"column:created_at"`
+}
+
+func (answerRecordRow) TableName() string { return "answer_records" }
+
+func newAnswerRecordRow(record *searchdomain.AnswerRecord) *answerRecordRow {
+	if record == nil {
+		return nil
+	}
+
+	return &answerRecordRow{
+		ID:            record.ID,
+		UserID:        record.UserID,
+		SessionID:     nullableUUID(record.SessionID),
+		Query:         record.Query,
+		AnswerSummary: record.AnswerSummary,
+		KnowledgeTags: newJSONValue(record.KnowledgeTags),
+		Citations:     newJSONValue(record.Citations),
+		Confidence:    record.Confidence,
+		Source:        record.Source,
+		ModelName:     record.ModelName,
+		Metadata:      newJSONMap(record.Metadata),
+		CreatedAt:     record.CreatedAt,
+	}
+}
+
+func (r *answerRecordRow) toDomain() *searchdomain.AnswerRecord {
+	if r == nil {
+		return nil
+	}
+
+	record := &searchdomain.AnswerRecord{
+		ID:            r.ID,
+		UserID:        r.UserID,
+		Query:         r.Query,
+		AnswerSummary: r.AnswerSummary,
+		Confidence:    r.Confidence,
+		Source:        r.Source,
+		ModelName:     r.ModelName,
+		Metadata:      map[string]any(r.Metadata),
+		CreatedAt:     r.CreatedAt,
+	}
+	if r.SessionID != nil {
+		record.SessionID = *r.SessionID
+	}
+	_ = r.KnowledgeTags.AssignTo(&record.KnowledgeTags)
+	_ = r.Citations.AssignTo(&record.Citations)
+
+	return record
 }
 
 //nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.

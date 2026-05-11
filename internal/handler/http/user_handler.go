@@ -10,6 +10,7 @@ import (
 
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
+	searchdomain "github.com/beihai0xff/snowy/internal/repo/search"
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
@@ -17,12 +18,18 @@ import (
 // 参考技术方案 §17.7 & §18A。
 // v5 支持邮箱登录；未携带 token 时仍回落默认匿名用户。
 type UserHandler struct {
-	userSvc user.Service
+	userSvc    user.Service
+	answerRepo searchdomain.AnswerRecordRepository
 }
 
 // NewUserHandler 创建 UserHandler。
-func NewUserHandler(userSvc user.Service) *UserHandler {
-	return &UserHandler{userSvc: userSvc}
+func NewUserHandler(userSvc user.Service, answerRepo ...searchdomain.AnswerRecordRepository) *UserHandler {
+	var repo searchdomain.AnswerRecordRepository
+	if len(answerRepo) > 0 {
+		repo = answerRepo[0]
+	}
+
+	return &UserHandler{userSvc: userSvc, answerRepo: repo}
 }
 
 // Register POST /api/v1/auth/register — 邮箱注册。
@@ -169,6 +176,51 @@ func (h *UserHandler) GetHistory(c *gin.Context) {
 	}))
 }
 
+// ListAnswerRecords GET /api/v1/answers — 搜索答案持久化记录。
+func (h *UserHandler) ListAnswerRecords(c *gin.Context) {
+	if h.answerRepo == nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage("answer record repository is nil"), reqID))
+
+		return
+	}
+
+	uid, ok := h.resolveUserID(c)
+	if !ok {
+		return
+	}
+
+	items, total, err := h.answerRepo.ListByUser(c.Request.Context(), uid.String(), 0, 20)
+	if err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	c.JSON(http.StatusOK, common.Success(common.PageResponse{Total: total, Page: 1, PageSize: 20, Items: items}))
+}
+
+// GetAnswerRecord GET /api/v1/answers/:id — 获取单条搜索答案记录。
+func (h *UserHandler) GetAnswerRecord(c *gin.Context) {
+	if h.answerRepo == nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage("answer record repository is nil"), reqID))
+
+		return
+	}
+
+	record, err := h.answerRepo.GetByID(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		reqID := common.RequestIDFromContext(c.Request.Context())
+		c.JSON(http.StatusNotFound, common.Fail(common.ErrInvalidInput.WithMessage("answer record not found"), reqID))
+
+		return
+	}
+
+	c.JSON(http.StatusOK, common.Success(record))
+}
+
 // ListFavorites GET /api/v1/favorites — 收藏列表。
 func (h *UserHandler) ListFavorites(c *gin.Context) {
 	uid, ok := h.resolveUserID(c)
@@ -234,10 +286,11 @@ func (h *UserHandler) AddFavorite(c *gin.Context) {
 	}
 
 	fav := &user.Favorite{
-		UserID:     uid,
-		TargetType: req.TargetType,
-		TargetID:   req.TargetID,
-		Title:      req.Title,
+		UserID:       uid,
+		TargetType:   req.TargetType,
+		TargetID:     req.TargetID,
+		Title:        req.Title,
+		MetadataJSON: req.MetadataJSON,
 	}
 
 	if err := h.userSvc.AddFavorite(c.Request.Context(), fav); err != nil {

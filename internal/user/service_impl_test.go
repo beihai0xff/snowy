@@ -420,16 +420,20 @@ func TestAddFavorite_SetsIDAndTimestamp(t *testing.T) {
 		addFn: func(_ context.Context, fav *Favorite) error {
 			assert.NotEqual(t, uuid.Nil, fav.ID)
 			assert.False(t, fav.CreatedAt.IsZero())
+			assert.Equal(t, "summary", fav.MetadataJSON["answer_summary"])
+			_, leaked := fav.MetadataJSON["api_key"]
+			assert.False(t, leaked)
 			return nil
 		},
 	}
 	svc := newTestService(&mockRepo{}, favRepo, &mockHistRepo{}, nil)
 
 	fav := &Favorite{
-		UserID:     uuid.New(),
-		TargetType: "search",
-		TargetID:   "doc-123",
-		Title:      "Test",
+		UserID:       uuid.New(),
+		TargetType:   "search",
+		TargetID:     "doc-123",
+		Title:        "Test",
+		MetadataJSON: map[string]any{"answer_summary": "summary", "api_key": "sk-secret"},
 	}
 	err := svc.AddFavorite(context.Background(), fav)
 

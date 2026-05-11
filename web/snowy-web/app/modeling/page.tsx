@@ -217,7 +217,21 @@ function ModelingPageInner() {
 
   const handleFavorite = async () => {
     try {
-      await api.addFavorite({ target_type: pkg?.package_id ? 'model_package' : subject, target_id: pkg?.package_id || question, title: pkg?.learning_model.learning_goal || question || 'Snowy v5 模型包' });
+      await api.addFavorite({
+        target_type: pkg?.package_id ? 'model_package' : subject,
+        target_id: pkg?.package_id || question,
+        title: pkg?.learning_model.learning_goal || question || 'Snowy v5 模型包',
+        metadata_json: pkg ? {
+          package_id: pkg.package_id,
+          domain: pkg.domain,
+          question: pkg.question,
+          learning_goal: pkg.learning_model.learning_goal,
+          knowledge_tags: pkg.learning_model.knowledge_tags || [],
+          confidence: pkg.confidence,
+          status: pkg.status,
+          model_name: pkg.model_name,
+        } : { subject, question },
+      });
       message.success('收藏成功');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '收藏失败');

@@ -115,6 +115,8 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 	// ── 用户接口（不再需要认证）──────────────────────
 	v1.GET("/user/profile", h.User.GetProfile)
 	v1.GET("/history", h.User.GetHistory)
+	v1.GET("/answers", h.User.ListAnswerRecords)
+	v1.GET("/answers/:id", h.User.GetAnswerRecord)
 	v1.POST("/favorites", h.User.AddFavorite)
 	v1.GET("/favorites", h.User.ListFavorites)
 	v1.PUT("/reactions", h.User.SetReaction)

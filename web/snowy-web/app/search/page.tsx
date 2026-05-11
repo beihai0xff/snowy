@@ -99,9 +99,17 @@ function SearchPageInner() {
   const handleFavorite = async () => {
     if (!result) return;
     const req: FavoriteReq = {
-      target_type: 'search',
-      target_id: query,
+      target_type: result.answer_id ? 'answer' : 'search',
+      target_id: result.answer_id || query,
       title: query,
+      metadata_json: {
+        answer_id: result.answer_id,
+        query,
+        answer_summary: result.answer.slice(0, 600),
+        confidence: result.confidence,
+        knowledge_tags: result.knowledge_tags || [],
+        citations: (result.citations || []).slice(0, 5),
+      },
     };
     try {
       await api.addFavorite(req);
@@ -216,12 +224,15 @@ function SearchPageInner() {
               extra={(
                 <Space wrap>
                   {confidence && <Tag color={confidence.color}>{confidence.text} {(result.confidence * 100).toFixed(0)}%</Tag>}
-                  <ReactionBar targetType="answer" targetID={query} />
+                  <ReactionBar targetType="answer" targetID={result.answer_id || query} />
                   <Button icon={<StarOutlined />} size="small" onClick={handleFavorite}>收藏</Button>
                 </Space>
               )}
               className="snowy-glass"
             >
+              {result.answer_id && (
+                <Tag color="geekblue" style={{ marginBottom: 12 }}>已归档答案：{result.answer_id.slice(0, 8)}</Tag>
+              )}
               <MarkdownText content={result.answer} />
               <div className="snowy-stat-row" style={{ marginTop: 18 }}>
                 <div className="snowy-stat"><strong>{result.citations?.length || 0}</strong><span>引用证据</span></div>

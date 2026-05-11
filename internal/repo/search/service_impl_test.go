@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -21,6 +22,47 @@ func (f fakeSearchRepo) Search(ctx context.Context, query *ParsedQuery, filters 
 }
 
 func (f fakeSearchRepo) GetByDocID(context.Context, string) (*Result, error) { return nil, nil }
+
+type fakeAnswerRecordRepo struct {
+	saveFn        func(ctx context.Context, record *AnswerRecord) error
+	listByQueryFn func(ctx context.Context, query string, offset, limit int) ([]*AnswerRecord, int64, error)
+}
+
+func (f fakeAnswerRecordRepo) Save(ctx context.Context, record *AnswerRecord) error {
+	if f.saveFn != nil {
+		return f.saveFn(ctx, record)
+	}
+	if record.ID == uuid.Nil {
+		record.ID = uuid.New()
+	}
+	return nil
+}
+
+func (f fakeAnswerRecordRepo) GetByID(context.Context, string) (*AnswerRecord, error) {
+	return nil, nil
+}
+
+func (f fakeAnswerRecordRepo) ListByUser(context.Context, string, int, int) ([]*AnswerRecord, int64, error) {
+	return nil, 0, nil
+}
+
+func (f fakeAnswerRecordRepo) ListByQuery(ctx context.Context, query string, offset, limit int) ([]*AnswerRecord, int64, error) {
+	if f.listByQueryFn != nil {
+		return f.listByQueryFn(ctx, query, offset, limit)
+	}
+	return nil, 0, nil
+}
+
+type fakeFeedbackRepo struct {
+	summary map[string]FeedbackSummary
+}
+
+func (f fakeFeedbackRepo) TargetFeedback(_ context.Context, targetType string, targetID string) (FeedbackSummary, error) {
+	if f.summary == nil {
+		return FeedbackSummary{}, nil
+	}
+	return f.summary[targetType+":"+targetID], nil
+}
 
 type fakeParser struct{}
 
@@ -94,7 +136,9 @@ func TestService_QueryFallbackWhenRepositoryFails(t *testing.T) {
 
 func TestService_QueryUsesLLMDirectAnswer(t *testing.T) {
 	repoCalled := false
+	userID := uuid.New()
 	var captured *llm.Request
+	var saved *AnswerRecord
 	svc := NewService(
 		fakeSearchRepo{searchFn: func(context.Context, *ParsedQuery, Filters, int, int) ([]Result, int64, error) {
 			repoCalled = true
@@ -108,9 +152,14 @@ func TestService_QueryUsesLLMDirectAnswer(t *testing.T) {
 			captured = req
 			return &llm.Response{Content: "结论：牛顿第二定律说明物体加速度与合外力成正比。"}, nil
 		}}),
+		WithAnswerRecordRepository(fakeAnswerRecordRepo{saveFn: func(_ context.Context, record *AnswerRecord) error {
+			saved = record
+			record.ID = uuid.New()
+			return nil
+		}}),
 	)
 
-	resp, err := svc.Query(context.Background(), &Query{Text: "牛顿第二定律是什么", Filters: Filters{Subject: "physics"}})
+	resp, err := svc.Query(context.Background(), &Query{UserID: userID, Text: "牛顿第二定律是什么", Filters: Filters{Subject: "physics"}})
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -133,6 +182,14 @@ func TestService_QueryUsesLLMDirectAnswer(t *testing.T) {
 	assert.NotContains(t, captured.Messages[0].Content, "学习平台")
 	assert.True(t, strings.Contains(captured.Messages[1].Content, "不要进行数据库检索"))
 	assert.Equal(t, "configured-gateway-model", captured.Model)
+	require.NotNil(t, saved)
+	assert.Equal(t, userID, saved.UserID)
+	assert.Equal(t, "牛顿第二定律是什么", saved.Query)
+	assert.Equal(t, "llm_direct", saved.Source)
+	assert.Equal(t, "configured-gateway-model", saved.ModelName)
+	assert.NotEmpty(t, saved.KnowledgeTags)
+	assert.NotEmpty(t, saved.Citations)
+	assert.NotEmpty(t, resp.AnswerID)
 }
 
 func TestService_QueryLLMFailureReturnsFallback(t *testing.T) {
@@ -156,4 +213,47 @@ func TestService_QueryLLMFailureReturnsFallback(t *testing.T) {
 	assert.Contains(t, resp.Answer, "model unavailable")
 	assert.Contains(t, resp.KnowledgeTags, "本地兜底")
 	assert.Contains(t, resp.KnowledgeTags, "biology")
+}
+
+func TestService_QueryUsesCommunityFeedbackForArchivedAnswer(t *testing.T) {
+	goodID := uuid.New()
+	badID := uuid.New()
+	var saved *AnswerRecord
+	svc := NewService(
+		nil,
+		fakeParser{},
+		fakeRanker{},
+		nil,
+		nil,
+		WithLLMProvider(fakeLLMProvider{name: "openai", model: "m1", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) {
+			return &llm.Response{Content: "新答案"}, nil
+		}}),
+		WithAnswerRecordRepository(fakeAnswerRecordRepo{
+			listByQueryFn: func(context.Context, string, int, int) ([]*AnswerRecord, int64, error) {
+				return []*AnswerRecord{
+					{ID: badID, Query: "能量守恒", AnswerSummary: "差评历史答案", Confidence: 0.9},
+					{ID: goodID, Query: "能量守恒", AnswerSummary: "好评历史答案", Confidence: 0.7},
+				}, 2, nil
+			},
+			saveFn: func(_ context.Context, record *AnswerRecord) error {
+				saved = record
+				record.ID = uuid.New()
+				return nil
+			},
+		}),
+		WithFeedbackRepository(fakeFeedbackRepo{summary: map[string]FeedbackSummary{
+			"answer:" + badID.String():  {LikeCount: 0, DislikeCount: 4},
+			"answer:" + goodID.String(): {LikeCount: 5, DislikeCount: 0},
+		}}),
+	)
+
+	resp, err := svc.Query(context.Background(), &Query{Text: "能量守恒", Filters: Filters{Subject: "physics"}})
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Contains(t, resp.KnowledgeTags, "社区反馈排序")
+	require.NotEmpty(t, resp.RelatedQuestions)
+	assert.Equal(t, "community-reviewed-answer", resp.RelatedQuestions[0].ID)
+	require.NotNil(t, saved)
+	assert.Equal(t, goodID.String(), saved.Metadata["ranked_by_answer_id"])
 }

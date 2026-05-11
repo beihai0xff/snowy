@@ -20,16 +20,17 @@ func TestFavoriteRepo_Add_Success(t *testing.T) {
 	repo := NewFavoriteRepository(db)
 
 	fav := &user.Favorite{
-		ID:         uuid.New(),
-		UserID:     uuid.New(),
-		TargetType: "physics",
-		TargetID:   "run_123",
-		Title:      "平抛运动分析",
-		CreatedAt:  time.Now(),
+		ID:           uuid.New(),
+		UserID:       uuid.New(),
+		TargetType:   "physics",
+		TargetID:     "run_123",
+		Title:        "平抛运动分析",
+		MetadataJSON: map[string]any{"answer_summary": "结论"},
+		CreatedAt:    time.Now(),
 	}
 
 	mock.ExpectExec("INSERT INTO `favorites`").
-		WithArgs(fav.ID, fav.UserID, fav.TargetType, fav.TargetID, fav.Title, fav.CreatedAt).
+		WithArgs(fav.ID, fav.UserID, fav.TargetType, fav.TargetID, fav.Title, sqlmock.AnyArg(), fav.CreatedAt).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err := repo.Add(context.Background(), fav)
@@ -87,9 +88,9 @@ func TestFavoriteRepo_ListByUser_Success(t *testing.T) {
 		WithArgs(userID).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
 
-	rows := sqlmock.NewRows([]string{"id", "user_id", "target_type", "target_id", "title", "created_at"}).
-		AddRow(uuid.New(), userID, "physics", "run_1", "测试1", now).
-		AddRow(uuid.New(), userID, "biology", "run_2", "测试2", now)
+	rows := sqlmock.NewRows([]string{"id", "user_id", "target_type", "target_id", "title", "metadata_json", "created_at"}).
+		AddRow(uuid.New(), userID, "physics", "run_1", "测试1", `{"answer_summary":"结论"}`, now).
+		AddRow(uuid.New(), userID, "biology", "run_2", "测试2", `{}`, now)
 
 	mock.ExpectQuery("SELECT \\* FROM `favorites` WHERE user_id = \\? ORDER BY created_at DESC LIMIT \\?").
 		WithArgs(userID, 20).
@@ -101,5 +102,6 @@ func TestFavoriteRepo_ListByUser_Success(t *testing.T) {
 	assert.Equal(t, int64(2), total)
 	assert.Len(t, favs, 2)
 	assert.Equal(t, "测试1", favs[0].Title)
+	assert.Equal(t, "结论", favs[0].MetadataJSON["answer_summary"])
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
