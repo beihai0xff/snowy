@@ -102,7 +102,9 @@ func (s *serviceImpl) Query(ctx context.Context, q *Query) (*Response, error) {
 		archived := s.lookupBestArchivedAnswer(ctx, q)
 		response, directErr := s.queryWithLLM(ctx, q, parsed)
 		if directErr != nil {
-			response = fallbackResponse(q, parsed, fmt.Errorf("llm direct answer: %w", directErr))
+			s.saveLog(ctx, q.Text, 0, start, nil)
+
+			return nil, fmt.Errorf("llm direct answer: %w", directErr)
 		}
 
 		s.saveLog(ctx, q.Text, 1, start, nil)
@@ -127,14 +129,9 @@ func (s *serviceImpl) Query(ctx context.Context, q *Query) (*Response, error) {
 
 	results, total, err := s.repo.Search(ctx, parsed, q.Filters, defaultSearchOffset, defaultSearchLimit)
 	if err != nil {
-		response := fallbackResponse(q, parsed, fmt.Errorf("search repository: %w", err))
 		s.saveLog(ctx, q.Text, 0, start, nil)
-		s.persistAnswerRecord(ctx, q, response, "fallback", "", map[string]any{
-			"intent": parsed.Intent,
-			"error":  err.Error(),
-		})
 
-		return response, nil
+		return nil, fmt.Errorf("search repository: %w", err)
 	}
 
 	ranked := s.ranker.Rank(ctx, results, parsed)
@@ -779,49 +776,6 @@ func truncateRunes(text string, limit int) string {
 	}
 
 	return string(runes[:limit]) + "…"
-}
-
-func fallbackResponse(q *Query, parsed *ParsedQuery, cause error) *Response {
-	text := "这个问题"
-	if q != nil && strings.TrimSpace(q.Text) != "" {
-		text = strings.TrimSpace(q.Text)
-	}
-
-	tags := []string{"本地兜底", "知识检索"}
-	if q != nil && strings.TrimSpace(q.Filters.Subject) != "" {
-		tags = append(tags, q.Filters.Subject)
-	}
-
-	if parsed != nil && parsed.Intent != "" {
-		tags = append(tags, parsed.Intent)
-	}
-
-	answer := fmt.Sprintf("当前大模型知识问答暂时不可用。你可以围绕“%s”补充学科、章节、已知条件，或稍后重试。", text)
-	if cause != nil && strings.Contains(cause.Error(), "search repository") {
-		answer = fmt.Sprintf("当前知识索引暂时不可用或没有命中结果。你可以围绕“%s”补充学科、章节、已知条件，或直接跳转到物理/生物建模继续分析。", text)
-	}
-
-	if cause != nil {
-		answer += " 诊断信息：" + cause.Error()
-	}
-
-	return enrichLearningSearchResponse(q, parsed, &Response{
-		Answer:        answer,
-		KnowledgeTags: tags,
-		Citations: []Citation{
-			{
-				DocID:      "local-fallback",
-				SourceType: "fallback",
-				Snippet:    "OpenSearch 无可用命中时返回的本地兜底说明。",
-				Score:      0.15,
-			},
-		},
-		RelatedQuestions: []RelatedQuestion{
-			{ID: "physics-modeling", Title: "用物理建模继续分析这个问题"},
-			{ID: "biology-modeling", Title: "用生物建模继续分析这个问题"},
-		},
-		Confidence: 0.15,
-	})
 }
 
 func (s *serviceImpl) saveLog(ctx context.Context, queryText string, total int, start time.Time, results []Result) {

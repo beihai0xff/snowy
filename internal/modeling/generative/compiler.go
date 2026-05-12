@@ -12,10 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
-	biologydomain "github.com/beihai0xff/snowy/internal/modeling/biology/domain"
-	biologyservice "github.com/beihai0xff/snowy/internal/modeling/biology/service"
 	physicsdomain "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
-	physicsservice "github.com/beihai0xff/snowy/internal/modeling/physics/service"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 	searchdomain "github.com/beihai0xff/snowy/internal/repo/search"
 )
@@ -25,29 +22,25 @@ const defaultCompileTimeout = 10 * time.Minute
 type CompilerOption func(*compilerService)
 
 type compilerService struct {
-	searchSvc  searchdomain.Service
-	physicsSvc physicsservice.PhysicsService
-	biologySvc biologyservice.BiologyService
-	llmChain   llm.Provider
-	repo       Repository
-	validator  Validator
-	now        func() time.Time
+	searchSvc searchdomain.Service
+	llmChain  llm.Provider
+	repo      Repository
+	validator Validator
+	now       func() time.Time
 }
 
 func NewCompilerService(
 	searchSvc searchdomain.Service,
-	physicsSvc physicsservice.PhysicsService,
-	biologySvc biologyservice.BiologyService,
+	_ any,
+	_ any,
 	repo Repository,
 	opts ...CompilerOption,
 ) Service {
 	svc := &compilerService{
-		searchSvc:  searchSvc,
-		physicsSvc: physicsSvc,
-		biologySvc: biologySvc,
-		repo:       repo,
-		validator:  NewDefaultValidator(),
-		now:        time.Now,
+		searchSvc: searchSvc,
+		repo:      repo,
+		validator: NewDefaultValidator(),
+		now:       time.Now,
 	}
 
 	for _, opt := range opts {
@@ -122,17 +115,15 @@ func (s *compilerService) Compile(ctx context.Context, req *CompileRequest) (*Ge
 		validationErr = validationFailureError(report)
 	}
 
-	fallbackCause := llmErr
-	if fallbackCause == nil {
-		fallbackCause = validationErr
+	if llmErr != nil {
+		return nil, fmt.Errorf("llm model package generation failed: %w", llmErr)
 	}
 
-	fallbackPkg, fallbackErr := s.compileFallback(ctx, req, domain, evidence, fallbackCause)
-	if fallbackErr != nil {
-		return nil, fallbackErr
+	if validationErr != nil {
+		return nil, fmt.Errorf("llm model package validation failed: %w", validationErr)
 	}
 
-	return s.saveAndReturn(ctx, fallbackPkg)
+	return nil, errors.New("llm model package generation failed: empty model response")
 }
 
 func validationFailureError(report ModelValidationReport) error {
@@ -295,91 +286,6 @@ func (s *compilerService) saveAndReturn(
 	}
 
 	return pkg, nil
-}
-
-func (s *compilerService) compileFallback(
-	ctx context.Context,
-	req *CompileRequest,
-	domain string,
-	evidence []EvidenceRef,
-	cause error,
-) (*GenerativeModelPackage, error) {
-	var (
-		pkg *GenerativeModelPackage
-		err error
-	)
-
-	switch domain {
-	case DomainPhysics:
-		pkg, err = s.fallbackPhysics(ctx, req, evidence)
-	case DomainBiology:
-		pkg, err = s.fallbackBiology(ctx, req, evidence)
-	default:
-		pkg, err = s.fallbackPhysics(ctx, req, evidence)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	fallbackReason := "llm generation unavailable"
-	if cause != nil {
-		fallbackReason = cause.Error()
-	}
-
-	s.finalizePackage(req, pkg, domain, evidence, "local-fallback", "fallback", fallbackReason)
-	report := s.validator.Validate(pkg)
-	report.FallbackRequired = true
-
-	report.FallbackReason = fallbackReason
-	if report.Confidence > 0.55 || report.Confidence == 0 {
-		report.Confidence = 0.55
-	}
-
-	pkg.ValidationReport = report
-	pkg.Confidence = report.Confidence
-	pkg.FallbackReason = fallbackReason
-	pkg.Warnings = append(pkg.Warnings, "当前结果由规则兜底生成；建议在模型服务恢复后重新推理。")
-	pkg.RegenerationHints = append(
-		pkg.RegenerationHints,
-		RegenerationHint{Reason: "llm_fallback", Message: "模型服务失败或输出未通过校验，可点击重新生成触发大模型再推理。"},
-	)
-
-	return pkg, nil
-}
-
-func (s *compilerService) fallbackPhysics(
-	ctx context.Context,
-	req *CompileRequest,
-	evidence []EvidenceRef,
-) (*GenerativeModelPackage, error) {
-	if s.physicsSvc == nil {
-		return nil, errors.New("physics service is nil")
-	}
-
-	model, err := s.physicsSvc.Analyze(ctx, req.Message, req.Context.UserNotes)
-	if err != nil {
-		return nil, fmt.Errorf("physics fallback analyze: %w", err)
-	}
-
-	return packageFromPhysics(req, model, evidence, s.now()), nil
-}
-
-func (s *compilerService) fallbackBiology(
-	ctx context.Context,
-	req *CompileRequest,
-	evidence []EvidenceRef,
-) (*GenerativeModelPackage, error) {
-	if s.biologySvc == nil {
-		return nil, errors.New("biology service is nil")
-	}
-
-	model, err := s.biologySvc.Analyze(ctx, req.Message, req.Context.UserNotes)
-	if err != nil {
-		return nil, fmt.Errorf("biology fallback analyze: %w", err)
-	}
-
-	return packageFromBiology(req, model, evidence, s.now()), nil
 }
 
 func (s *compilerService) collectEvidence(ctx context.Context, req *CompileRequest, domain string) []EvidenceRef {
@@ -1856,203 +1762,6 @@ func clampConfidence(v float64) float64 {
 	return v
 }
 
-func packageFromPhysics(
-	req *CompileRequest,
-	model *physicsdomain.PhysicsModel,
-	evidence []EvidenceRef,
-	now time.Time,
-) *GenerativeModelPackage {
-	variables := make([]VariableSpec, 0, len(model.Parameters))
-	controls := make([]ControlSpec, 0, len(model.Parameters))
-
-	local := make([]string, 0, len(model.Parameters))
-	for _, p := range model.Parameters {
-		variables = append(
-			variables,
-			VariableSpec{
-				Name:    p.Name,
-				Label:   p.Label,
-				Unit:    p.Unit,
-				Default: p.Default,
-				Min:     p.Min,
-				Max:     p.Max,
-				Step:    p.Step,
-			},
-		)
-		controls = append(controls, ControlSpec{Variable: p.Name, Control: "slider", Label: p.Label})
-		local = append(local, p.Name)
-	}
-
-	formulas := formulasForPhysics(model.ModelType)
-
-	assumptions := []string{"高中阶段近似模型", "忽略未在题干中出现的次要因素"}
-	if len(model.Warnings) > 0 {
-		assumptions = append(assumptions, model.Warnings...)
-	}
-
-	vectors := vectorsForPhysics(model.ModelType)
-	curves := curvesForPhysics(model.ModelType)
-	outcomes := outcomesForPhysics(model.ModelType)
-
-	return &GenerativeModelPackage{
-		PackageID: uuid.New(), Domain: DomainPhysics, Question: req.Message, CreatedAt: now, EvidenceRefs: evidence, Confidence: 0.55,
-		LearningModel: LearningModelSpec{
-			Domain:        DomainPhysics,
-			GradeBand:     req.GradeBand,
-			Topic:         string(model.ModelType),
-			LearningGoal:  physicsLearningGoal(model.ModelType),
-			KnowledgeTags: physicsKnowledgeTags(model.ModelType),
-			Difficulty:    "medium",
-		},
-		ReasoningTrace: ReasoningTrace{
-			Summary:      model.ResultSummary,
-			EvidenceUsed: evidenceIDs(evidence),
-			Assumptions:  assumptions,
-			KeySteps:     derivationTitles(model.Steps),
-			Confidence:   0.55,
-		},
-		GenerativeModel: GenerativeModelSpec{
-			ID:            "fallback_physics",
-			Domain:        DomainPhysics,
-			GradeBand:     req.GradeBand,
-			Topic:         string(model.ModelType),
-			LearningGoal:  physicsLearningGoal(model.ModelType),
-			KnowledgeTags: physicsKnowledgeTags(model.ModelType),
-			Entities:      physicsEntities(model.ModelType),
-			Variables:     variables,
-			Relations:     relationsForPhysics(model.ModelType),
-		},
-		SimulationLogic: &DynamicSimulationSpec{
-			SimulationType: string(model.ModelType),
-			Runtime:        "safe_math_dsl",
-			Assumptions:    assumptions,
-			StateVariables: stateVariablesForPhysics(model.ModelType),
-			Variables:      variables,
-			Formulas:       formulas,
-			Vectors:        vectors,
-			Curves:         curves,
-			Outcomes:       outcomes,
-			RenderInstructions: RenderInstructions{
-				CoordinateSystem: "2d_cartesian",
-				Layers:           renderLayersForPhysics(model.ModelType),
-				Annotations:      annotationsForPhysics(model.ModelType),
-			},
-			LocalRecomputeAllowed: true,
-			RegenerateWhen:        []string{"改变模型假设", "新增受力或介质", "要求新的学习目标"},
-		},
-		InteractionPlan: InteractionPlan{
-			Controls:      controls,
-			Challenge:     challengeForPhysics(model.ModelType),
-			FeedbackRules: feedbackRulesForPhysics(model.ModelType),
-			RegenerationPolicy: RegenerationPolicy{
-				LocalRecompute: local,
-				LLMRegenerate: []string{
-					"new_force",
-					"new_medium",
-					"new_learning_goal",
-					"conflicting_student_explanation",
-				},
-			},
-		},
-		AssessmentTasks: assessmentForPhysics(model.ModelType),
-	}
-}
-
-func packageFromBiology(
-	req *CompileRequest,
-	model *biologydomain.BiologyModel,
-	evidence []EvidenceRef,
-	now time.Time,
-) *GenerativeModelPackage {
-	nodes := make([]VisualizationNode, 0, len(model.Concepts))
-	nameToID := map[string]string{}
-
-	for i, c := range model.Concepts {
-		id := fmt.Sprintf("n%d", i+1)
-		nodes = append(nodes, VisualizationNode{ID: id, Label: c.Name, Type: c.Type})
-		nameToID[c.Name] = id
-	}
-
-	edges := make([]VisualizationEdge, 0, len(model.Relations))
-	for _, r := range model.Relations {
-		source, target := nameToID[r.Source], nameToID[r.Target]
-		if source != "" && target != "" {
-			edges = append(edges, VisualizationEdge{Source: source, Target: target, Relation: r.Type})
-		}
-	}
-
-	steps := make([]VisualizationStep, 0, len(model.ProcessSteps))
-	for _, step := range model.ProcessSteps {
-		steps = append(steps, VisualizationStep{Index: step.Index, Title: step.Title, Detail: step.Content})
-	}
-
-	vars := &ExperimentVariables{}
-	if model.ExperimentVariables != nil {
-		vars = &ExperimentVariables{
-			Independent: model.ExperimentVariables.Independent,
-			Dependent:   model.ExperimentVariables.Dependent,
-			Controlled:  model.ExperimentVariables.Controlled,
-		}
-	}
-
-	return &GenerativeModelPackage{
-		PackageID: uuid.New(), Domain: DomainBiology, Question: req.Message, CreatedAt: now, EvidenceRefs: evidence, Confidence: 0.55,
-		LearningModel: LearningModelSpec{
-			Domain:        DomainBiology,
-			GradeBand:     req.GradeBand,
-			Topic:         model.Topic,
-			LearningGoal:  biologyLearningGoal(model.Topic),
-			KnowledgeTags: biologyKnowledgeTags(model.Topic),
-			Difficulty:    "medium",
-		},
-		ReasoningTrace: ReasoningTrace{
-			Summary:      model.ResultSummary,
-			EvidenceUsed: evidenceIDs(evidence),
-			Assumptions:  []string{"高中生物范围内解释", "变量关系按题干条件判断"},
-			KeySteps:     stepTitlesBiology(model.ProcessSteps),
-			Confidence:   0.55,
-		},
-		GenerativeModel: GenerativeModelSpec{
-			ID:            "fallback_biology",
-			Domain:        DomainBiology,
-			GradeBand:     req.GradeBand,
-			Topic:         model.Topic,
-			LearningGoal:  biologyLearningGoal(model.Topic),
-			KnowledgeTags: biologyKnowledgeTags(model.Topic),
-			Entities:      entitiesFromConcepts(model.Concepts),
-			Variables:     biologyVariableSpecs(model.Topic),
-			Relations:     relationSpecsFromBiology(model.Relations),
-		},
-		VisualizationGraph: &GenerativeVisualizationSpec{
-			VisualizationType:   "generated_biology_process_graph",
-			Topic:               model.Topic,
-			Nodes:               nodes,
-			Edges:               edges,
-			ProcessSteps:        steps,
-			ExperimentVariables: vars,
-			CurveExplanation:    curveExplanationForBiology(model.Topic),
-			LimitingFactors:     limitingFactorsForBiology(model.Topic, vars),
-			MechanismStages:     mechanismStagesForBiology(model.Topic),
-			VariableEffects:     variableEffectsForBiology(model.Topic, vars),
-		},
-		InteractionPlan: InteractionPlan{
-			Controls:      biologyControls(model.Topic),
-			Challenge:     challengeForBiology(model.Topic),
-			FeedbackRules: feedbackRulesForBiology(model.Topic),
-			RegenerationPolicy: RegenerationPolicy{
-				LocalRecompute: []string{"animation_speed"},
-				LLMRegenerate: []string{
-					"new_factor",
-					"new_experiment_design",
-					"conflicting_student_explanation",
-					"new_curve_segment",
-				},
-			},
-		},
-		AssessmentTasks: assessmentForBiology(model.Topic, vars),
-	}
-}
-
 func enrichPackageDefaults(pkg *GenerativeModelPackage) {
 	if pkg == nil {
 		return
@@ -2728,48 +2437,12 @@ func relationsForPhysics(modelType physicsdomain.ModelType) []RelationSpec {
 	return []RelationSpec{{Source: "variables", Target: "result", Type: "determines", Description: "变量共同决定模型结果"}}
 }
 
-func derivationTitles(steps []physicsdomain.DerivationStep) []string {
-	out := make([]string, 0, len(steps))
-	for _, step := range steps {
-		out = append(out, step.Title)
-	}
-
-	return out
-}
-
-func stepTitlesBiology(steps []biologydomain.ProcessStep) []string {
-	out := make([]string, 0, len(steps))
-	for _, step := range steps {
-		out = append(out, step.Title)
-	}
-
-	return out
-}
-
 func evidenceIDs(evidence []EvidenceRef) []string {
 	out := make([]string, 0, len(evidence))
 	for _, e := range evidence {
 		if e.DocID != "" {
 			out = append(out, e.DocID)
 		}
-	}
-
-	return out
-}
-
-func entitiesFromConcepts(concepts []biologydomain.Concept) []EntitySpec {
-	out := make([]EntitySpec, 0, len(concepts))
-	for i, c := range concepts {
-		out = append(out, EntitySpec{ID: fmt.Sprintf("c%d", i+1), Name: c.Name, Type: c.Type})
-	}
-
-	return out
-}
-
-func relationSpecsFromBiology(relations []biologydomain.Relation) []RelationSpec {
-	out := make([]RelationSpec, 0, len(relations))
-	for _, r := range relations {
-		out = append(out, RelationSpec{Source: r.Source, Target: r.Target, Type: r.Type})
 	}
 
 	return out

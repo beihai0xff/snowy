@@ -52,8 +52,8 @@ auth:
     redirect_uri: "http://localhost:3001"
 
 ratelimit:
-  authenticated_rpm: 60
-  anonymous_rpm: 10
+  authenticated_rpm: 300
+  anonymous_rpm: 120
 
 token_budget:
   per_request_input: 131072

@@ -108,7 +108,7 @@ type fakeRanker struct{}
 
 func (fakeRanker) Rank(_ context.Context, results []Result, _ *ParsedQuery) []Result { return results }
 
-func TestService_QueryFallbackWhenRepositoryFails(t *testing.T) {
+func TestService_QueryReturnsErrorWhenRepositoryFails(t *testing.T) {
 	svc := NewService(
 		fakeSearchRepo{searchFn: func(context.Context, *ParsedQuery, Filters, int, int) ([]Result, int64, error) {
 			return nil, 0, errors.New("opensearch unavailable")
@@ -121,17 +121,10 @@ func TestService_QueryFallbackWhenRepositoryFails(t *testing.T) {
 
 	resp, err := svc.Query(context.Background(), &Query{Text: "牛顿第二定律", Filters: Filters{Subject: "physics"}})
 
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	assert.Equal(t, 0.15, resp.Confidence)
-	assert.Contains(t, resp.Answer, "当前知识索引暂时不可用")
-	assert.Contains(t, resp.Answer, "opensearch unavailable")
-	assert.Contains(t, resp.KnowledgeTags, "本地兜底")
-	assert.Contains(t, resp.KnowledgeTags, "physics")
-	require.Len(t, resp.Citations, 1)
-	assert.Equal(t, "local-fallback", resp.Citations[0].DocID)
-	require.NotEmpty(t, resp.RelatedQuestions)
-	require.NotEmpty(t, resp.NextActions)
+	require.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "search repository")
+	assert.Contains(t, err.Error(), "opensearch unavailable")
 }
 
 func TestService_QueryUsesLLMDirectAnswer(t *testing.T) {
@@ -192,7 +185,7 @@ func TestService_QueryUsesLLMDirectAnswer(t *testing.T) {
 	assert.NotEmpty(t, resp.AnswerID)
 }
 
-func TestService_QueryLLMFailureReturnsFallback(t *testing.T) {
+func TestService_QueryLLMFailureReturnsError(t *testing.T) {
 	svc := NewService(
 		nil,
 		fakeParser{},
@@ -206,13 +199,10 @@ func TestService_QueryLLMFailureReturnsFallback(t *testing.T) {
 
 	resp, err := svc.Query(context.Background(), &Query{Text: "细胞膜有什么作用", Filters: Filters{Subject: "biology"}})
 
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	assert.Equal(t, 0.15, resp.Confidence)
-	assert.Contains(t, resp.Answer, "当前大模型知识问答暂时不可用")
-	assert.Contains(t, resp.Answer, "model unavailable")
-	assert.Contains(t, resp.KnowledgeTags, "本地兜底")
-	assert.Contains(t, resp.KnowledgeTags, "biology")
+	require.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "llm direct answer")
+	assert.Contains(t, err.Error(), "model unavailable")
 }
 
 func TestService_QueryUsesCommunityFeedbackForArchivedAnswer(t *testing.T) {

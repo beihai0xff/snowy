@@ -97,6 +97,14 @@ func New(cfg *config.Config) (*App, error) {
 
 	slog.Info("redis connected", "addr", cfg.Redis.Addr)
 
+	if err := mysqlrepo.RunMigrations(context.Background(), db); err != nil {
+		app.Close()
+
+		return nil, fmt.Errorf("run mysql migrations: %w", err)
+	}
+
+	slog.Info("mysql schema migrated", "db", cfg.Database.Name, "host", cfg.Database.Host)
+
 	shared := &sharedDeps{cfg: cfg, db: db, rdb: rdb}
 
 	if cfg.Server.APIEnabled() {

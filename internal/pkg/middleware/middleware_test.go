@@ -244,6 +244,50 @@ func TestRateLimit_LimiterError_FailOpen(t *testing.T) {
 	assert.Equal(t, 200, w.Code)
 }
 
+func TestRateLimit_ExemptsReadOnlyArchiveEndpoints(t *testing.T) {
+	called := false
+	limiter := &mockLimiter{
+		allowFn: func(_ context.Context, _ string, _ int, _ time.Duration) (bool, error) {
+			called = true
+			return false, nil
+		},
+	}
+	cfg := config.RateLimitConfig{AuthenticatedRPM: 1, AnonymousRPM: 1}
+
+	r := gin.New()
+	r.Use(RequestID())
+	r.Use(func(c *gin.Context) { c.Set("anonymous", true); c.Next() })
+	r.Use(RateLimit(limiter, cfg))
+	r.GET("/api/v1/answers", func(c *gin.Context) { c.Status(200) })
+
+	w := performRequest(r, "GET", "/api/v1/answers", nil)
+
+	assert.Equal(t, 200, w.Code)
+	assert.False(t, called)
+}
+
+func TestRateLimit_UsesSafeDefaultsWhenConfigIsZero(t *testing.T) {
+	var gotLimit int
+	limiter := &mockLimiter{
+		allowFn: func(_ context.Context, _ string, limit int, _ time.Duration) (bool, error) {
+			gotLimit = limit
+			return true, nil
+		},
+	}
+	cfg := config.RateLimitConfig{}
+
+	r := gin.New()
+	r.Use(RequestID())
+	r.Use(func(c *gin.Context) { c.Set("anonymous", false); c.Set("user_id", "uid-1"); c.Next() })
+	r.Use(RateLimit(limiter, cfg))
+	r.POST("/api/v1/search/query", func(c *gin.Context) { c.Status(200) })
+
+	w := performRequest(r, "POST", "/api/v1/search/query", nil)
+
+	assert.Equal(t, 200, w.Code)
+	assert.Equal(t, defaultAuthenticatedRPM, gotLimit)
+}
+
 // ── Recovery Tests ───────────────────────────────────────
 
 func TestRecovery_PanicReturns500(t *testing.T) {

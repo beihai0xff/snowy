@@ -299,7 +299,7 @@ export default function LearningPage() {
                 title={<Space wrap><Text>{packageTitle(pkg)}</Text><Tag color={pkg.domain === 'biology' ? 'gold' : 'green'}>{pkg.domain}</Tag></Space>}
                 description={(
                   <Space wrap>
-                    <Tag color={pkg.status === 'success' ? 'green' : pkg.status === 'fallback' ? 'orange' : 'red'}>{pkg.status || 'unknown'}</Tag>
+                    <Tag color={pkg.status === 'success' ? 'green' : 'red'}>{pkg.status || 'unknown'}</Tag>
                     <Tag color="cyan">可信度 {Math.round((pkg.validation_report?.confidence || pkg.confidence || 0) * 100)}%</Tag>
                     <Text type="secondary">{pkg.question}</Text>
                   </Space>

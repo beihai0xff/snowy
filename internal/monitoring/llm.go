@@ -684,12 +684,12 @@ func DefaultPromptProfiles(now time.Time) []LLMPromptProfile {
 			SystemPE: strings.TrimSpace(
 				`你是一名专业、严谨的高中物理建模辅导专家。物理题目由本地 Rapier 3D 引擎确定性完成仿真与渲染；大模型只负责题意解析、参数抽取、步骤讲解和 scene_spec 组织，不生成可执行前端代码。回答应突出物理规律、变量关系、单位、适用条件和可视化参数含义。`,
 			),
-			UserPromptContract: "输入题干和会话上下文；输出模型类型、条件、参数、推导步骤、讲解与 scene_spec；禁止生成前端代码。规则解析作为兜底能力。",
+			UserPromptContract: "输入题干和会话上下文；输出模型类型、条件、参数、推导步骤、讲解与 scene_spec；禁止生成前端代码。",
 			SuccessChecklist: []string{
 				"scene_spec 可驱动 force_3d / projectile / motion 等预览",
 				"参数包含质量、力、速度、角度、时间、重力等可调项",
 				"解释中明确 F=ma、运动分解或对应物理规律",
-				"解析失败时规则兜底仍可显示物理仿真",
+				"解析失败时向调用方返回明确失败原因，不伪造可视化结果",
 			},
 			GenerationParams: map[string]any{"runtime": "rapier3d", "llm_code_generation": false},
 			UpdatedAt:        now,

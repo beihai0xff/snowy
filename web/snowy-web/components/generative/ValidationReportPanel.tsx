@@ -17,7 +17,7 @@ export default function ValidationReportPanel({ report }: { report?: ModelValida
         <Tag color={report.domain_valid ? 'green' : 'red'}>Domain</Tag>
         <Tag color={report.safety_valid ? 'green' : 'red'}>Safety</Tag>
       </Space>
-      {report.fallback_required && <Alert type="warning" showIcon message="当前为低可信/兜底结果" description={report.fallback_reason} style={{ marginBottom: 8 }} />}
+      {report.fallback_required && <Alert type="warning" showIcon message="校验未通过，当前结果不可作为成功生成结果" description={report.fallback_reason} style={{ marginBottom: 8 }} />}
       <List
         size="small"
         dataSource={report.checks || []}

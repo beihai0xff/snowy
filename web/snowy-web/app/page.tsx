@@ -194,7 +194,7 @@ export default function HomePage() {
         <Alert
           type="warning"
           showIcon
-          message="任务接口暂不可用，已展示本地兜底任务"
+          message="任务接口暂不可用，已展示静态推荐任务"
           description={recommendationError}
           style={{ marginBottom: 16 }}
         />

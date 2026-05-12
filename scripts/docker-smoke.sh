@@ -53,10 +53,7 @@ if 'api key is empty' in answer:
     sys.exit(1)
 if '大模型直答' in tags:
     sys.exit(0)
-if '本地兜底' in tags and answer:
-    print({'warning':'LLM direct answer unavailable during smoke; accepted structured fallback','tags':tags,'answer':answer[:180]}, file=sys.stderr)
-    sys.exit(0)
-print({'error':'search response is neither LLM direct answer nor structured fallback','tags':tags,'answer':answer[:240]}, file=sys.stderr)
+print({'error':'search response did not use the configured LLM direct-answer path','tags':tags,'answer':answer[:240]}, file=sys.stderr)
 sys.exit(1)
 PY
 }

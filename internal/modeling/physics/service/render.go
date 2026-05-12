@@ -42,30 +42,12 @@ func (s *serviceImpl) generateLLMRenderArtifact(
 		scene.DefaultProps = map[string]float64{}
 	}
 
-	var attemptErrors []string
-
 	artifact, err := s.tryGenerateWithProvider(ctx, s.llmChain, &scene, mode)
-	if err == nil && artifact != nil {
-		return artifact, nil
-	}
 	if err != nil {
-		attemptErrors = append(attemptErrors, err.Error())
+		return nil, fmt.Errorf("llm render generation failed: %w", err)
 	}
-
-	artifact, err = s.generateTemplateArtifact(&scene, mode)
-	if err != nil {
-		attemptErrors = append(attemptErrors, err.Error())
-
-		return nil, fmt.Errorf("render generation failed: %s", strings.Join(attemptErrors, " | "))
-	}
-
-	if len(attemptErrors) > 0 {
-		artifact.Warnings = append(
-			artifact.Warnings,
-			"大模型生成未通过，已回退到本地模板生成代码："+strings.Join(attemptErrors, " | "),
-		)
-	} else {
-		artifact.Warnings = append(artifact.Warnings, "当前未配置可用大模型提供方，已回退到本地模板生成代码")
+	if artifact == nil {
+		return nil, errors.New("llm render generation failed: empty artifact")
 	}
 
 	return artifact, nil

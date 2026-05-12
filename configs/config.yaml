@@ -51,8 +51,8 @@ auth:
     redirect_uri: "http://localhost:3001"
 
 ratelimit:
-  authenticated_rpm: 60              # 已认证用户 60 次/分钟
-  anonymous_rpm: 10                  # 匿名用户 10 次/分钟
+  authenticated_rpm: 300              # 已认证用户 300 次/分钟
+  anonymous_rpm: 120                  # 匿名用户 120 次/分钟
 
 token_budget:
   per_request_input: 131072

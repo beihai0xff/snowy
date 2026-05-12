@@ -41,27 +41,27 @@ func (f fakeLLM) ConfiguredModel() string         { return f.model }
 func (f fakeLLM) ConfiguredBaseURL() string       { return "" }
 func (f fakeLLM) ConfiguredModelProvider() string { return "" }
 
-type fakePhysics struct{}
+type fakePhysicsAnalyzer struct{}
 
-func (fakePhysics) Analyze(context.Context, string, string) (*physicsdomain.PhysicsModel, error) {
-	return &physicsdomain.PhysicsModel{ModelType: physicsdomain.ModelProjectileMotion, ResultSummary: "fallback physics", Parameters: []physicsdomain.ParameterSchema{{Name: "v0", Label: "初速度", Unit: "m/s", Default: 20, Min: 0, Max: 60, Step: 1}}, Steps: []physicsdomain.DerivationStep{{Index: 1, Title: "分解运动", Content: "..."}}}, nil
+func (fakePhysicsAnalyzer) Analyze(context.Context, string, string) (*physicsdomain.PhysicsModel, error) {
+	return &physicsdomain.PhysicsModel{ModelType: physicsdomain.ModelProjectileMotion, ResultSummary: "physics analyzer result", Parameters: []physicsdomain.ParameterSchema{{Name: "v0", Label: "初速度", Unit: "m/s", Default: 20, Min: 0, Max: 60, Step: 1}}, Steps: []physicsdomain.DerivationStep{{Index: 1, Title: "分解运动", Content: "..."}}}, nil
 }
-func (fakePhysics) Simulate(context.Context, physicsdomain.ModelType, map[string]float64) (*physicsdomain.ComputeResult, error) {
+func (fakePhysicsAnalyzer) Simulate(context.Context, physicsdomain.ModelType, map[string]float64) (*physicsdomain.ComputeResult, error) {
 	return nil, nil
 }
-func (fakePhysics) GenerateRender(context.Context, *physicsdomain.SceneSpec, string) (*physicsdomain.RenderArtifact, error) {
+func (fakePhysicsAnalyzer) GenerateRender(context.Context, *physicsdomain.SceneSpec, string) (*physicsdomain.RenderArtifact, error) {
 	return nil, nil
 }
 
-type fakeBiology struct{}
+type fakeBiologyAnalyzer struct{}
 
-func (fakeBiology) Analyze(context.Context, string, string) (*biologydomain.BiologyModel, error) {
-	return &biologydomain.BiologyModel{Topic: "photosynthesis", Concepts: []biologydomain.Concept{{Name: "光照强度", Type: "factor"}, {Name: "有机物积累", Type: "result"}}, Relations: []biologydomain.Relation{{Source: "光照强度", Target: "有机物积累", Type: "influences"}}, ProcessSteps: []biologydomain.ProcessStep{{Index: 1, Title: "识别变量", Content: "..."}}, ExperimentVariables: &biologydomain.ExperimentVariables{Independent: []string{"光照强度"}, Dependent: []string{"有机物积累"}, Controlled: []string{"温度"}}, ResultSummary: "fallback biology"}, nil
+func (fakeBiologyAnalyzer) Analyze(context.Context, string, string) (*biologydomain.BiologyModel, error) {
+	return &biologydomain.BiologyModel{Topic: "photosynthesis", Concepts: []biologydomain.Concept{{Name: "光照强度", Type: "factor"}, {Name: "有机物积累", Type: "result"}}, Relations: []biologydomain.Relation{{Source: "光照强度", Target: "有机物积累", Type: "influences"}}, ProcessSteps: []biologydomain.ProcessStep{{Index: 1, Title: "识别变量", Content: "..."}}, ExperimentVariables: &biologydomain.ExperimentVariables{Independent: []string{"光照强度"}, Dependent: []string{"有机物积累"}, Controlled: []string{"温度"}}, ResultSummary: "biology analyzer result"}, nil
 }
 
 func TestCompileUsesLLMJSON(t *testing.T) {
 	content := `{"domain":"physics","question":"平抛","learning_model":{"domain":"physics","grade_band":"high_school","topic":"projectile","learning_goal":"理解平抛"},"evidence_refs":["平抛运动可分解为水平方向匀速直线运动和竖直方向自由落体运动"],"reasoning_trace":{"summary":"先分解运动","confidence":0.9},"generative_model":{"domain":"physics","grade_band":"high_school","topic":"projectile","learning_goal":"理解平抛","variables":[{"name":"v0","label":"初速度","unit":"m/s","default":20,"min":0,"max":60}]},"simulation_logic":{"simulation_type":"generated_projectile_2d","runtime":"safe_math_dsl","variables":[{"name":"v0","label":"初速度","unit":"m/s","default":20,"min":0,"max":60}],"formulas":[{"id":"x","expr":"x=v0*t","meaning":"水平位移"}],"render_instructions":{"coordinate_system":"2d_cartesian"},"local_recompute_allowed":true},"interaction_plan":{"regeneration_policy":{"local_recompute":["v0"],"llm_regenerate":["new_force"]}},"assessment_tasks":[],"validation_report":{"schema_valid":true},"confidence":0.91}`
-	svc := NewCompilerService(nil, fakePhysics{}, fakeBiology{}, nil, WithLLMProvider(fakeLLM{name: "model_1", model: "m1", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) {
+	svc := NewCompilerService(nil, fakePhysicsAnalyzer{}, fakeBiologyAnalyzer{}, nil, WithLLMProvider(fakeLLM{name: "model_1", model: "m1", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) {
 		return &llm.Response{Content: content, Model: "m1"}, nil
 	}}))
 	pkg, err := svc.Compile(context.Background(), &CompileRequest{Message: "平抛运动", Domain: DomainPhysics, GradeBand: GradeBandHighSchool})
@@ -78,7 +78,7 @@ func TestCompileUsesLLMJSON(t *testing.T) {
 
 func TestCompileFallsBackToSecondProvider(t *testing.T) {
 	content := `{"domain":"biology","question":"光合作用","learning_model":{"domain":"biology","grade_band":"high_school","topic":"photosynthesis","learning_goal":"理解光合作用"},"evidence_refs":[{"doc_id":"d1","source_type":"textbook","snippet":"光合作用","confidence":0.9}],"reasoning_trace":{"summary":"分析变量","confidence":0.9},"generative_model":{"domain":"biology","grade_band":"high_school","topic":"photosynthesis","learning_goal":"理解光合作用"},"visualization_graph":{"visualization_type":"generated_biology_process_graph","topic":"photosynthesis","nodes":[{"id":"n1","label":"光照","type":"factor"}],"edges":[],"experiment_variables":{"independent":["光照"],"dependent":["有机物"],"controlled":["温度"]}},"interaction_plan":{"regeneration_policy":{}},"assessment_tasks":[],"validation_report":{},"confidence":0.88}`
-	svc := NewCompilerService(nil, fakePhysics{}, fakeBiology{}, nil, WithLLMProvider(llmroute.NewChain("ordered-model-chain",
+	svc := NewCompilerService(nil, fakePhysicsAnalyzer{}, fakeBiologyAnalyzer{}, nil, WithLLMProvider(llmroute.NewChain("ordered-model-chain",
 		fakeLLM{name: "model_1", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) { return nil, errors.New("down") }},
 		fakeLLM{name: "model_2", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) {
 			return &llm.Response{Content: content, Model: "m2"}, nil
@@ -93,16 +93,13 @@ func TestCompileFallsBackToSecondProvider(t *testing.T) {
 	assert.NotEmpty(t, pkg.VisualizationGraph.VariableEffects)
 }
 
-func TestCompileRuleFallbackWhenLLMFails(t *testing.T) {
-	svc := NewCompilerService(nil, fakePhysics{}, fakeBiology{}, nil, WithLLMProvider(fakeLLM{name: "model_1", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) { return nil, errors.New("down") }}))
+func TestCompileReturnsErrorWhenLLMFails(t *testing.T) {
+	svc := NewCompilerService(nil, fakePhysicsAnalyzer{}, fakeBiologyAnalyzer{}, nil, WithLLMProvider(fakeLLM{name: "model_1", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) { return nil, errors.New("down") }}))
 	pkg, err := svc.Compile(context.Background(), &CompileRequest{Message: "平抛运动", Domain: DomainPhysics})
-	require.NoError(t, err)
-	assert.Equal(t, "fallback", pkg.Status)
-	assert.True(t, pkg.ValidationReport.FallbackRequired)
-	assert.True(t, strings.Contains(pkg.FallbackReason, "down"))
-	require.NotNil(t, pkg.SimulationLogic)
-	assert.NotEmpty(t, pkg.SimulationLogic.Outcomes)
-	assert.NotEmpty(t, pkg.AssessmentTasks)
+	require.Error(t, err)
+	assert.Nil(t, pkg)
+	assert.Contains(t, err.Error(), "llm model package generation failed")
+	assert.Contains(t, err.Error(), "down")
 }
 
 func TestDecodePackageJSONNormalizesGatewayShape(t *testing.T) {
