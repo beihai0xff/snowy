@@ -81,7 +81,13 @@ func (r *answerRecordRepo) ListByQuery(
 	}
 
 	rows := make([]answerRecordRow, 0, limit)
-	if err := gdb.Model(&answerRecordRow{}).Where("query = ?", query).Order("created_at DESC").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
+	if err := gdb.Model(&answerRecordRow{}).
+		Where("query = ?", query).
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&rows).
+		Error; err != nil {
 		return nil, 0, fmt.Errorf("list answer records by query: %w", err)
 	}
 

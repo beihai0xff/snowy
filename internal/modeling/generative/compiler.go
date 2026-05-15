@@ -1490,7 +1490,10 @@ func normalizeOutcomeList(value any) any {
 		case string:
 			label := strings.TrimSpace(outcome)
 			if label != "" {
-				out = append(out, map[string]any{"id": fmt.Sprintf("outcome_%d", i+1), "label": label, "description": label})
+				out = append(
+					out,
+					map[string]any{"id": fmt.Sprintf("outcome_%d", i+1), "label": label, "description": label},
+				)
 			}
 		case map[string]any:
 			if _, ok := outcome["id"]; !ok {
@@ -1536,7 +1539,10 @@ func normalizeMechanismStages(value any) any {
 		case string:
 			title := strings.TrimSpace(stage)
 			if title != "" {
-				out = append(out, map[string]any{"id": fmt.Sprintf("stage_%d", i+1), "title": title, "description": title})
+				out = append(
+					out,
+					map[string]any{"id": fmt.Sprintf("stage_%d", i+1), "title": title, "description": title},
+				)
 			}
 		case map[string]any:
 			if _, ok := stage["id"]; !ok {

@@ -23,9 +23,26 @@ import (
 )
 
 const (
-	openSearchFieldBool  = "bool"
-	openSearchFieldDocID = "doc_id"
-	openSearchFieldQuery = "query"
+	openSearchFieldBool               = "bool"
+	openSearchFieldBoost              = "boost"
+	openSearchFieldChapter            = "chapter"
+	openSearchFieldChunkIndex         = "chunk_index"
+	openSearchFieldContent            = "content"
+	openSearchFieldCreatedAt          = "created_at"
+	openSearchFieldDocID              = "doc_id"
+	openSearchFieldDocumentID         = "document_id"
+	openSearchFieldEmbedding          = "embedding"
+	openSearchFieldFilter             = "filter"
+	openSearchFieldGrade              = "grade"
+	openSearchFieldKeyword            = "keyword"
+	openSearchFieldMinimumShouldMatch = "minimum_should_match"
+	openSearchFieldQuery              = "query"
+	openSearchFieldShould             = "should"
+	openSearchFieldSourceType         = "source_type"
+	openSearchFieldSubject            = "subject"
+	openSearchFieldTags               = "tags"
+	openSearchFieldTerm               = "term"
+	openSearchFieldType               = "type"
 )
 
 // OpenSearchAdapter OpenSearch 搜索适配器。
@@ -123,7 +140,7 @@ func (a *OpenSearchAdapter) GetByDocID(ctx context.Context, docID string) (*inte
 	payload := map[string]any{
 		"size": 1,
 		openSearchFieldQuery: map[string]any{
-			"term": map[string]any{openSearchFieldDocID: docID},
+			openSearchFieldTerm: map[string]any{openSearchFieldDocID: docID},
 		},
 	}
 
@@ -205,11 +222,11 @@ func (a *OpenSearchAdapter) Delete(ctx context.Context, documentID string) error
 	payload := map[string]any{
 		openSearchFieldQuery: map[string]any{
 			openSearchFieldBool: map[string]any{
-				"should": []any{
-					map[string]any{"term": map[string]any{"document_id": documentID}},
-					map[string]any{"term": map[string]any{openSearchFieldDocID: documentID}},
+				openSearchFieldShould: []any{
+					map[string]any{openSearchFieldTerm: map[string]any{openSearchFieldDocumentID: documentID}},
+					map[string]any{openSearchFieldTerm: map[string]any{openSearchFieldDocID: documentID}},
 				},
-				"minimum_should_match": 1,
+				openSearchFieldMinimumShouldMatch: 1,
 			},
 		},
 	}
@@ -281,26 +298,26 @@ func (a *OpenSearchAdapter) ensureIndex(ctx context.Context) error {
 		},
 		"mappings": map[string]any{
 			"properties": map[string]any{
-				openSearchFieldDocID: map[string]any{"type": "keyword"},
-				"document_id":        map[string]any{"type": "keyword"},
-				"chunk_index":        map[string]any{"type": "integer"},
-				"content":            map[string]any{"type": "text"},
-				"embedding": map[string]any{
-					"type":      "knn_vector",
-					"dimension": a.vectorDimension(),
+				openSearchFieldDocID:      map[string]any{openSearchFieldType: openSearchFieldKeyword},
+				openSearchFieldDocumentID: map[string]any{openSearchFieldType: openSearchFieldKeyword},
+				openSearchFieldChunkIndex: map[string]any{openSearchFieldType: "integer"},
+				openSearchFieldContent:    map[string]any{openSearchFieldType: "text"},
+				openSearchFieldEmbedding: map[string]any{
+					openSearchFieldType: "knn_vector",
+					"dimension":         a.vectorDimension(),
 					"method": map[string]any{
 						"name":       "hnsw",
 						"space_type": "cosinesimil",
 						"engine":     "lucene",
 					},
 				},
-				"tags":        map[string]any{"type": "keyword"},
-				"chunk_type":  map[string]any{"type": "keyword"},
-				"subject":     map[string]any{"type": "keyword"},
-				"grade":       map[string]any{"type": "keyword"},
-				"chapter":     map[string]any{"type": "keyword"},
-				"source_type": map[string]any{"type": "keyword"},
-				"created_at":  map[string]any{"type": "date"},
+				openSearchFieldTags:       map[string]any{openSearchFieldType: openSearchFieldKeyword},
+				"chunk_type":              map[string]any{openSearchFieldType: openSearchFieldKeyword},
+				openSearchFieldSubject:    map[string]any{openSearchFieldType: openSearchFieldKeyword},
+				openSearchFieldGrade:      map[string]any{openSearchFieldType: openSearchFieldKeyword},
+				openSearchFieldChapter:    map[string]any{openSearchFieldType: openSearchFieldKeyword},
+				openSearchFieldSourceType: map[string]any{openSearchFieldType: openSearchFieldKeyword},
+				openSearchFieldCreatedAt:  map[string]any{openSearchFieldType: "date"},
 			},
 		},
 	}
@@ -335,17 +352,17 @@ func (a *OpenSearchAdapter) buildSearchPayload(
 		"track_total_hits": true,
 		"_source": []string{
 			openSearchFieldDocID,
-			"document_id",
-			"chunk_index",
-			"content",
-			"embedding",
-			"tags",
+			openSearchFieldDocumentID,
+			openSearchFieldChunkIndex,
+			openSearchFieldContent,
+			openSearchFieldEmbedding,
+			openSearchFieldTags,
 			"chunk_type",
-			"subject",
-			"grade",
-			"chapter",
-			"source_type",
-			"created_at",
+			openSearchFieldSubject,
+			openSearchFieldGrade,
+			openSearchFieldChapter,
+			openSearchFieldSourceType,
+			openSearchFieldCreatedAt,
 		},
 		openSearchFieldQuery: queryBody,
 	}
@@ -354,7 +371,7 @@ func (a *OpenSearchAdapter) buildSearchPayload(
 func buildKNNClause(embedding []float64, k int) map[string]any {
 	return map[string]any{
 		"knn": map[string]any{
-			"embedding": map[string]any{
+			openSearchFieldEmbedding: map[string]any{
 				"vector": embedding,
 				"k":      k,
 			},
@@ -422,10 +439,10 @@ func candidateLimit(limit int, query *internalsearch.ParsedQuery) int {
 
 func buildFilterClauses(filters internalsearch.Filters) []any {
 	clauses := make([]any, 0, 4)
-	clauses = appendTermFilter(clauses, "subject", filters.Subject)
-	clauses = appendTermFilter(clauses, "grade", filters.Grade)
-	clauses = appendTermFilter(clauses, "chapter", filters.Chapter)
-	clauses = appendTermFilter(clauses, "source_type", filters.Source)
+	clauses = appendTermFilter(clauses, openSearchFieldSubject, filters.Subject)
+	clauses = appendTermFilter(clauses, openSearchFieldGrade, filters.Grade)
+	clauses = appendTermFilter(clauses, openSearchFieldChapter, filters.Chapter)
+	clauses = appendTermFilter(clauses, openSearchFieldSourceType, filters.Source)
 
 	return clauses
 }
@@ -435,7 +452,7 @@ func appendTermFilter(clauses []any, field, value string) []any {
 		return clauses
 	}
 
-	return append(clauses, map[string]any{"term": map[string]any{field: value}})
+	return append(clauses, map[string]any{openSearchFieldTerm: map[string]any{field: value}})
 }
 
 func buildTextShouldClauses(queryText string, keywords, entities []string) []any {
@@ -459,11 +476,11 @@ func textQueryClauses(queryText string) []any {
 	return []any{
 		map[string]any{"multi_match": map[string]any{
 			openSearchFieldQuery: queryText,
-			"fields":             []string{"content^4", "tags^2", "subject^2", "chapter^2", "source_type"},
-			"type":               "best_fields",
+			"fields":             []string{"content^4", "tags^2", "subject^2", "chapter^2", openSearchFieldSourceType},
+			openSearchFieldType:  "best_fields",
 		}},
 		map[string]any{"match_phrase": map[string]any{
-			"content": map[string]any{openSearchFieldQuery: queryText, "boost": 3},
+			openSearchFieldContent: map[string]any{openSearchFieldQuery: queryText, openSearchFieldBoost: 3},
 		}},
 	}
 }
@@ -475,8 +492,12 @@ func keywordClauses(keyword string) []any {
 	}
 
 	return []any{
-		map[string]any{"match": map[string]any{"content": map[string]any{openSearchFieldQuery: keyword, "boost": 2}}},
-		map[string]any{"term": map[string]any{"tags": keyword}},
+		map[string]any{
+			"match": map[string]any{
+				openSearchFieldContent: map[string]any{openSearchFieldQuery: keyword, openSearchFieldBoost: 2},
+			},
+		},
+		map[string]any{openSearchFieldTerm: map[string]any{openSearchFieldTags: keyword}},
 	}
 }
 
@@ -487,9 +508,9 @@ func entityClauses(entity string) []any {
 	}
 
 	return []any{
-		map[string]any{"term": map[string]any{"subject": entity}},
-		map[string]any{"term": map[string]any{"chapter": entity}},
-		map[string]any{"term": map[string]any{"tags": entity}},
+		map[string]any{openSearchFieldTerm: map[string]any{openSearchFieldSubject: entity}},
+		map[string]any{openSearchFieldTerm: map[string]any{openSearchFieldChapter: entity}},
+		map[string]any{openSearchFieldTerm: map[string]any{openSearchFieldTags: entity}},
 	}
 }
 
@@ -516,8 +537,8 @@ func hybridQueryBody(embedding []float64, filter, textShould []any, knnCandidate
 	clauses := []any{
 		map[string]any{
 			openSearchFieldBool: map[string]any{
-				"should":               textShould,
-				"minimum_should_match": 1,
+				openSearchFieldShould:             textShould,
+				openSearchFieldMinimumShouldMatch: 1,
 			},
 		},
 		buildKNNClause(embedding, knnCandidates),
@@ -525,9 +546,9 @@ func hybridQueryBody(embedding []float64, filter, textShould []any, knnCandidate
 
 	return map[string]any{
 		openSearchFieldBool: map[string]any{
-			"filter":               filter,
-			"should":               clauses,
-			"minimum_should_match": 1,
+			openSearchFieldFilter:             filter,
+			openSearchFieldShould:             clauses,
+			openSearchFieldMinimumShouldMatch: 1,
 		},
 	}
 }
@@ -540,17 +561,17 @@ func vectorOnlyQueryBody(embedding []float64, filter []any, knnCandidates int) m
 
 	return map[string]any{
 		openSearchFieldBool: map[string]any{
-			"filter": filter,
-			"must":   []any{knn},
+			openSearchFieldFilter: filter,
+			"must":                []any{knn},
 		},
 	}
 }
 
 func textOnlyQueryBody(filter, textShould []any) map[string]any {
-	boolQuery := map[string]any{"filter": filter}
+	boolQuery := map[string]any{openSearchFieldFilter: filter}
 	if len(textShould) > 0 {
-		boolQuery["should"] = textShould
-		boolQuery["minimum_should_match"] = 1
+		boolQuery[openSearchFieldShould] = textShould
+		boolQuery[openSearchFieldMinimumShouldMatch] = 1
 	}
 
 	return map[string]any{openSearchFieldBool: boolQuery}
@@ -632,11 +653,11 @@ func (a *OpenSearchAdapter) applyAuth(req *http.Request) {
 
 func parseChunkTags(tags []string) (subject, grade, chapter, sourceType string) {
 	fields := map[string]*string{
-		"subject":     &subject,
-		"grade":       &grade,
-		"chapter":     &chapter,
-		"source":      &sourceType,
-		"source_type": &sourceType,
+		openSearchFieldSubject:    &subject,
+		openSearchFieldGrade:      &grade,
+		openSearchFieldChapter:    &chapter,
+		"source":                  &sourceType,
+		openSearchFieldSourceType: &sourceType,
 	}
 
 	for _, tag := range tags {

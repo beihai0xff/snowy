@@ -20,6 +20,8 @@ const (
 	defaultSearchOffset  = 0
 	defaultSearchLimit   = 8
 	maxRelatedTitleRunes = 48
+	tagNewtonSecondLaw   = "牛顿第二定律"
+	tagPhotosynthesis    = "光合作用"
 )
 
 type serviceImpl struct {
@@ -461,11 +463,11 @@ func inferKnowledgeTags(q *Query, parsed *ParsedQuery, answer string) []string {
 
 	text := strings.ToLower(strings.TrimSpace(answer))
 	for _, rule := range []struct{ keyword, tag string }{
-		{"牛顿", "牛顿第二定律"},
+		{"牛顿", tagNewtonSecondLaw},
 		{"斜面", "斜面受力"},
 		{"平抛", "平抛运动"},
 		{"弹簧", "弹簧振子"},
-		{"光合作用", "光合作用"},
+		{tagPhotosynthesis, tagPhotosynthesis},
 		{"光照", "限制因素"},
 		{"酶", "酶活性"},
 		{"遗传", "遗传规律"},
@@ -499,7 +501,7 @@ func inferMisconceptions(q *Query, parsed *ParsedQuery, tags []string) []Misconc
 			{Type: "independence", Description: "认为水平速度会影响落地时间。", Correction: "忽略空气阻力时，落地时间由竖直方向高度和 g 决定。"},
 			{Type: "sign", Description: "竖直方向位移方程符号混乱。", Correction: "先规定正方向，再统一使用同一套符号。"},
 		}
-	case containsAny(text, "光合作用", "光照", "photosynthesis"):
+	case containsAny(text, tagPhotosynthesis, "光照", "photosynthesis"):
 		return []MisconceptionTip{
 			{
 				Type:        "limiting_factor",
@@ -523,7 +525,7 @@ func inferFormulaCards(q *Query, parsed *ParsedQuery, tags []string) []FormulaCa
 	case containsAny(text, "牛顿", "受力", "斜面", "force"):
 		return []FormulaCard{
 			{
-				Name:       "牛顿第二定律",
+				Name:       tagNewtonSecondLaw,
 				Expression: "ΣF = ma",
 				Variables:  []string{"ΣF：合外力", "m：质量", "a：加速度"},
 				AppliesTo:  []string{"惯性参考系", "研究对象受力可明确"},
@@ -550,7 +552,7 @@ func inferFormulaCards(q *Query, parsed *ParsedQuery, tags []string) []FormulaCa
 				Limits:     []string{"阻尼较大或非线性弹簧需重新建模"},
 			},
 		}
-	case containsAny(text, "光合作用", "光照", "photosynthesis"):
+	case containsAny(text, tagPhotosynthesis, "光照", "photosynthesis"):
 		return []FormulaCard{
 			{
 				Name:       "净有机物积累",
@@ -574,7 +576,7 @@ func inferExamMappings(q *Query, parsed *ParsedQuery, tags []string) []ExamMappi
 				QuestionType: "计算题",
 				Focus:        "受力分析后列 ΣF=ma",
 				PracticeHint: "先画受力图，再分解到选定坐标轴。",
-				Knowledge:    []string{"受力分析", "牛顿第二定律"},
+				Knowledge:    []string{"受力分析", tagNewtonSecondLaw},
 			},
 			{QuestionType: "图像/判断题", Focus: "摩擦方向、临界条件与加速度方向", PracticeHint: "比较重力分力和最大静摩擦力。"},
 		}
@@ -587,13 +589,13 @@ func inferExamMappings(q *Query, parsed *ParsedQuery, tags []string) []ExamMappi
 				Knowledge:    []string{"运动的合成与分解", "匀变速运动"},
 			},
 		}
-	case containsAny(text, "光合作用", "光照", "photosynthesis"):
+	case containsAny(text, tagPhotosynthesis, "光照", "photosynthesis"):
 		return []ExamMapping{
 			{
 				QuestionType: "曲线题",
 				Focus:        "解释上升段、平台期和限制因素",
 				PracticeHint: "逐段判断哪个因素限制净光合速率。",
-				Knowledge:    []string{"光合作用", "限制因素"},
+				Knowledge:    []string{tagPhotosynthesis, "限制因素"},
 			},
 			{QuestionType: "实验题", Focus: "自变量、因变量和控制变量", PracticeHint: "确认只有自变量被主动改变。"},
 		}
@@ -639,7 +641,7 @@ func inferNextActions(q *Query, parsed *ParsedQuery, tags []string, confidence f
 				Tags:        []string{"物理仿真", "参数调节"},
 			},
 		)
-	case containsAny(text, "光合作用", "光照", "酶", "遗传", "生态", "biology"):
+	case containsAny(text, tagPhotosynthesis, "光照", "酶", "遗传", "生态", "biology"):
 		actions = append(
 			actions,
 			LearningAction{
