@@ -22,6 +22,12 @@ import (
 	internalsearch "github.com/beihai0xff/snowy/internal/repo/search"
 )
 
+const (
+	openSearchFieldBool  = "bool"
+	openSearchFieldDocID = "doc_id"
+	openSearchFieldQuery = "query"
+)
+
 // OpenSearchAdapter OpenSearch 搜索适配器。
 // 实现 search.Repository 和 content/indexer.Indexer 接口。
 //
@@ -116,8 +122,8 @@ func (a *OpenSearchAdapter) Search(
 func (a *OpenSearchAdapter) GetByDocID(ctx context.Context, docID string) (*internalsearch.Result, error) {
 	payload := map[string]any{
 		"size": 1,
-		"query": map[string]any{
-			"term": map[string]any{"doc_id": docID},
+		openSearchFieldQuery: map[string]any{
+			"term": map[string]any{openSearchFieldDocID: docID},
 		},
 	}
 
@@ -197,11 +203,11 @@ func (a *OpenSearchAdapter) Delete(ctx context.Context, documentID string) error
 	}
 
 	payload := map[string]any{
-		"query": map[string]any{
-			"bool": map[string]any{
+		openSearchFieldQuery: map[string]any{
+			openSearchFieldBool: map[string]any{
 				"should": []any{
 					map[string]any{"term": map[string]any{"document_id": documentID}},
-					map[string]any{"term": map[string]any{"doc_id": documentID}},
+					map[string]any{"term": map[string]any{openSearchFieldDocID: documentID}},
 				},
 				"minimum_should_match": 1,
 			},
@@ -275,10 +281,10 @@ func (a *OpenSearchAdapter) ensureIndex(ctx context.Context) error {
 		},
 		"mappings": map[string]any{
 			"properties": map[string]any{
-				"doc_id":      map[string]any{"type": "keyword"},
-				"document_id": map[string]any{"type": "keyword"},
-				"chunk_index": map[string]any{"type": "integer"},
-				"content":     map[string]any{"type": "text"},
+				openSearchFieldDocID: map[string]any{"type": "keyword"},
+				"document_id":        map[string]any{"type": "keyword"},
+				"chunk_index":        map[string]any{"type": "integer"},
+				"content":            map[string]any{"type": "text"},
 				"embedding": map[string]any{
 					"type":      "knn_vector",
 					"dimension": a.vectorDimension(),
@@ -328,7 +334,7 @@ func (a *OpenSearchAdapter) buildSearchPayload(
 		"size":             limit,
 		"track_total_hits": true,
 		"_source": []string{
-			"doc_id",
+			openSearchFieldDocID,
 			"document_id",
 			"chunk_index",
 			"content",
@@ -341,7 +347,7 @@ func (a *OpenSearchAdapter) buildSearchPayload(
 			"source_type",
 			"created_at",
 		},
-		"query": queryBody,
+		openSearchFieldQuery: queryBody,
 	}
 }
 
@@ -452,12 +458,12 @@ func buildTextShouldClauses(queryText string, keywords, entities []string) []any
 func textQueryClauses(queryText string) []any {
 	return []any{
 		map[string]any{"multi_match": map[string]any{
-			"query":  queryText,
-			"fields": []string{"content^4", "tags^2", "subject^2", "chapter^2", "source_type"},
-			"type":   "best_fields",
+			openSearchFieldQuery: queryText,
+			"fields":             []string{"content^4", "tags^2", "subject^2", "chapter^2", "source_type"},
+			"type":               "best_fields",
 		}},
 		map[string]any{"match_phrase": map[string]any{
-			"content": map[string]any{"query": queryText, "boost": 3},
+			"content": map[string]any{openSearchFieldQuery: queryText, "boost": 3},
 		}},
 	}
 }
@@ -469,7 +475,7 @@ func keywordClauses(keyword string) []any {
 	}
 
 	return []any{
-		map[string]any{"match": map[string]any{"content": map[string]any{"query": keyword, "boost": 2}}},
+		map[string]any{"match": map[string]any{"content": map[string]any{openSearchFieldQuery: keyword, "boost": 2}}},
 		map[string]any{"term": map[string]any{"tags": keyword}},
 	}
 }
@@ -509,7 +515,7 @@ func buildQueryBody(query *internalsearch.ParsedQuery, filter, textShould []any,
 func hybridQueryBody(embedding []float64, filter, textShould []any, knnCandidates int) map[string]any {
 	clauses := []any{
 		map[string]any{
-			"bool": map[string]any{
+			openSearchFieldBool: map[string]any{
 				"should":               textShould,
 				"minimum_should_match": 1,
 			},
@@ -518,7 +524,7 @@ func hybridQueryBody(embedding []float64, filter, textShould []any, knnCandidate
 	}
 
 	return map[string]any{
-		"bool": map[string]any{
+		openSearchFieldBool: map[string]any{
 			"filter":               filter,
 			"should":               clauses,
 			"minimum_should_match": 1,
@@ -533,7 +539,7 @@ func vectorOnlyQueryBody(embedding []float64, filter []any, knnCandidates int) m
 	}
 
 	return map[string]any{
-		"bool": map[string]any{
+		openSearchFieldBool: map[string]any{
 			"filter": filter,
 			"must":   []any{knn},
 		},
@@ -547,7 +553,7 @@ func textOnlyQueryBody(filter, textShould []any) map[string]any {
 		boolQuery["minimum_should_match"] = 1
 	}
 
-	return map[string]any{"bool": boolQuery}
+	return map[string]any{openSearchFieldBool: boolQuery}
 }
 
 func maxInt(a, b int) int {

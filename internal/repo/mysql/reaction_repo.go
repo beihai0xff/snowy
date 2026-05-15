@@ -30,9 +30,9 @@ func (r *reactionRepo) Upsert(ctx context.Context, reaction *user.Reaction) erro
 	err := dbFromContext(ctx, r.db).Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "user_id"}, {Name: "target_type"}, {Name: "target_id"}},
 		DoUpdates: clause.Assignments(map[string]any{
-			"reaction_type": row.ReactionType,
-			"visibility":    row.Visibility,
-			"updated_at":    row.UpdatedAt,
+			"reaction_type":      row.ReactionType,
+			"visibility":         row.Visibility,
+			mysqlColumnUpdatedAt: row.UpdatedAt,
 		}),
 	}).Create(row).Error
 	if err != nil {

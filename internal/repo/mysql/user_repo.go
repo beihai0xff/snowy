@@ -95,8 +95,8 @@ func (r *userRepo) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 		Model(&userRow{}).
 		Where("id = ?", id).
 		Updates(map[string]any{
-			"last_login_at": gorm.Expr("NOW(3)"),
-			"updated_at":    gorm.Expr("NOW(3)"),
+			"last_login_at":      gorm.Expr("NOW(3)"),
+			mysqlColumnUpdatedAt: gorm.Expr("NOW(3)"),
 		}).Error
 	if err != nil {
 		return fmt.Errorf("update last login: %w", err)

@@ -40,6 +40,11 @@ const (
 	unitMetersPerSecond   = "m/s"
 	unitMetersPerSecond2  = "m/s²"
 	unitDemoDimensionless = "演示单位"
+
+	propCameraPitch   = "camera_pitch"
+	propCameraYaw     = "camera_yaw"
+	propTrailLength   = "trail_length"
+	propViewDimension = "view_dimension"
 )
 
 // WithLLMProvider injects the ordered OpenAI-compatible model chain.
@@ -536,7 +541,7 @@ func mergeDefaultProps(modelType domain.ModelType, params map[string]float64, sc
 	}
 
 	if sceneType == scenePhysicsOrbit3D {
-		for key, value := range map[string]float64{"view_dimension": 3, "trail_length": 240, "camera_yaw": 0.72, "camera_pitch": 0.54} {
+		for key, value := range map[string]float64{propViewDimension: 3, propTrailLength: 240, propCameraYaw: 0.72, propCameraPitch: 0.54} {
 			if _, ok := props[key]; !ok {
 				props[key] = value
 			}
@@ -544,7 +549,7 @@ func mergeDefaultProps(modelType domain.ModelType, params map[string]float64, sc
 	}
 
 	if sceneType == scenePhysicsSpring3D {
-		for key, value := range map[string]float64{"view_dimension": 3, "trail_length": 180, "camera_yaw": 0.6, "camera_pitch": 0.38} {
+		for key, value := range map[string]float64{propViewDimension: 3, propTrailLength: 180, propCameraYaw: 0.6, propCameraPitch: 0.38} {
 			if _, ok := props[key]; !ok {
 				props[key] = value
 			}
@@ -552,7 +557,7 @@ func mergeDefaultProps(modelType domain.ModelType, params map[string]float64, sc
 	}
 
 	if sceneType == scenePhysicsCollision3D {
-		for key, value := range map[string]float64{"view_dimension": 3, "trail_length": 200, "camera_yaw": 0.45, "camera_pitch": 0.38} {
+		for key, value := range map[string]float64{propViewDimension: 3, propTrailLength: 200, propCameraYaw: 0.45, propCameraPitch: 0.38} {
 			if _, ok := props[key]; !ok {
 				props[key] = value
 			}
@@ -560,16 +565,16 @@ func mergeDefaultProps(modelType domain.ModelType, params map[string]float64, sc
 	}
 
 	if sceneType == scenePhysicsForce3D {
-		if _, ok := props["view_dimension"]; !ok {
-			props["view_dimension"] = 3
+		if _, ok := props[propViewDimension]; !ok {
+			props[propViewDimension] = 3
 		}
 
-		if _, ok := props["camera_yaw"]; !ok {
-			props["camera_yaw"] = 0.55
+		if _, ok := props[propCameraYaw]; !ok {
+			props[propCameraYaw] = 0.55
 		}
 
-		if _, ok := props["camera_pitch"]; !ok {
-			props["camera_pitch"] = 0.42
+		if _, ok := props[propCameraPitch]; !ok {
+			props[propCameraPitch] = 0.42
 		}
 	}
 

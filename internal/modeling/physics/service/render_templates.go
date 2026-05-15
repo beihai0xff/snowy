@@ -77,16 +77,16 @@ func ensureNativePhysicsProps(sceneType string, props map[string]float64) {
 }
 
 func ensureSharedNativeProps(props map[string]float64) {
-	if _, ok := props["view_dimension"]; !ok {
-		props["view_dimension"] = 3
+	if _, ok := props[propViewDimension]; !ok {
+		props[propViewDimension] = 3
 	}
 
 	if _, ok := props["animation_speed"]; !ok {
 		props["animation_speed"] = 1
 	}
 
-	if _, ok := props["trail_length"]; !ok {
-		props["trail_length"] = 180
+	if _, ok := props[propTrailLength]; !ok {
+		props[propTrailLength] = 180
 	}
 }
 
@@ -109,8 +109,8 @@ func ensureProjectileProps(props map[string]float64) {
 		props["g"] = 9.8
 	}
 
-	if _, ok := props["view_dimension"]; !ok {
-		props["view_dimension"] = 3
+	if _, ok := props[propViewDimension]; !ok {
+		props[propViewDimension] = 3
 	}
 }
 
@@ -137,16 +137,16 @@ func ensureForce3DProps(props map[string]float64) {
 		props["a"] = 3
 	}
 
-	if _, ok := props["view_dimension"]; !ok {
-		props["view_dimension"] = 3
+	if _, ok := props[propViewDimension]; !ok {
+		props[propViewDimension] = 3
 	}
 
-	if _, ok := props["camera_yaw"]; !ok {
-		props["camera_yaw"] = 0.55
+	if _, ok := props[propCameraYaw]; !ok {
+		props[propCameraYaw] = 0.55
 	}
 
-	if _, ok := props["camera_pitch"]; !ok {
-		props["camera_pitch"] = 0.42
+	if _, ok := props[propCameraPitch]; !ok {
+		props[propCameraPitch] = 0.42
 	}
 }
 
@@ -160,9 +160,9 @@ func ensureOrbitProps(props map[string]float64) {
 		"tangential_speed":       2.25,
 		"eccentricity":           0.18,
 		"gravitational_strength": 10,
-		"trail_length":           240,
-		"camera_yaw":             0.72,
-		"camera_pitch":           0.54,
+		propTrailLength:          240,
+		propCameraYaw:            0.72,
+		propCameraPitch:          0.54,
 	}
 	for key, value := range defaults {
 		if _, ok := props[key]; !ok {
@@ -175,13 +175,13 @@ func ensureSpringProps(props map[string]float64) {
 	ensureSharedNativeProps(props)
 
 	defaults := map[string]float64{
-		"k":            24,
-		"m":            1.2,
-		"x":            1.4,
-		"damping":      0.18,
-		"trail_length": 180,
-		"camera_yaw":   0.6,
-		"camera_pitch": 0.38,
+		"k":             24,
+		"m":             1.2,
+		"x":             1.4,
+		"damping":       0.18,
+		propTrailLength: 180,
+		propCameraYaw:   0.6,
+		propCameraPitch: 0.38,
 	}
 	for key, value := range defaults {
 		if _, ok := props[key]; !ok {
@@ -194,14 +194,14 @@ func ensureCollisionProps(props map[string]float64) {
 	ensureSharedNativeProps(props)
 
 	defaults := map[string]float64{
-		"m1":           1.5,
-		"m2":           1,
-		"v1":           4.5,
-		"v2":           -2.5,
-		"restitution":  0.9,
-		"trail_length": 200,
-		"camera_yaw":   0.45,
-		"camera_pitch": 0.38,
+		"m1":            1.5,
+		"m2":            1,
+		"v1":            4.5,
+		"v2":            -2.5,
+		"restitution":   0.9,
+		propTrailLength: 200,
+		propCameraYaw:   0.45,
+		propCameraPitch: 0.38,
 	}
 	for key, value := range defaults {
 		if _, ok := props[key]; !ok {

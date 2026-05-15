@@ -12,6 +12,8 @@ import (
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
+const mysqlColumnUpdatedAt = "updated_at"
+
 type llmCallRecordRow struct {
 	ID            string    `gorm:"column:id"`
 	UserID        string    `gorm:"column:user_id"`
