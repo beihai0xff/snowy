@@ -2,18 +2,16 @@
 
 import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Button, ConfigProvider, Dropdown, Form, Input, Layout, Menu, Modal, Segmented, Space, Tag, Typography, message, theme as antdTheme } from 'antd';
+import { Button, ConfigProvider, Dropdown, Form, Input, Layout, Menu, Modal, Segmented, Space, Typography, message, theme as antdTheme } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   BookOutlined,
-  DashboardOutlined,
   DownOutlined,
   ExperimentOutlined,
   HomeOutlined,
   LoginOutlined,
   LogoutOutlined,
   SearchOutlined,
-  ThunderboltOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { api, clearAuthTokens, setAuthTokens, type User } from '@/lib/api';
@@ -26,11 +24,10 @@ type AuthMode = 'login' | 'register';
 const authStorageEvent = 'snowy-auth-change';
 
 const menuItems = [
-  { key: '/', icon: <HomeOutlined />, label: '指挥舱' },
-  { key: '/search', icon: <SearchOutlined />, label: '知识星图' },
-  { key: '/modeling', icon: <ExperimentOutlined />, label: '科学建模舱' },
-  { key: '/learning', icon: <BookOutlined />, label: '任务档案' },
-  { key: '/monitoring', icon: <DashboardOutlined />, label: 'AI 监控' },
+  { key: '/',          icon: <HomeOutlined />,       label: '首页' },
+  { key: '/ask',       icon: <SearchOutlined />,     label: '提问' },
+  { key: '/modeling',  icon: <ExperimentOutlined />, label: '推演' },
+  { key: '/learning',  icon: <BookOutlined />,       label: '我的学习' },
 ];
 
 function subscribeAuthStorage(callback: () => void) {
@@ -57,10 +54,9 @@ function getAuthTokenSnapshot(): string {
 
 function selectedKey(pathname: string): string {
   if (pathname === '/physics' || pathname === '/biology') return '/modeling';
-  if (pathname.startsWith('/search')) return '/search';
+  if (pathname.startsWith('/search') || pathname.startsWith('/ask')) return '/ask';
   if (pathname.startsWith('/modeling')) return '/modeling';
   if (pathname.startsWith('/learning')) return '/learning';
-  if (pathname.startsWith('/monitoring')) return '/monitoring';
   return '/';
 }
 
@@ -69,6 +65,11 @@ function userLabel(profile: User | null, accessToken: string): string {
   if (profile?.nickname) return profile.nickname;
   if (profile?.email) return profile.email;
   return '已登录';
+}
+
+// 管理后台路径不渲染主导航壳，只渲染纯白页面
+function isAdminRoute(pathname: string): boolean {
+  return pathname.startsWith('/admin');
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -87,7 +88,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       setProfile(null);
       return;
     }
-
     setProfileLoading(true);
     try {
       const resp = await api.getProfile();
@@ -104,9 +104,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     void loadProfile();
   }, [loadProfile]);
 
-  const handleMenuClick = (e: { key: string }) => {
-    router.push(e.key);
-  };
+  const handleMenuClick = (e: { key: string }) => router.push(e.key);
 
   const openAuth = (mode: AuthMode = 'login') => {
     setAuthMode(mode);
@@ -125,7 +123,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         ? await api.login({ email: values.email, password: values.password })
         : await api.register({ email: values.email, password: values.password, nickname: values.nickname });
       if (!resp.data) throw new Error('登录响应缺少 token');
-
       setAuthTokens(resp.data.access_token, resp.data.refresh_token);
       setProfile(resp.data.user);
       emitAuthChange();
@@ -148,66 +145,113 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const accountItems: MenuProps['items'] = useMemo(() => {
     if (!accessToken) {
       return [
-        { key: 'login', icon: <LoginOutlined />, label: '登录' },
-        { key: 'register', icon: <UserOutlined />, label: '注册' },
+        { key: 'login',    icon: <LoginOutlined />, label: '登录' },
+        { key: 'register', icon: <UserOutlined />,  label: '注册' },
       ];
     }
-
     return [
-      { key: 'learning', icon: <BookOutlined />, label: '打开任务档案' },
+      { key: 'learning', icon: <BookOutlined />,   label: '打开我的学习' },
       { type: 'divider' },
-      { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', danger: true },
+      { key: 'logout',   icon: <LogoutOutlined />, label: '退出登录', danger: true },
     ];
   }, [accessToken]);
 
   const handleAccountClick: MenuProps['onClick'] = ({ key }) => {
-    if (key === 'login' || key === 'register') {
-      openAuth(key);
-      return;
-    }
-    if (key === 'learning') {
-      router.push('/learning');
-      return;
-    }
-    if (key === 'logout') {
-      handleLogout();
-    }
+    if (key === 'login' || key === 'register') { openAuth(key); return; }
+    if (key === 'learning') { router.push('/learning'); return; }
+    if (key === 'logout')   { handleLogout(); }
   };
 
+  const themeConfig = {
+    algorithm: antdTheme.defaultAlgorithm,
+    token: {
+      colorPrimary: '#2563EB',
+      colorInfo:    '#2563EB',
+      colorSuccess: '#16A34A',
+      colorWarning: '#D97706',
+      colorError:   '#DC2626',
+      colorBgBase:      '#FAFAF9',
+      colorBgContainer: '#FFFFFF',
+      colorBgLayout:    '#FAFAF9',
+      colorBorder:    '#E7E5E4',
+      colorBorderSecondary: '#EDEBE9',
+      colorTextBase: '#1C1917',
+      colorText:     '#1C1917',
+      colorTextSecondary: '#57534E',
+      colorTextTertiary:  '#A8A29E',
+      colorTextQuaternary:'#A8A29E',
+      borderRadius: 8,
+      borderRadiusLG: 12,
+      borderRadiusSM: 6,
+      borderRadiusXS: 4,
+      fontFamily: '-apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", Inter, "Segoe UI", Roboto, sans-serif',
+      fontSize: 14,
+      controlHeight: 36,
+      wireframe: false,
+      boxShadow:       '0 1px 3px rgba(28, 25, 23, 0.06), 0 1px 2px rgba(28, 25, 23, 0.04)',
+      boxShadowSecondary: '0 4px 12px rgba(28, 25, 23, 0.08), 0 2px 4px rgba(28, 25, 23, 0.04)',
+    },
+    components: {
+      Layout: {
+        headerBg: 'transparent',
+        bodyBg: 'transparent',
+        footerBg: 'transparent',
+      },
+      Menu: {
+        itemBg: 'transparent',
+        itemSelectedBg: '#DBEAFE',
+        itemSelectedColor: '#2563EB',
+        itemHoverBg: '#F4F4F2',
+        itemBorderRadius: 8,
+        horizontalItemSelectedColor: '#2563EB',
+        horizontalItemSelectedBg: '#DBEAFE',
+        horizontalLineHeight: '36px',
+        horizontalItemBorderRadius: 8,
+      },
+      Card: {
+        headerBg: 'transparent',
+        paddingLG: 24,
+      },
+      Button: {
+        controlHeight: 36,
+      },
+      Tag: {
+        borderRadiusSM: 4,
+      },
+    },
+  } as const;
+
+  // 管理后台采用同主题但隐藏前台 header
+  if (isAdminRoute(pathname)) {
+    return (
+      <ConfigProvider theme={themeConfig}>
+        <Layout className="snowy-shell">
+          <Header className="snowy-header">
+            <div
+              className="snowy-brand"
+              onClick={() => router.push('/')}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter') router.push('/'); }}
+            >
+              <span className="snowy-brand-mark">❄</span>
+              <span className="snowy-brand-name">Snowy</span>
+            </div>
+            <span className="snowy-admin-badge">⚠ 管理后台</span>
+            <div style={{ marginLeft: 'auto' }}>
+              <Button size="small" onClick={() => router.push('/')}>← 返回前台</Button>
+            </div>
+          </Header>
+          <Content className="snowy-content snowy-content--wide">
+            {children}
+          </Content>
+        </Layout>
+      </ConfigProvider>
+    );
+  }
+
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: antdTheme.darkAlgorithm,
-        token: {
-          colorPrimary: '#38bdf8',
-          colorInfo: '#22d3ee',
-          colorSuccess: '#34d399',
-          colorWarning: '#fbbf24',
-          colorError: '#fb7185',
-          colorBgBase: '#020617',
-          colorBgContainer: 'rgba(15, 23, 42, 0.72)',
-          colorBorder: 'rgba(148, 163, 184, 0.22)',
-          colorTextBase: '#e2e8f0',
-          borderRadius: 18,
-          wireframe: false,
-        },
-        components: {
-          Layout: {
-            headerBg: 'transparent',
-            bodyBg: 'transparent',
-          },
-          Menu: {
-            darkItemBg: 'transparent',
-            darkSubMenuItemBg: 'transparent',
-            darkItemSelectedBg: 'rgba(56, 189, 248, 0.18)',
-            itemBorderRadius: 999,
-          },
-          Card: {
-            headerBg: 'transparent',
-          },
-        },
-      }}
-    >
+    <ConfigProvider theme={themeConfig}>
       <Layout className="snowy-shell">
         <Header className="snowy-header">
           <div
@@ -215,29 +259,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             onClick={() => router.push('/')}
             role="button"
             tabIndex={0}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') router.push('/');
-            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') router.push('/'); }}
           >
             <span className="snowy-brand-mark">❄</span>
-            <span>
-              <span className="snowy-brand-name">Snowy</span>
-              <span className="snowy-brand-subtitle">AI Science Engine</span>
-            </span>
+            <span className="snowy-brand-name">Snowy</span>
           </div>
           <Menu
             mode="horizontal"
-            theme="dark"
             selectedKeys={[selectedKey(pathname)]}
             items={menuItems}
             onClick={handleMenuClick}
             className="snowy-nav"
           />
-          <Space className="snowy-header-status" size={8}>
-            <Tag color="cyan" className="snowy-version-tag">V5</Tag>
-            <Tag icon={<ThunderboltOutlined />} color="green" className="snowy-live-tag">Lab Online</Tag>
+          <Space size={8}>
             <Dropdown menu={{ items: accountItems, onClick: handleAccountClick }} trigger={['click']} placement="bottomRight">
-              <Button size="small" icon={<UserOutlined />} loading={profileLoading} onClick={(event) => event.preventDefault()}>
+              <Button size="middle" icon={<UserOutlined />} loading={profileLoading} onClick={(event) => event.preventDefault()}>
                 <Space size={4}>
                   {userLabel(profile, accessToken)}
                   <DownOutlined style={{ fontSize: 10 }} />
@@ -249,6 +285,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Content className="snowy-content">
           {children}
         </Content>
+        <footer className="snowy-footer">
+          <div className="snowy-footer-inner">
+            <span>Snowy · 面向高中生的 AI 学习工具</span>
+            <Space size={16}>
+              <Text type="secondary" style={{ fontSize: 14 }}>使用说明</Text>
+              <Text type="secondary" style={{ fontSize: 14 }}>反馈</Text>
+              <Text type="secondary" style={{ fontSize: 14 }}>2026</Text>
+            </Space>
+          </div>
+        </footer>
       </Layout>
 
       <Modal

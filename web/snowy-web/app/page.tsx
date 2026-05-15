@@ -1,271 +1,351 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Alert, Button, Card, Col, Input, Row, Space, Spin, Tag, Typography } from 'antd';
+import { Alert, Space, Tag, Typography } from 'antd';
 import {
-  AimOutlined,
+  BookOutlined,
   BranchesOutlined,
-  CompassOutlined,
   ExperimentOutlined,
-  FireOutlined,
-  RadarChartOutlined,
-  RocketOutlined,
+  RightOutlined,
   SearchOutlined,
-  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { api, type RecommendationItem, type RecommendationsResp } from '@/lib/api';
 
 const { Title, Paragraph, Text } = Typography;
-const { Search } = Input;
+
+const exampleQueries = [
+  '为什么平抛运动水平方向是匀速？',
+  '光合作用的限制因素有哪些？',
+  '怎么判断带电粒子在磁场里的运动方向？',
+];
+
+type RecentEntry = {
+  id: string;
+  title: string;
+  subject: 'physics' | 'biology' | 'general';
+  href: string;
+  time: string;
+};
 
 const fallbackRecommendations: RecommendationsResp = {
   hot_topics: [
-    { id: 'newton-law', title: '牛顿第二定律挑战', description: '用证据解释 F、m、a 的变量关系，并完成斜面迁移题', category: 'physics', icon: 'F' },
-    { id: 'projectile', title: '平抛命中目标区', description: '调节高度与初速度，让轨迹穿过目标窗口', category: 'physics', icon: 'P' },
-    { id: 'photosynthesis', title: '光合作用平台期诊断', description: '判断光照、CO2 和温度谁是限制因素', category: 'biology', icon: 'B' },
+    { id: 'newton-law', title: '牛顿第二定律：F=ma 如何用图理解？', description: '加速度与合外力、质量的关系演示，配合斜面迁移题。', category: 'physics' },
+    { id: 'projectile', title: '平抛运动：水平为何是匀速？', description: '把速度拆成水平/竖直两条独立曲线，看图就懂。', category: 'physics' },
+    { id: 'photosynthesis', title: '光合作用的"平台期"是怎么形成的？', description: '光照、CO₂、温度三个变量逐一压力测试。', category: 'biology' },
   ],
   physics_models: [
-    { id: 'projectile-model', title: '平抛运动轨迹舱', description: '本地重算水平位移、落地时间和速度方向', category: 'physics' },
-    { id: 'force-model', title: '斜面受力校验舱', description: '拆解重力分力、支持力、摩擦力和加速度', category: 'physics' },
-    { id: 'oscillation-model', title: '简谐运动参数舱', description: '观察质量、劲度系数与周期变化关系', category: 'physics' },
+    { id: 'projectile-model', title: '平抛运动轨迹', description: '调节初速度和高度，落点、落地时间实时更新。', category: 'physics' },
+    { id: 'force-model', title: '斜面受力分析', description: '可视化重力分力、支持力、摩擦力与加速度。', category: 'physics' },
+    { id: 'oscillation-model', title: '简谐运动周期', description: '改变质量和劲度系数，观察周期与频率变化。', category: 'physics' },
   ],
   biology_topics: [
-    { id: 'cell-membrane', title: '细胞膜证据图谱', description: '结构、功能与选择透过性证据链', category: 'biology' },
-    { id: 'enzyme', title: '酶活性变量挑战', description: '区分自变量、因变量和无关变量', category: 'biology' },
-    { id: 'synapse', title: '突触传递过程舱', description: '跟踪信号、递质、受体与方向性', category: 'biology' },
+    { id: 'cell-membrane', title: '细胞膜的选择透过性', description: '结构 ↔ 功能 ↔ 证据，三层关系图谱。', category: 'biology' },
+    { id: 'enzyme', title: '酶活性实验：变量分清楚', description: '自变量、因变量、控制变量逐一识别。', category: 'biology' },
+    { id: 'synapse', title: '突触信号是怎么单向传递的？', description: '从动作电位到神经递质的完整过程图。', category: 'biology' },
   ],
 };
 
 const capabilityCards = [
   {
-    title: '知识星图',
-    description: '先检索证据，再生成答案。每个结论带引用、公式卡、易错点和题型映射。',
+    title: '问问题',
+    desc: '用大白话提问，得到带引用、带公式卡的答案。',
     icon: <SearchOutlined />,
-    accent: 'rgba(34, 211, 238, 0.36)',
-    color: '#22d3ee',
-    path: '/search',
+    iconClass: 'snowy-capability__icon--ask',
+    path: '/ask',
+    meta: ['课本引用', '公式卡', '易错点'],
   },
   {
-    title: '物理仿真',
-    description: '把题干变量变成可调参数，轨迹、向量、曲线和结论同步更新。',
+    title: '推演与图谱',
+    desc: '物理仿真 + 生物图谱，看动画、调参数、对照证据。',
     icon: <ExperimentOutlined />,
-    accent: 'rgba(52, 211, 153, 0.32)',
-    color: '#34d399',
-    path: '/modeling?type=physics',
+    iconClass: 'snowy-capability__icon--lab',
+    path: '/modeling',
+    meta: ['可调参数', '动画演示', '证据可追溯'],
   },
   {
-    title: '生物可视化',
-    description: '将过程、机制、限制因素和实验变量组织成可解释的动态图谱。',
-    icon: <BranchesOutlined />,
-    accent: 'rgba(251, 191, 36, 0.3)',
-    color: '#fbbf24',
-    path: '/modeling?type=biology',
+    title: '我的学习',
+    desc: '问过的、收藏的、做过的题，一站式回看。',
+    icon: <BookOutlined />,
+    iconClass: 'snowy-capability__icon--my',
+    path: '/learning',
+    meta: ['答题历史', '收藏夹', '模型包'],
   },
 ];
 
-const learningChain = [
-  ['问题输入', '输入题目、现象或实验目标'],
-  ['证据检索', '先找课本、考纲、题库依据'],
-  ['领域解析', '抽取变量、机制和约束'],
-  ['模型包', '生成可校验 LearningModelSpec'],
-  ['交互仿真', '本地重算参数与曲线'],
-  ['AI 教练', '解释失败、提示下一步'],
-  ['微练习', '完成迁移题并归档'],
-];
-
-const radarStats = [
-  ['Evidence', '可信证据'],
-  ['Model', '结构化模型包'],
-  ['Sim', '实时仿真'],
-  ['Coach', 'AI 教练反馈'],
-];
-
-function missionPath(item: RecommendationItem): string {
-  if (item.category === 'biology') return `/modeling?type=biology&q=${encodeURIComponent(item.title)}`;
-  if (item.category === 'physics') return `/modeling?type=physics&q=${encodeURIComponent(item.title)}`;
-  return `/search?q=${encodeURIComponent(item.title)}`;
+function subjectTagColor(category: string): { color: string; label: string } {
+  if (category === 'physics')   return { color: 'cyan',  label: '物理' };
+  if (category === 'biology')   return { color: 'green', label: '生物' };
+  if (category === 'chemistry') return { color: 'orange', label: '化学' };
+  return { color: 'default', label: '通用' };
 }
 
-function inferMissionSubject(text: string): { type: 'physics' | 'biology', target: 'modeling' | 'search' } {
+function recommendationHref(item: RecommendationItem): string {
+  if (item.category === 'biology') return `/modeling?type=biology&q=${encodeURIComponent(item.title)}`;
+  if (item.category === 'physics') return `/modeling?type=physics&q=${encodeURIComponent(item.title)}`;
+  return `/ask?q=${encodeURIComponent(item.title)}`;
+}
+
+function inferAskRoute(text: string): string {
+  if (!text.trim()) return '/ask';
+  const wantsModel = /画|图|演示|推导|模拟|仿真|怎么动|轨迹|曲线|过程图/.test(text);
   const isBiology = /光合|细胞|酶|遗传|突触|神经|生态|呼吸|膜|DNA|RNA|蛋白质/.test(text);
-  const isSearch = /什么是|定义|概念|哪些|区别|特点/.test(text);
-  return {
-    type: isBiology ? 'biology' : 'physics',
-    target: isSearch ? 'search' : 'modeling'
-  };
+  if (wantsModel) {
+    return `/modeling?type=${isBiology ? 'biology' : 'physics'}&q=${encodeURIComponent(text)}`;
+  }
+  return `/ask?q=${encodeURIComponent(text)}`;
 }
 
 export default function HomePage() {
   const router = useRouter();
+  const [query, setQuery] = useState('');
   const [recommendations, setRecommendations] = useState<RecommendationsResp>(fallbackRecommendations);
-  const [loading, setLoading] = useState(true);
-  const [recommendationError, setRecommendationError] = useState<string | null>(null);
+  const [recommendError, setRecommendError] = useState<string | null>(null);
+  const [recentEntries, setRecentEntries] = useState<RecentEntry[] | null>(null);
 
   useEffect(() => {
     api.getRecommendations()
       .then((res) => {
         if (res.data) {
           setRecommendations(res.data);
-          setRecommendationError(null);
+          setRecommendError(null);
         }
       })
       .catch((error) => {
-        setRecommendationError(error instanceof Error ? error.message : '推荐加载失败，已使用本地任务');
+        setRecommendError(error instanceof Error ? error.message : '推荐接口未连通');
         setRecommendations(fallbackRecommendations);
-      })
-      .finally(() => setLoading(false));
+      });
   }, []);
 
-  const missionCards = useMemo(() => [
-    ...recommendations.hot_topics,
-    ...recommendations.physics_models.slice(0, 2),
-    ...recommendations.biology_topics.slice(0, 2),
-  ].slice(0, 6), [recommendations]);
+  useEffect(() => {
+    api.getHistory()
+      .then((res) => {
+        const items = res.data?.items || [];
+        if (!items.length) { setRecentEntries([]); return; }
+        const mapped = items.slice(0, 6).map<RecentEntry>((entry) => {
+          const text = entry.query || entry.action_type || '历史记录';
+          const subject: RecentEntry['subject'] =
+            entry.action_type?.includes('physics') ? 'physics' :
+            entry.action_type?.includes('biology') ? 'biology' : 'general';
+          const href =
+            subject === 'physics' ? `/modeling?type=physics&q=${encodeURIComponent(text)}` :
+            subject === 'biology' ? `/modeling?type=biology&q=${encodeURIComponent(text)}` :
+                                    `/ask?q=${encodeURIComponent(text)}`;
+          const time = entry.created_at ? new Date(entry.created_at).toLocaleString('zh-CN', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+          return {
+            id: entry.id || `${entry.action_type}-${entry.created_at}`,
+            title: text,
+            subject,
+            href,
+            time,
+          };
+        });
+        setRecentEntries(mapped);
+      })
+      .catch(() => setRecentEntries([]));
+  }, []);
 
-  const handleSearch = (value: string) => {
-    const text = value.trim();
-    if (text) {
-      const inference = inferMissionSubject(text);
-      if (inference.target === 'search') {
-        router.push(`/search?q=${encodeURIComponent(text)}`);
-      } else {
-        router.push(`/modeling?type=${inference.type}&q=${encodeURIComponent(text)}`);
-      }
-    }
+  const submitSearch = () => {
+    const text = query.trim();
+    if (!text) return;
+    router.push(inferAskRoute(text));
   };
 
   return (
     <div className="snowy-page">
-      <Row gutter={[24, 24]} align="middle" style={{ marginBottom: 28 }}>
-        <Col xs={24} xl={13}>
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
-            <span className="snowy-kicker"><RocketOutlined /> Snowy V5 Mission Cockpit</span>
-            <div>
-              <Title className="snowy-hero-title" style={{ fontSize: 'clamp(46px, 7vw, 86px)' }}>
-                AI 科学任务舱，<span className="snowy-gradient-text">把问题变成模型</span>
-              </Title>
-              <Paragraph className="snowy-hero-copy">
-                面向高中生的 AIGC 知识检索、物理仿真与生物可视化统一建模工具。Snowy V5 以可信证据为燃料，以结构化模型包为核心，用任务、挑战和即时反馈完成学习闭环。
-              </Paragraph>
-            </div>
-            <Search
-              className="snowy-command-search"
-              placeholder="输入题目、现象或建模目标，如：平抛运动怎样命中目标区？"
-              enterButton={<><ThunderboltOutlined /> 发起任务</>}
-              size="large"
-              onSearch={handleSearch}
-            />
-            <Space wrap>
-              <Button type="primary" icon={<ExperimentOutlined />} onClick={() => router.push('/modeling')}>
-                进入科学建模舱
-              </Button>
-              <Button icon={<SearchOutlined />} onClick={() => router.push('/search')}>
-                打开知识星图
-              </Button>
-              <Button icon={<CompassOutlined />} onClick={() => router.push('/learning')}>
-                查看任务档案
-              </Button>
-            </Space>
-          </Space>
-        </Col>
-        <Col xs={24} xl={11}>
-          <Card className="snowy-glass-strong snowy-orbit" styles={{ body: { minHeight: 420, position: 'relative' } }}>
-            <div className="snowy-core">
-              <div>
-                <strong>Model Spec</strong>
-                <span>Evidence First</span>
-              </div>
-            </div>
-            <div className="snowy-orbit-node"><strong>可信证据</strong><span>RAG 引用、知识标签、置信度先于生成答案。</span></div>
-            <div className="snowy-orbit-node"><strong>生成模型包</strong><span>LearningModelSpec + SimulationSpec + InteractionPlan。</span></div>
-            <div className="snowy-orbit-node"><strong>即时反馈</strong><span>参数变化同步轨迹、曲线、公式项和一句话结论。</span></div>
-            <div className="snowy-orbit-node"><strong>迁移挑战</strong><span>演示关、单变量、多变量、变式题逐步推进。</span></div>
-          </Card>
-        </Col>
-      </Row>
+      {/* Hero */}
+      <section className="snowy-hero">
+        <Title level={1} className="snowy-hero-title">
+          像问同学一样问 <em>AI</em>，<br />得到带证据的答案
+        </Title>
+        <Paragraph className="snowy-hero-sub">
+          用大白话提问 · 用动画看公式 · 用图谱理流程<br />
+          专为高中生设计的学习工具，每个结论都能追溯到课本和考纲。
+        </Paragraph>
 
-      <div className="snowy-card-grid" style={{ marginBottom: 28 }}>
-        {capabilityCards.map((card) => (
-          <button
-            key={card.title}
-            className="snowy-mission-card"
-            style={{ '--accent': card.accent, '--chip-color': card.color } as React.CSSProperties}
-            onClick={() => router.push(card.path)}
-            type="button"
-          >
-            <span className="snowy-icon-chip">{card.icon}</span>
-            <h3>{card.title}</h3>
-            <p>{card.description}</p>
+        <form
+          className="snowy-search snowy-search--lg snowy-hero-search"
+          onSubmit={(event) => { event.preventDefault(); submitSearch(); }}
+          role="search"
+        >
+          <span className="snowy-search__icon"><SearchOutlined /></span>
+          <input
+            className="snowy-search__input"
+            type="search"
+            placeholder="例如：为什么平抛运动水平方向是匀速？"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            aria-label="输入你的问题"
+          />
+          <button type="submit" className="snowy-search__submit">
+            <RightOutlined /> 提问
           </button>
+        </form>
+
+        <div className="snowy-hero-examples">
+          {exampleQueries.map((q) => (
+            <button key={q} className="snowy-chip" type="button" onClick={() => { setQuery(q); router.push(inferAskRoute(q)); }}>
+              {q}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* 三大能力 */}
+      <div className="snowy-capability">
+        {capabilityCards.map((card) => (
+          <a
+            key={card.title}
+            className="snowy-capability__card"
+            href={card.path}
+            onClick={(event) => { event.preventDefault(); router.push(card.path); }}
+          >
+            <span className={`snowy-capability__icon ${card.iconClass}`}>{card.icon}</span>
+            <h3 className="snowy-capability__title">{card.title}</h3>
+            <p className="snowy-capability__desc">{card.desc}</p>
+            <div className="snowy-capability__meta">
+              {card.meta.map((tag) => <Tag key={tag} bordered={false} color="default" style={{ background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)' }}>{tag}</Tag>)}
+            </div>
+          </a>
         ))}
       </div>
 
-      {recommendationError && (
-        <Alert
-          type="warning"
-          showIcon
-          message="任务接口暂不可用，已展示静态推荐任务"
-          description={recommendationError}
-          style={{ marginBottom: 16 }}
-        />
-      )}
+      {/* 最近学习 */}
+      <section>
+        <div className="snowy-section-title">
+          <h2>最近在学</h2>
+          <a href="/learning" onClick={(event) => { event.preventDefault(); router.push('/learning'); }}>查看全部 →</a>
+        </div>
 
-      <Row gutter={[18, 18]} style={{ marginBottom: 28 }}>
-        <Col xs={24} xl={17}>
-          <Card title={<Space><AimOutlined /> v5 统一学习链路</Space>} className="snowy-glass">
-            <div className="snowy-chain">
-              {learningChain.map(([title, desc], index) => (
-                <div className="snowy-chain-step" key={title}>
-                  <b>{index + 1}</b>
-                  <strong>{title}</strong>
-                  <span>{desc}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </Col>
-        <Col xs={24} xl={7}>
-          <Card title={<Space><RadarChartOutlined /> 能力雷达</Space>} className="snowy-glass" styles={{ body: { minHeight: 222 } }}>
-            <div className="snowy-stat-row" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-              {radarStats.map(([code, label]) => (
-                <div className="snowy-stat" key={code}>
-                  <strong>{code}</strong>
-                  <span>{label}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </Col>
-      </Row>
+        {recentEntries === null && (
+          <div className="snowy-loading-card"><span className="snowy-spinner" /><span>加载历史中…</span></div>
+        )}
 
-      <Card
-        title={<Space><FireOutlined /> 今日任务卡</Space>}
-        extra={<Tag color="cyan">Level v5.0</Tag>}
-        className="snowy-glass"
-      >
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 40 }}><Spin tip="正在同步任务卡..." /></div>
-        ) : (
-          <div className="snowy-task-list">
-            {missionCards.map((item) => (
-              <div className="snowy-task-card" key={`${item.category}-${item.id}`} onClick={() => router.push(missionPath(item))} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter') router.push(missionPath(item)); }}>
-                <Space align="center" style={{ width: '100%', justifyContent: 'space-between' }}>
-                  <Tag color={item.category === 'biology' ? 'gold' : item.category === 'physics' ? 'green' : 'cyan'}>{item.category}</Tag>
-                  <Text type="secondary">Mission</Text>
-                </Space>
-                <strong style={{ marginTop: 12 }}>{item.title}</strong>
-                <p>{item.description}</p>
-                <Space wrap>
-                  <Tag color="cyan">证据</Tag>
-                  <Tag color="green">建模</Tag>
-                  <Tag color="orange">挑战</Tag>
-                </Space>
-              </div>
-            ))}
+        {recentEntries && recentEntries.length === 0 && (
+          <div className="snowy-loading-card" style={{ padding: 32 }}>
+            <Text type="secondary">还没有学习记录，去<a href="/ask" onClick={(e) => { e.preventDefault(); router.push('/ask'); }}>问第一个问题</a>试试 ↗</Text>
           </div>
         )}
-      </Card>
+
+        {recentEntries && recentEntries.length > 0 && (
+          <div className="snowy-scroller">
+            {recentEntries.map((entry) => {
+              const tagInfo = subjectTagColor(entry.subject);
+              return (
+                <article
+                  key={entry.id}
+                  className="snowy-recent-card"
+                  onClick={() => router.push(entry.href)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => { if (event.key === 'Enter') router.push(entry.href); }}
+                >
+                  <div className="snowy-recent-card__head">
+                    <Tag color={tagInfo.color} bordered={false}>{tagInfo.label}</Tag>
+                    <Text className="snowy-recent-card__time">{entry.time || '近期'}</Text>
+                  </div>
+                  <div className="snowy-recent-card__title">{entry.title}</div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>继续学习 →</Text>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* 推荐 */}
+      <section>
+        <div className="snowy-section-title">
+          <h2>推荐给你</h2>
+          <Text type="secondary" style={{ fontSize: 14 }}>基于高中物理 / 生物高频考点</Text>
+        </div>
+
+        {recommendError && (
+          <Alert
+            type="warning"
+            showIcon
+            message="推荐接口暂不可用，已显示离线推荐"
+            description={recommendError}
+            style={{ marginBottom: 16, borderRadius: 12 }}
+            closable
+          />
+        )}
+
+        <div className="snowy-recommend-grid">
+          {recommendations.hot_topics.slice(0, 3).map((item) => {
+            const tagInfo = subjectTagColor(item.category);
+            return (
+              <article
+                key={item.id}
+                className="snowy-recommend-card"
+                onClick={() => router.push(recommendationHref(item))}
+                role="button"
+                tabIndex={0}
+                style={{ cursor: 'pointer' }}
+                onKeyDown={(event) => { if (event.key === 'Enter') router.push(recommendationHref(item)); }}
+              >
+                <Space size={6} style={{ marginBottom: 12 }}>
+                  <Tag color={tagInfo.color} bordered={false}>{tagInfo.label}</Tag>
+                  <Tag color="default" bordered={false} style={{ background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)' }}>高频</Tag>
+                </Space>
+                <div className="snowy-recommend-card__title">{item.title}</div>
+                <p className="snowy-recommend-card__desc">{item.description}</p>
+                <Text type="secondary" style={{ fontSize: 13 }}>开始学习 →</Text>
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="snowy-section-title" style={{ marginTop: 8 }}>
+          <h2>建模模板</h2>
+          <Text type="secondary" style={{ fontSize: 14 }}>直接打开仿真，调参数看变化</Text>
+        </div>
+        <div className="snowy-recommend-grid">
+          {recommendations.physics_models.slice(0, 3).map((item) => (
+            <article
+              key={item.id}
+              className="snowy-recommend-card"
+              onClick={() => router.push(recommendationHref(item))}
+              role="button"
+              tabIndex={0}
+              style={{ cursor: 'pointer' }}
+              onKeyDown={(event) => { if (event.key === 'Enter') router.push(recommendationHref(item)); }}
+            >
+              <Space size={6} style={{ marginBottom: 12 }}>
+                <Tag color="cyan" bordered={false} icon={<ExperimentOutlined />}>物理仿真</Tag>
+              </Space>
+              <div className="snowy-recommend-card__title">{item.title}</div>
+              <p className="snowy-recommend-card__desc">{item.description}</p>
+              <Text type="secondary" style={{ fontSize: 13 }}>打开模型 →</Text>
+            </article>
+          ))}
+        </div>
+
+        <div className="snowy-section-title" style={{ marginTop: 8 }}>
+          <h2>生物图谱</h2>
+          <Text type="secondary" style={{ fontSize: 14 }}>用图理清「谁影响谁、按什么顺序发生」</Text>
+        </div>
+        <div className="snowy-recommend-grid">
+          {recommendations.biology_topics.slice(0, 3).map((item) => (
+            <article
+              key={item.id}
+              className="snowy-recommend-card"
+              onClick={() => router.push(recommendationHref(item))}
+              role="button"
+              tabIndex={0}
+              style={{ cursor: 'pointer' }}
+              onKeyDown={(event) => { if (event.key === 'Enter') router.push(recommendationHref(item)); }}
+            >
+              <Space size={6} style={{ marginBottom: 12 }}>
+                <Tag color="green" bordered={false} icon={<BranchesOutlined />}>生物图谱</Tag>
+              </Space>
+              <div className="snowy-recommend-card__title">{item.title}</div>
+              <p className="snowy-recommend-card__desc">{item.description}</p>
+              <Text type="secondary" style={{ fontSize: 13 }}>打开图谱 →</Text>
+            </article>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
