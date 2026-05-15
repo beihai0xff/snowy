@@ -13,6 +13,8 @@ type Validator interface {
 
 type DefaultValidator struct{}
 
+const validationStatusPass = "pass"
+
 func NewDefaultValidator() Validator { return &DefaultValidator{} }
 
 func (v *DefaultValidator) Validate(pkg *GenerativeModelPackage) ModelValidationReport {
@@ -29,7 +31,7 @@ func (v *DefaultValidator) Validate(pkg *GenerativeModelPackage) ModelValidation
 		report.DomainValid = false
 	}
 	pass := func(name string) {
-		checks = append(checks, ValidationCheck{Name: name, Status: "pass"})
+		checks = append(checks, ValidationCheck{Name: name, Status: validationStatusPass})
 	}
 
 	if strings.TrimSpace(pkg.Question) == "" {

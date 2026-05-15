@@ -9,6 +9,8 @@ import (
 
 type simpleCalculator struct{}
 
+const chartTypeLine = "line"
+
 // NewSimpleCalculator 创建默认计算器实现。
 func NewSimpleCalculator() Calculator {
 	return &simpleCalculator{}
@@ -93,7 +95,7 @@ func computeProjectile(params map[string]float64) *domain.ComputeResult {
 			"target_error": landingX - targetX,
 		},
 		Chart: &domain.ChartSpec{
-			ChartType: "line",
+			ChartType: chartTypeLine,
 			Title:     "抛体轨迹图",
 			XAxis:     domain.AxisSpec{Label: "x", Unit: "m"},
 			YAxis:     domain.AxisSpec{Label: "y", Unit: "m"},
@@ -120,7 +122,7 @@ func computeUniformAcceleration(params map[string]float64) *domain.ComputeResult
 	return &domain.ComputeResult{
 		Values: map[string]float64{"x": x, "v": v},
 		Chart: &domain.ChartSpec{
-			ChartType: "line",
+			ChartType: chartTypeLine,
 			Title:     "位移-时间图像",
 			XAxis:     domain.AxisSpec{Label: "t", Unit: "s"},
 			YAxis:     domain.AxisSpec{Label: "x", Unit: "m"},
@@ -144,7 +146,7 @@ func computeUniformMotion(params map[string]float64) *domain.ComputeResult {
 	return &domain.ComputeResult{
 		Values: map[string]float64{"x": x, "v": v},
 		Chart: &domain.ChartSpec{
-			ChartType: "line",
+			ChartType: chartTypeLine,
 			Title:     "匀速直线运动图像",
 			XAxis:     domain.AxisSpec{Label: "t", Unit: "s"},
 			YAxis:     domain.AxisSpec{Label: "x", Unit: "m"},

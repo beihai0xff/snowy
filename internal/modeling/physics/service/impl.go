@@ -34,6 +34,12 @@ const (
 	scenePhysicsForceDiagram = "physics_force_diagram"
 	scenePhysicsGeneric3D    = "physics_generic_3d"
 	scenePhysicsMotion2D     = "physics_motion_2d"
+
+	labelAcceleration     = "加速度"
+	labelInitialPosition  = "初始位移"
+	unitMetersPerSecond   = "m/s"
+	unitMetersPerSecond2  = "m/s²"
+	unitDemoDimensionless = "演示单位"
 )
 
 // WithLLMProvider injects the ordered OpenAI-compatible model chain.
@@ -131,7 +137,7 @@ func inferModelType(text string) domain.ModelType {
 		{model: domain.ModelNewtonSecondLaw, keywords: []string{"牛顿", "force", "受力"}},
 		{model: domain.ModelSpringOscillator, keywords: []string{"弹簧", "振子", "oscillat", "简谐", "spring"}},
 		{model: domain.ModelTwoBodyMotion, keywords: []string{"双体", "天体", "行星", "卫星", "万有引力", "引力", "orbit", "轨道", "gravity"}},
-		{model: domain.ModelUniformAcceleration, keywords: []string{"加速度", "acceler", "匀变速"}},
+		{model: domain.ModelUniformAcceleration, keywords: []string{labelAcceleration, "acceler", "匀变速"}},
 		{model: domain.ModelWorkEnergy, keywords: []string{"功", "energy", "能量"}},
 	} {
 		if containsAny(lower, rule.keywords...) {
@@ -403,47 +409,63 @@ func parameterSchema(modelType domain.ModelType) []domain.ParameterSchema {
 	switch modelType {
 	case domain.ModelProjectileMotion:
 		return []domain.ParameterSchema{
-			{Name: "v0", Label: "初速度", Default: 20, Min: 1, Max: 100, Step: 1, Unit: "m/s"},
+			{Name: "v0", Label: "初速度", Default: 20, Min: 1, Max: 100, Step: 1, Unit: unitMetersPerSecond},
 			{Name: "h", Label: "抛出高度", Default: 20, Min: 1, Max: 100, Step: 1, Unit: "m"},
-			{Name: "g", Label: "重力加速度", Default: 9.8, Min: 1, Max: 20, Step: 0.1, Unit: "m/s²"},
+			{Name: "g", Label: "重力加速度", Default: 9.8, Min: 1, Max: 20, Step: 0.1, Unit: unitMetersPerSecond2},
 			{Name: "target_x", Label: "目标水平距离", Default: 40, Min: 5, Max: 180, Step: 1, Unit: "m"},
 			{Name: "angle_deg", Label: "抛射角", Default: 0, Min: 0, Max: 80, Step: 1, Unit: "°"},
 		}
 	case domain.ModelNewtonSecondLaw:
 		return []domain.ParameterSchema{
 			{Name: "m", Label: "质量", Default: 2, Min: 0.1, Max: 100, Step: 0.1, Unit: "kg"},
-			{Name: "a", Label: "加速度", Default: 3, Min: 0.1, Max: 50, Step: 0.1, Unit: "m/s²"},
+			{Name: "a", Label: labelAcceleration, Default: 3, Min: 0.1, Max: 50, Step: 0.1, Unit: unitMetersPerSecond2},
 		}
 	case domain.ModelUniformAcceleration:
 		return []domain.ParameterSchema{
-			{Name: "x0", Label: "初始位移", Default: 0, Min: -100, Max: 100, Step: 1, Unit: "m"},
-			{Name: "v0", Label: "初速度", Default: 0, Min: -50, Max: 50, Step: 1, Unit: "m/s"},
-			{Name: "a", Label: "加速度", Default: 2, Min: -20, Max: 20, Step: 0.5, Unit: "m/s²"},
+			{Name: "x0", Label: labelInitialPosition, Default: 0, Min: -100, Max: 100, Step: 1, Unit: "m"},
+			{Name: "v0", Label: "初速度", Default: 0, Min: -50, Max: 50, Step: 1, Unit: unitMetersPerSecond},
+			{Name: "a", Label: labelAcceleration, Default: 2, Min: -20, Max: 20, Step: 0.5, Unit: unitMetersPerSecond2},
 			{Name: "t", Label: "时间", Default: 5, Min: 0.1, Max: 20, Step: 0.1, Unit: "s"},
 		}
 	case domain.ModelUniformMotion:
 		return []domain.ParameterSchema{
-			{Name: "x0", Label: "初始位移", Default: 0, Min: -100, Max: 100, Step: 1, Unit: "m"},
-			{Name: "v", Label: "速度", Default: 5, Min: -50, Max: 50, Step: 1, Unit: "m/s"},
+			{Name: "x0", Label: labelInitialPosition, Default: 0, Min: -100, Max: 100, Step: 1, Unit: "m"},
+			{Name: "v", Label: "速度", Default: 5, Min: -50, Max: 50, Step: 1, Unit: unitMetersPerSecond},
 			{Name: "t", Label: "时间", Default: 5, Min: 0.1, Max: 20, Step: 0.1, Unit: "s"},
 		}
 	case domain.ModelWorkEnergy:
 		return []domain.ParameterSchema{
 			{Name: "m", Label: "质量", Default: 1, Min: 0.1, Max: 100, Step: 0.1, Unit: "kg"},
-			{Name: "v", Label: "速度", Default: 2, Min: 0.1, Max: 100, Step: 0.1, Unit: "m/s"},
+			{Name: "v", Label: "速度", Default: 2, Min: 0.1, Max: 100, Step: 0.1, Unit: unitMetersPerSecond},
 		}
 	case domain.ModelSpringOscillator:
 		return []domain.ParameterSchema{
 			{Name: "k", Label: "劲度系数", Default: 24, Min: 1, Max: 80, Step: 1, Unit: "N/m"},
 			{Name: "m", Label: "质量", Default: 1.2, Min: 0.2, Max: 8, Step: 0.1, Unit: "kg"},
-			{Name: "x", Label: "初始位移", Default: 1.4, Min: -3, Max: 3, Step: 0.05, Unit: "m"},
+			{Name: "x", Label: labelInitialPosition, Default: 1.4, Min: -3, Max: 3, Step: 0.05, Unit: "m"},
 			{Name: "damping", Label: "阻尼", Default: 0.18, Min: 0, Max: 2, Step: 0.02, Unit: ""},
 		}
 	case domain.ModelTwoBodyMotion:
 		return []domain.ParameterSchema{
-			{Name: "central_mass", Label: "中心质量", Default: 8, Min: 1, Max: 20, Step: 0.1, Unit: "演示单位"},
-			{Name: "satellite_mass", Label: "卫星质量", Default: 1, Min: 0.1, Max: 6, Step: 0.1, Unit: "演示单位"},
-			{Name: "orbit_radius", Label: "轨道半径", Default: 3.6, Min: 1.4, Max: 6.5, Step: 0.1, Unit: "演示单位"},
+			{Name: "central_mass", Label: "中心质量", Default: 8, Min: 1, Max: 20, Step: 0.1, Unit: unitDemoDimensionless},
+			{
+				Name:    "satellite_mass",
+				Label:   "卫星质量",
+				Default: 1,
+				Min:     0.1,
+				Max:     6,
+				Step:    0.1,
+				Unit:    unitDemoDimensionless,
+			},
+			{
+				Name:    "orbit_radius",
+				Label:   "轨道半径",
+				Default: 3.6,
+				Min:     1.4,
+				Max:     6.5,
+				Step:    0.1,
+				Unit:    unitDemoDimensionless,
+			},
 			{Name: "tangential_speed", Label: "切向速度", Default: 2.25, Min: 0.3, Max: 5.5, Step: 0.05, Unit: "演示单位/s"},
 			{Name: "eccentricity", Label: "偏心率", Default: 0.18, Min: 0, Max: 0.75, Step: 0.01, Unit: ""},
 			{Name: "gravitational_strength", Label: "引力强度", Default: 10, Min: 1, Max: 24, Step: 0.1, Unit: ""},
@@ -452,8 +474,8 @@ func parameterSchema(modelType domain.ModelType) []domain.ParameterSchema {
 		return []domain.ParameterSchema{
 			{Name: "m1", Label: "物体一质量", Default: 1.5, Min: 0.2, Max: 8, Step: 0.1, Unit: "kg"},
 			{Name: "m2", Label: "物体二质量", Default: 1, Min: 0.2, Max: 8, Step: 0.1, Unit: "kg"},
-			{Name: "v1", Label: "物体一速度", Default: 4.5, Min: -8, Max: 8, Step: 0.1, Unit: "m/s"},
-			{Name: "v2", Label: "物体二速度", Default: -2.5, Min: -8, Max: 8, Step: 0.1, Unit: "m/s"},
+			{Name: "v1", Label: "物体一速度", Default: 4.5, Min: -8, Max: 8, Step: 0.1, Unit: unitMetersPerSecond},
+			{Name: "v2", Label: "物体二速度", Default: -2.5, Min: -8, Max: 8, Step: 0.1, Unit: unitMetersPerSecond},
 			{Name: "restitution", Label: "恢复系数", Default: 0.9, Min: 0, Max: 1, Step: 0.01, Unit: ""},
 		}
 	}

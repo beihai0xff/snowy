@@ -23,6 +23,8 @@ type Node interface {
 	Run(ctx context.Context, input any) (any, error)
 }
 
+const previewStatusKey = "status"
+
 // MessageRepository 抽象消息读取能力，供 SessionNode 使用。
 type MessageRepository interface {
 	ListBySession(ctx context.Context, sessionID uuid.UUID, offset, limit int) ([]*agent.Message, int64, error)
@@ -283,14 +285,14 @@ func (n *OutputNode) Run(_ context.Context, input any) (any, error) {
 				sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventRenderCode, Data: renderArtifact})
 				sendEvent(
 					state.Events,
-					agent.SSEEvent{Event: agent.SSEEventPreview, Data: map[string]any{"status": "ready"}},
+					agent.SSEEvent{Event: agent.SSEEventPreview, Data: map[string]any{previewStatusKey: "ready"}},
 				)
 			} else {
 				sendEvent(
 					state.Events,
 					agent.SSEEvent{
 						Event: agent.SSEEventPreview,
-						Data:  map[string]any{"status": "error", "message": "render_artifact missing"},
+						Data:  map[string]any{previewStatusKey: "error", "message": "render_artifact missing"},
 					},
 				)
 			}
@@ -312,7 +314,7 @@ func (n *OutputNode) Run(_ context.Context, input any) (any, error) {
 				sendEvent(state.Events, agent.SSEEvent{Event: agent.SSEEventRenderCode, Data: renderArtifact})
 				sendEvent(
 					state.Events,
-					agent.SSEEvent{Event: agent.SSEEventPreview, Data: map[string]any{"status": "ready"}},
+					agent.SSEEvent{Event: agent.SSEEventPreview, Data: map[string]any{previewStatusKey: "ready"}},
 				)
 			}
 		case agent.ModeSearch, agent.ModeAuto:
