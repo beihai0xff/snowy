@@ -24,6 +24,18 @@ type serviceImpl struct {
 	codeValidator physicsvalidator.CodeValidator
 }
 
+const (
+	scenePhysicsOrbit3D      = "physics_orbit_3d"
+	scenePhysicsSpring3D     = "physics_spring_3d"
+	scenePhysicsCollision3D  = "physics_collision_3d"
+	scenePhysicsProjectile3D = "physics_projectile_3d"
+	scenePhysicsProjectile2D = "physics_projectile_2d"
+	scenePhysicsForce3D      = "physics_force_3d"
+	scenePhysicsForceDiagram = "physics_force_diagram"
+	scenePhysicsGeneric3D    = "physics_generic_3d"
+	scenePhysicsMotion2D     = "physics_motion_2d"
+)
+
 // WithLLMProvider injects the ordered OpenAI-compatible model chain.
 func WithLLMProvider(provider llm.Provider) Option {
 	return func(s *serviceImpl) {
@@ -68,9 +80,6 @@ func (s *serviceImpl) Analyze(_ context.Context, question string, sessionContext
 	conditions, params := extractConditions(question, modelType)
 
 	defaultProps := mergeDefaultProps(modelType, params, sceneType)
-	if len(conditions) == 0 {
-		params = cloneNumberMap(defaultProps)
-	}
 
 	computeResult, err := s.calculator.Compute(modelType, defaultProps)
 	if err != nil {
@@ -139,24 +148,25 @@ func inferSceneType(text string, modelType domain.ModelType) string {
 
 	switch {
 	case modelType == domain.ModelTwoBodyMotion:
-		return "physics_orbit_3d"
+		return scenePhysicsOrbit3D
 	case modelType == domain.ModelSpringOscillator:
-		return "physics_spring_3d"
+		return scenePhysicsSpring3D
 	case modelType == domain.ModelCollisionMotion:
-		return "physics_collision_3d"
+		return scenePhysicsCollision3D
 	case wants3D && modelType == domain.ModelProjectileMotion:
-		return "physics_projectile_3d"
+		return scenePhysicsProjectile3D
 	case modelType == domain.ModelNewtonSecondLaw:
-		return "physics_force_3d"
+		return scenePhysicsForce3D
 	case wants3D:
-		return "physics_generic_3d"
+		return scenePhysicsGeneric3D
 	case modelType == domain.ModelProjectileMotion:
-		return "physics_projectile_2d"
+		return scenePhysicsProjectile2D
 	default:
-		return "physics_motion_2d"
+		return scenePhysicsMotion2D
 	}
 }
 
+//nolint:cyclop,gocognit,gocyclo,funlen,maintidx // Extraction rules are intentionally grouped by model.
 func extractConditions(question string, modelType domain.ModelType) ([]domain.Condition, map[string]float64) {
 	text := normalizeQuestion(question)
 	params := map[string]float64{}
@@ -482,6 +492,7 @@ func formatResultValue(value float64) string {
 	return fmt.Sprintf("%.2f", value)
 }
 
+//nolint:cyclop,gocognit // Defaults are a compact model-specific table with minor derived values.
 func mergeDefaultProps(modelType domain.ModelType, params map[string]float64, sceneType string) map[string]float64 {
 	props := defaultParameters(modelType)
 	maps.Copy(props, params)
@@ -492,7 +503,7 @@ func mergeDefaultProps(modelType domain.ModelType, params map[string]float64, sc
 		}
 	}
 
-	if sceneType == "physics_generic_3d" {
+	if sceneType == scenePhysicsGeneric3D {
 		if _, ok := props["size"]; !ok {
 			props["size"] = 110
 		}
@@ -502,7 +513,7 @@ func mergeDefaultProps(modelType domain.ModelType, params map[string]float64, sc
 		}
 	}
 
-	if sceneType == "physics_orbit_3d" {
+	if sceneType == scenePhysicsOrbit3D {
 		for key, value := range map[string]float64{"view_dimension": 3, "trail_length": 240, "camera_yaw": 0.72, "camera_pitch": 0.54} {
 			if _, ok := props[key]; !ok {
 				props[key] = value
@@ -510,7 +521,7 @@ func mergeDefaultProps(modelType domain.ModelType, params map[string]float64, sc
 		}
 	}
 
-	if sceneType == "physics_spring_3d" {
+	if sceneType == scenePhysicsSpring3D {
 		for key, value := range map[string]float64{"view_dimension": 3, "trail_length": 180, "camera_yaw": 0.6, "camera_pitch": 0.38} {
 			if _, ok := props[key]; !ok {
 				props[key] = value
@@ -518,7 +529,7 @@ func mergeDefaultProps(modelType domain.ModelType, params map[string]float64, sc
 		}
 	}
 
-	if sceneType == "physics_collision_3d" {
+	if sceneType == scenePhysicsCollision3D {
 		for key, value := range map[string]float64{"view_dimension": 3, "trail_length": 200, "camera_yaw": 0.45, "camera_pitch": 0.38} {
 			if _, ok := props[key]; !ok {
 				props[key] = value
@@ -526,7 +537,7 @@ func mergeDefaultProps(modelType domain.ModelType, params map[string]float64, sc
 		}
 	}
 
-	if sceneType == "physics_force_3d" {
+	if sceneType == scenePhysicsForce3D {
 		if _, ok := props["view_dimension"]; !ok {
 			props["view_dimension"] = 3
 		}
@@ -543,25 +554,26 @@ func mergeDefaultProps(modelType domain.ModelType, params map[string]float64, sc
 	return props
 }
 
+//nolint:cyclop // Titles mirror the supported scene/model matrix.
 func sceneTitle(sceneType string, modelType domain.ModelType) string {
 	switch sceneType {
-	case "physics_orbit_3d":
+	case scenePhysicsOrbit3D:
 		return "天体轨道 3D 动态演示"
-	case "physics_spring_3d":
+	case scenePhysicsSpring3D:
 		return "弹簧振子 3D 动态演示"
-	case "physics_collision_3d":
+	case scenePhysicsCollision3D:
 		return "碰撞运动 3D 动态演示"
-	case "physics_projectile_3d":
+	case scenePhysicsProjectile3D:
 		return "平抛运动 3D 轨迹预览"
-	case "physics_projectile_2d":
+	case scenePhysicsProjectile2D:
 		return "平抛运动浏览器轨迹预览"
-	case "physics_force_3d":
+	case scenePhysicsForce3D:
 		return "牛顿第二定律 3D 受力模型"
-	case "physics_force_diagram":
+	case scenePhysicsForceDiagram:
 		return "牛顿第二定律受力示意"
-	case "physics_generic_3d":
+	case scenePhysicsGeneric3D:
 		return "3D 场景浏览器渲染预览"
-	case "physics_motion_2d":
+	case scenePhysicsMotion2D:
 		return "运动场景浏览器预览"
 	default:
 		return fmt.Sprintf("%s 浏览器渲染预览", modelType)
@@ -572,21 +584,21 @@ func sceneSummary(sceneType string, modelType domain.ModelType, values map[strin
 	base := resultSummary(modelType, values)
 
 	switch sceneType {
-	case "physics_orbit_3d":
+	case scenePhysicsOrbit3D:
 		return base + " 已转换为教学演示优先的 3D 天体轨道场景，支持发光星体、轨道尾迹、速度与引力箭头。"
-	case "physics_spring_3d":
+	case scenePhysicsSpring3D:
 		return base + " 已转换为 3D 弹簧振子场景，支持发光弹簧、回复力箭头、能量条和阻尼调节。"
-	case "physics_collision_3d":
+	case scenePhysicsCollision3D:
 		return base + " 已转换为 3D 碰撞演示场景，支持双刚体反弹、速度箭头、轨迹残影和碰撞闪光。"
-	case "physics_projectile_3d":
+	case scenePhysicsProjectile3D:
 		return base + " 已转换为 Rapier 3D 原生物理引擎轨迹场景，用于观察空间投影效果。"
-	case "physics_projectile_2d":
+	case scenePhysicsProjectile2D:
 		return base + " 已转换为本地物理引擎中的可交互轨迹预览。"
-	case "physics_force_3d":
+	case scenePhysicsForce3D:
 		return base + " 已转换为 Rapier 3D 原生受力模型，支持方块刚体、地面、坐标轴、力矢量、加速度矢量和 2D/3D 切换。"
-	case "physics_force_diagram":
+	case scenePhysicsForceDiagram:
 		return base + " 已转换为本地物理引擎中的受力箭头与加速度示意。"
-	case "physics_generic_3d":
+	case scenePhysicsGeneric3D:
 		return base + " 已转换为 Rapier 3D 原生物理引擎通用场景。"
 	default:
 		return base + " 已转换为本地物理引擎中的交互演示。"

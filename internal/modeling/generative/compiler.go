@@ -1,3 +1,4 @@
+//nolint:cyclop,goconst,exhaustive,nestif,unused // The compiler normalizes intentionally broad LLM package shapes.
 package generative
 
 import (
@@ -216,6 +217,7 @@ func (s *compilerService) compileWithLLM(
 	if modelName == "" {
 		modelName = providerConfiguredModel(s.llmChain)
 	}
+
 	if modelName == "" {
 		modelName = s.llmChain.Name()
 	}
@@ -382,7 +384,11 @@ func buildCompileUserPrompt(req *CompileRequest, domain string, evidence []Evide
 		"context":     req.Context,
 		"evidence":    evidence,
 	}
-	b, _ := json.Marshal(payload)
+
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return "{}"
+	}
 
 	return string(b)
 }

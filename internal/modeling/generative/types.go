@@ -1,4 +1,6 @@
 // Package generative implements Snowy v4 large-model-first modeling contracts.
+//
+//nolint:revive // Public names intentionally keep the generative domain prefix at API boundaries.
 package generative
 
 import (

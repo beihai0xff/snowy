@@ -1,3 +1,4 @@
+//revive:disable:var-naming
 package http
 
 import (
@@ -59,6 +60,7 @@ func (h *SearchHandler) Query(c *gin.Context) {
 			return
 		}
 	}
+
 	if userID := common.UserIDFromContext(c.Request.Context()); strings.TrimSpace(userID) != "" {
 		if uid, parseErr := uuid.Parse(userID); parseErr == nil {
 			query.UserID = uid

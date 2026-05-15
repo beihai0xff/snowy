@@ -1,3 +1,4 @@
+//nolint:cyclop,funcorder // User service keeps auth and reaction workflows grouped by product flow.
 package user
 
 import (
@@ -143,6 +144,7 @@ func (s *serviceImpl) AddFavorite(ctx context.Context, fav *Favorite) error {
 	if fav == nil {
 		return errors.New("favorite is nil")
 	}
+
 	fav.ID = uuid.New()
 	fav.CreatedAt = time.Now()
 	fav.TargetType = strings.TrimSpace(fav.TargetType)
@@ -164,8 +166,10 @@ func sanitizeFavoriteMetadata(metadata map[string]any) map[string]any {
 		if key == "" || isSensitiveMetadataKey(key) {
 			continue
 		}
+
 		cleaned[key] = sanitizeMetadataValue(value)
 	}
+
 	if len(cleaned) == 0 {
 		return nil
 	}
@@ -194,8 +198,10 @@ func sanitizeMetadataValue(value any) any {
 			if i >= 20 {
 				break
 			}
+
 			out = append(out, sanitizeMetadataValue(item))
 		}
+
 		return out
 	case map[string]any:
 		return sanitizeFavoriteMetadata(v)
@@ -206,6 +212,7 @@ func sanitizeMetadataValue(value any) any {
 
 func truncateString(text string, limit int) string {
 	text = strings.TrimSpace(text)
+
 	runes := []rune(text)
 	if len(runes) <= limit {
 		return text
@@ -285,11 +292,15 @@ func (s *serviceImpl) generateToken(u *User, ttl time.Duration) (string, error) 
 	return token.SignedString([]byte(s.authCfg.JWTSecret))
 }
 
-func (s *serviceImpl) EmailRegister(ctx context.Context, email, password, nickname string) (string, string, *User, error) {
+func (s *serviceImpl) EmailRegister(
+	ctx context.Context,
+	email, password, nickname string,
+) (string, string, *User, error) {
 	email = normalizeEmail(email)
 	if _, err := mail.ParseAddress(email); err != nil {
 		return "", "", nil, errors.New("valid email is required")
 	}
+
 	if len(password) < 8 {
 		return "", "", nil, errors.New("password must be at least 8 characters")
 	}
@@ -306,6 +317,7 @@ func (s *serviceImpl) EmailRegister(ctx context.Context, email, password, nickna
 	}
 
 	now := time.Now()
+
 	if strings.TrimSpace(nickname) == "" {
 		nickname = email
 	}
@@ -326,11 +338,13 @@ func (s *serviceImpl) EmailRegister(ctx context.Context, email, password, nickna
 		if createErr := s.repo.Create(txCtx, u); createErr != nil {
 			return fmt.Errorf("create user: %w", createErr)
 		}
+
 		if s.histRepo != nil {
 			if histErr := s.histRepo.Add(txCtx, history); histErr != nil {
 				return fmt.Errorf("add register history: %w", histErr)
 			}
 		}
+
 		return nil
 	})
 	if err != nil {
@@ -347,16 +361,20 @@ func (s *serviceImpl) EmailRegister(ctx context.Context, email, password, nickna
 
 func (s *serviceImpl) EmailLogin(ctx context.Context, email, password string) (string, string, *User, error) {
 	email = normalizeEmail(email)
+
 	u, err := s.repo.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
 			return "", "", nil, errors.New("invalid email or password")
 		}
+
 		return "", "", nil, fmt.Errorf("lookup email user: %w", err)
 	}
+
 	if strings.TrimSpace(u.PasswordHash) == "" {
 		return "", "", nil, errors.New("email account has no password login enabled")
 	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)); err != nil {
 		return "", "", nil, errors.New("invalid email or password")
 	}
@@ -377,33 +395,44 @@ func (s *serviceImpl) SetReaction(ctx context.Context, reaction *Reaction) error
 	if s.reactionRepo == nil {
 		return errors.New("reaction repository is nil")
 	}
+
 	if reaction == nil {
 		return errors.New("reaction is nil")
 	}
+
 	if reaction.UserID == uuid.Nil {
 		return errors.New("reaction user_id is required")
 	}
+
 	reaction.TargetType = strings.TrimSpace(reaction.TargetType)
+
 	reaction.TargetID = strings.TrimSpace(reaction.TargetID)
 	if reaction.TargetType == "" || reaction.TargetID == "" {
 		return errors.New("reaction target is required")
 	}
+
 	if reaction.ReactionType != ReactionLike && reaction.ReactionType != ReactionDislike {
 		return errors.New("reaction_type must be like or dislike")
 	}
+
 	if reaction.Visibility == "" {
 		reaction.Visibility = ReactionVisibilityPublic
 	}
+
 	if reaction.Visibility != ReactionVisibilityPublic && reaction.Visibility != ReactionVisibilityPrivate {
 		return errors.New("visibility must be public or private")
 	}
+
 	now := time.Now()
+
 	if reaction.ID == uuid.Nil {
 		reaction.ID = uuid.New()
 	}
+
 	if reaction.CreatedAt.IsZero() {
 		reaction.CreatedAt = now
 	}
+
 	reaction.UpdatedAt = now
 
 	return s.reactionRepo.Upsert(ctx, reaction)
@@ -417,7 +446,11 @@ func (s *serviceImpl) DeleteReaction(ctx context.Context, userID uuid.UUID, targ
 	return s.reactionRepo.Delete(ctx, userID, strings.TrimSpace(targetType), strings.TrimSpace(targetID))
 }
 
-func (s *serviceImpl) ListReactions(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*Reaction, int64, error) {
+func (s *serviceImpl) ListReactions(
+	ctx context.Context,
+	userID uuid.UUID,
+	offset, limit int,
+) ([]*Reaction, int64, error) {
 	if s.reactionRepo == nil {
 		return nil, 0, errors.New("reaction repository is nil")
 	}
@@ -425,7 +458,13 @@ func (s *serviceImpl) ListReactions(ctx context.Context, userID uuid.UUID, offse
 	return s.reactionRepo.ListByUser(ctx, userID, offset, limit)
 }
 
-func (s *serviceImpl) ReactionSummary(ctx context.Context, userID uuid.UUID, targetType string, targetID string, includeUsers bool) (*ReactionSummary, error) {
+func (s *serviceImpl) ReactionSummary(
+	ctx context.Context,
+	userID uuid.UUID,
+	targetType string,
+	targetID string,
+	includeUsers bool,
+) (*ReactionSummary, error) {
 	if s.reactionRepo == nil {
 		return nil, errors.New("reaction repository is nil")
 	}

@@ -1,3 +1,4 @@
+//nolint:cyclop // Provider request execution keeps validation, HTTP, and decoding branches together.
 package llm
 
 import (
@@ -96,6 +97,7 @@ func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response,
 	if maxTokens <= 0 {
 		maxTokens = p.cfg.MaxTokens
 	}
+
 	if maxTokens <= 0 {
 		maxTokens = MaxTokens128K
 	}
@@ -147,7 +149,10 @@ func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response,
 	if resp.StatusCode >= 400 {
 		retryable := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= http.StatusInternalServerError
 
-		return nil, NewProviderError(fmt.Sprintf("openai-compatible provider: http status %d", resp.StatusCode), retryable)
+		return nil, NewProviderError(
+			fmt.Sprintf("openai-compatible provider: http status %d", resp.StatusCode),
+			retryable,
+		)
 	}
 
 	var decoded openAIChatCompletionResponse
@@ -171,6 +176,7 @@ func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response,
 func (p *openaiProvider) apiKey() (string, []string) {
 	envKeys := []string{"OPENAI_API_KEY"}
 	values := make([]string, 0, len(envKeys)+1)
+
 	values = append(values, p.cfg.APIKey)
 	for _, key := range envKeys {
 		values = append(values, os.Getenv(key))

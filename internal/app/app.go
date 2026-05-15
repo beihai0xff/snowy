@@ -143,6 +143,7 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 	_ = redisrepo.NewSessionStore(shared.rdb)
 
 	modelConfigs := shared.cfg.LLM.EffectiveModels()
+
 	providerConfigs := make([]monitoring.LLMProviderConfig, 0, len(modelConfigs))
 	for i, modelCfg := range modelConfigs {
 		role := modelRole(i)
@@ -294,7 +295,11 @@ func modelRole(index int) string {
 func buildOrderedLLMChain(modelConfigs []config.ModelProviderConfig, recorder *monitoring.LLMRecorder) llm.Provider {
 	providers := make([]llm.Provider, 0, len(modelConfigs))
 	for i, modelCfg := range modelConfigs {
-		provider := llmroute.NewRetryingProvider(llm.NewOpenAIProvider(modelCfg), modelCfg.MaxRetries, modelCfg.RetryInterval)
+		provider := llmroute.NewRetryingProvider(
+			llm.NewOpenAIProvider(modelCfg),
+			modelCfg.MaxRetries,
+			modelCfg.RetryInterval,
+		)
 		providers = append(providers, monitoring.WrapProvider(provider, recorder, modelRole(i)))
 	}
 

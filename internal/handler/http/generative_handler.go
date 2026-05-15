@@ -1,3 +1,4 @@
+//revive:disable:var-naming
 package http
 
 import (
@@ -87,6 +88,7 @@ func (h *GenerativeHandler) Compile(c *gin.Context) {
 // ListPackages GET /api/v1/modeling/packages.
 func (h *GenerativeHandler) ListPackages(c *gin.Context) {
 	reqID := common.RequestIDFromContext(c.Request.Context())
+
 	userID := common.DefaultUserID
 	if fromCtx := common.UserIDFromContext(c.Request.Context()); fromCtx != "" {
 		userID = fromCtx

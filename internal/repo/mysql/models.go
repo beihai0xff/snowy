@@ -37,7 +37,7 @@ type llmCallRecordRow struct {
 	FinishedAt    time.Time `gorm:"column:finished_at"`
 }
 
-func (llmCallRecordRow) TableName() string { return "llm_call_records" }
+func (*llmCallRecordRow) TableName() string { return "llm_call_records" }
 
 func newLLMCallRecordRow(r monitoring.LLMCallRecord) *llmCallRecordRow {
 	return &llmCallRecordRow{
@@ -257,6 +257,7 @@ func (r *answerRecordRow) toDomain() *searchdomain.AnswerRecord {
 	if r.SessionID != nil {
 		record.SessionID = *r.SessionID
 	}
+
 	_ = r.KnowledgeTags.AssignTo(&record.KnowledgeTags)
 	_ = r.Citations.AssignTo(&record.Citations)
 
@@ -320,7 +321,7 @@ type historyRow struct {
 	CreatedAt  time.Time  `gorm:"column:created_at"`
 }
 
-func (historyRow) TableName() string { return "history_items" }
+func (*historyRow) TableName() string { return "history_items" }
 
 func newHistoryRow(item *user.HistoryItem) *historyRow {
 	if item == nil {

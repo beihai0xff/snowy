@@ -1,7 +1,9 @@
+//nolint:cyclop // Query filters are intentionally built in one repository method.
 package mysql
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -18,7 +20,7 @@ func NewLLMCallRecordRepository(db *gorm.DB) monitoring.LLMCallRecordStore {
 
 func (r *llmCallRecordRepo) Save(ctx context.Context, record monitoring.LLMCallRecord) error {
 	if strings.TrimSpace(record.ID) == "" {
-		return fmt.Errorf("llm call record id is empty")
+		return errors.New("llm call record id is empty")
 	}
 
 	if err := dbFromContext(ctx, r.db).Create(newLLMCallRecordRow(record)).Error; err != nil {
@@ -41,18 +43,23 @@ func (r *llmCallRecordRepo) List(
 	if filter.UserID != "" {
 		query = query.Where("user_id = ?", filter.UserID)
 	}
+
 	if filter.Provider != "" {
 		query = query.Where("provider = ?", filter.Provider)
 	}
+
 	if filter.Model != "" {
 		query = query.Where("model = ?", filter.Model)
 	}
+
 	if filter.Operation != "" {
 		query = query.Where("operation = ?", filter.Operation)
 	}
+
 	if !filter.Since.IsZero() {
 		query = query.Where("finished_at >= ?", filter.Since)
 	}
+
 	if !filter.Until.IsZero() {
 		query = query.Where("finished_at <= ?", filter.Until)
 	}

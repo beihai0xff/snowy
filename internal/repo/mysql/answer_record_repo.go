@@ -22,9 +22,11 @@ func (r *answerRecordRepo) Save(ctx context.Context, record *searchdomain.Answer
 	if record == nil {
 		return errors.New("answer record is nil")
 	}
+
 	if record.ID == uuid.Nil {
 		record.ID = uuid.New()
 	}
+
 	if record.CreatedAt.IsZero() {
 		record.CreatedAt = time.Now().UTC()
 	}
@@ -71,6 +73,7 @@ func (r *answerRecordRepo) ListByQuery(
 	ctx context.Context, query string, offset, limit int,
 ) ([]*searchdomain.AnswerRecord, int64, error) {
 	var total int64
+
 	gdb := dbFromContext(ctx, r.db)
 
 	if err := gdb.Model(&answerRecordRow{}).Where("query = ?", query).Count(&total).Error; err != nil {

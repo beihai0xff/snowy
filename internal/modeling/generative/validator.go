@@ -1,3 +1,4 @@
+//nolint:cyclop // Validation enumerates independent package contract checks.
 package generative
 
 import (

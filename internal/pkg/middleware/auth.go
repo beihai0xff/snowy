@@ -15,6 +15,8 @@ import (
 
 // Auth 鉴权中间件 — v5 支持 Bearer JWT；未携带或无效 token 时回落默认匿名用户，
 // 以保持旧匿名试用链路可用。
+//
+//nolint:nestif // JWT claim extraction is kept inline for the small middleware closure.
 func Auth(authCfg config.AuthConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := common.DefaultUserID
@@ -27,6 +29,7 @@ func Auth(authCfg config.AuthConfig) gin.HandlerFunc {
 					userID = claimUserID
 					anonymous = false
 				}
+
 				if claimRole, ok := claims["role"].(string); ok && strings.TrimSpace(claimRole) != "" {
 					role = claimRole
 				}
@@ -73,12 +76,14 @@ func bearerToken(header string) string {
 
 func parseJWT(tokenText string, secret string) (jwt.MapClaims, error) {
 	claims := jwt.MapClaims{}
+
 	token, err := jwt.ParseWithClaims(tokenText, claims, func(*jwt.Token) (any, error) {
 		return []byte(secret), nil
 	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
 	if err != nil {
 		return nil, err
 	}
+
 	if token == nil || !token.Valid {
 		return nil, jwt.ErrTokenInvalidClaims
 	}

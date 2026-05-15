@@ -199,6 +199,7 @@ func (n *FallbackNode) Run(_ context.Context, input any) (any, error) {
 		Confidence:  0.35,
 		NextActions: []string{"补充更具体的题干条件", "切换到对应学科模式后再试"},
 	}
+
 	return state, nil
 }
 
@@ -243,7 +244,7 @@ type OutputNode struct{}
 
 func (n *OutputNode) Name() string { return "OutputNode" }
 
-//nolint:cyclop // Streaming output intentionally branches by event type and resolved mode.
+//nolint:cyclop,nestif // Streaming output intentionally branches by event type and resolved mode.
 func (n *OutputNode) Run(_ context.Context, input any) (any, error) {
 	state, ok := input.(*State)
 	if !ok {

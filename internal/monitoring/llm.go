@@ -1,4 +1,6 @@
 // Package monitoring provides lightweight in-process observability for LLM calls.
+//
+//nolint:lll // Dashboard prompt profiles preserve complete prompt contracts for operators.
 package monitoring
 
 import (
@@ -19,7 +21,11 @@ import (
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 )
 
-const defaultMaxLLMRecords = 200
+const (
+	defaultMaxLLMRecords = 200
+	llmStatusSuccess     = "success"
+	llmStatusFailed      = "failed"
+)
 
 // LLMProviderConfig is a sanitized provider configuration exposed to the monitoring UI.
 type LLMProviderConfig struct {
@@ -183,10 +189,12 @@ func (r *LLMRecorder) Record(record LLMCallRecord) {
 	}
 
 	r.mu.Lock()
+
 	r.records = append([]LLMCallRecord{record}, r.records...)
 	if len(r.records) > r.maxRecords {
 		r.records = r.records[:r.maxRecords]
 	}
+
 	store := r.store
 	r.mu.Unlock()
 
@@ -253,7 +261,7 @@ func summarize(records []LLMCallRecord) LLMSummary {
 
 	for _, record := range records {
 		summary.TotalCalls++
-		if record.Status == "success" {
+		if record.Status == llmStatusSuccess {
 			summary.SuccessCalls++
 		} else {
 			summary.FailedCalls++
@@ -310,7 +318,7 @@ func groupBy(records []LLMCallRecord, keyFn func(LLMCallRecord) string) []LLMGro
 		}
 
 		item.metric.TotalCalls++
-		if record.Status == "success" {
+		if record.Status == llmStatusSuccess {
 			item.metric.SuccessCalls++
 		} else {
 			item.metric.FailedCalls++
@@ -445,14 +453,20 @@ func (p *ObservedProvider) ConfiguredModelProvider() string {
 	return ""
 }
 
-func (p *ObservedProvider) record(ctx context.Context, req *llm.Request, resp *llm.Response, callErr error, start, finish time.Time) {
+func (p *ObservedProvider) record(
+	ctx context.Context,
+	req *llm.Request,
+	resp *llm.Response,
+	callErr error,
+	start, finish time.Time,
+) {
 	if p == nil || p.recorder == nil {
 		return
 	}
 
-	status := "success"
+	status := llmStatusSuccess
 	if callErr != nil {
-		status = "failed"
+		status = llmStatusFailed
 	}
 
 	model := ""
@@ -507,6 +521,7 @@ func (p *ObservedProvider) record(ctx context.Context, req *llm.Request, resp *l
 		record.Error = truncate(callErr.Error(), 1200)
 	}
 
+	//nolint:contextcheck // The recorder persists asynchronously outside the request lifetime.
 	p.recorder.Record(record)
 }
 
@@ -612,7 +627,7 @@ func ProviderConfigFromConfig(role string, cfg config.ModelProviderConfig) LLMPr
 	}
 }
 
-func providerAPIKeyConfigured(role, provider, cfgKey string) bool {
+func providerAPIKeyConfigured(_ string, _ string, cfgKey string) bool {
 	if strings.TrimSpace(cfgKey) != "" {
 		return true
 	}

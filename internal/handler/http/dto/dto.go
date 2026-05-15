@@ -96,14 +96,14 @@ type BiologyAnalyzeReq struct {
 // ── Auth / User ───────────────────────────────────────────
 
 type EmailRegisterReq struct {
-	Email    string `json:"email"    binding:"required,email"`
-	Password string `json:"password" binding:"required,min=8"`
-	Nickname string `json:"nickname,omitempty"`
+	Email    string `binding:"required,email" json:"email"`
+	Password string `binding:"required,min=8" json:"password"`
+	Nickname string `                         json:"nickname,omitempty"`
 }
 
 type EmailLoginReq struct {
-	Email    string `json:"email"    binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Email    string `binding:"required,email" json:"email"`
+	Password string `binding:"required"       json:"password"`
 }
 
 type AuthResp struct {
@@ -115,16 +115,16 @@ type AuthResp struct {
 // FavoriteReq 收藏请求。
 type FavoriteReq struct {
 	TargetType   string         `binding:"required,oneof=search answer evidence physics biology model_package render_code model_config" json:"target_type"`
-	TargetID     string         `binding:"required"                                                               json:"target_id"`
-	Title        string         `binding:"required"                                                               json:"title"`
-	MetadataJSON map[string]any `json:"metadata_json,omitempty"`
+	TargetID     string         `binding:"required"                                                                                     json:"target_id"`
+	Title        string         `binding:"required"                                                                                     json:"title"`
+	MetadataJSON map[string]any `                                                                                                       json:"metadata_json,omitempty"`
 }
 
 type ReactionReq struct {
 	TargetType   string `binding:"required,oneof=search answer evidence physics biology model_package render_code" json:"target_type"`
-	TargetID     string `binding:"required" json:"target_id"`
-	ReactionType string `binding:"required,oneof=like dislike" json:"reaction_type"`
-	Visibility   string `binding:"omitempty,oneof=public private" json:"visibility,omitempty"`
+	TargetID     string `binding:"required"                                                                        json:"target_id"`
+	ReactionType string `binding:"required,oneof=like dislike"                                                     json:"reaction_type"`
+	Visibility   string `binding:"omitempty,oneof=public private"                                                  json:"visibility,omitempty"`
 }
 
 // RecommendationItem 首页推荐条目。

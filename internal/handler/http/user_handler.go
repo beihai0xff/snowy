@@ -1,3 +1,5 @@
+//revive:disable:var-naming
+//nolint:funcorder // Handler helpers stay near the endpoints that use them.
 package http
 
 import (
@@ -110,7 +112,7 @@ func (h *UserHandler) ensureDefaultUser(ctx *gin.Context, uid uuid.UUID) bool {
 	}
 
 	usr, ok := h.userSvc.(interface {
-		EnsureAnonymousUser(context.Context) (*user.User, error)
+		EnsureAnonymousUser(ctx context.Context) (*user.User, error)
 	})
 	if !ok {
 		reqID := common.RequestIDFromContext(ctx.Request.Context())
@@ -180,7 +182,10 @@ func (h *UserHandler) GetHistory(c *gin.Context) {
 func (h *UserHandler) ListAnswerRecords(c *gin.Context) {
 	if h.answerRepo == nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage("answer record repository is nil"), reqID))
+		c.JSON(
+			http.StatusInternalServerError,
+			common.Fail(common.ErrInternal.WithMessage("answer record repository is nil"), reqID),
+		)
 
 		return
 	}
@@ -205,7 +210,10 @@ func (h *UserHandler) ListAnswerRecords(c *gin.Context) {
 func (h *UserHandler) GetAnswerRecord(c *gin.Context) {
 	if h.answerRepo == nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage("answer record repository is nil"), reqID))
+		c.JSON(
+			http.StatusInternalServerError,
+			common.Fail(common.ErrInternal.WithMessage("answer record repository is nil"), reqID),
+		)
 
 		return
 	}
@@ -344,10 +352,14 @@ func (h *UserHandler) DeleteReaction(c *gin.Context) {
 	}
 
 	targetType := c.Query("target_type")
+
 	targetID := c.Query("target_id")
 	if targetType == "" || targetID == "" {
 		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage("target_type and target_id are required"), reqID))
+		c.JSON(
+			http.StatusBadRequest,
+			common.Fail(common.ErrInvalidInput.WithMessage("target_type and target_id are required"), reqID),
+		)
 
 		return
 	}
@@ -388,15 +400,20 @@ func (h *UserHandler) ReactionSummary(c *gin.Context) {
 	}
 
 	targetType := c.Query("target_type")
+
 	targetID := c.Query("target_id")
 	if targetType == "" || targetID == "" {
 		reqID := common.RequestIDFromContext(c.Request.Context())
-		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage("target_type and target_id are required"), reqID))
+		c.JSON(
+			http.StatusBadRequest,
+			common.Fail(common.ErrInvalidInput.WithMessage("target_type and target_id are required"), reqID),
+		)
 
 		return
 	}
 
 	includeUsers, _ := strconv.ParseBool(c.DefaultQuery("include_users", "false"))
+
 	summary, err := h.userSvc.ReactionSummary(c.Request.Context(), uid, targetType, targetID, includeUsers)
 	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())

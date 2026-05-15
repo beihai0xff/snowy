@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"slices"
 	"strings"
 	"time"
 
@@ -100,6 +101,7 @@ func (s *serviceImpl) Query(ctx context.Context, q *Query) (*Response, error) {
 
 	if s.hasLLMProvider() {
 		archived := s.lookupBestArchivedAnswer(ctx, q)
+
 		response, directErr := s.queryWithLLM(ctx, q, parsed)
 		if directErr != nil {
 			s.saveLog(ctx, q.Text, 0, start, nil)
@@ -108,14 +110,17 @@ func (s *serviceImpl) Query(ctx context.Context, q *Query) (*Response, error) {
 		}
 
 		s.saveLog(ctx, q.Text, 1, start, nil)
+
 		metadata := map[string]any{
 			"intent": parsed.Intent,
 			"mode":   "direct_answer",
 		}
+
 		if archived != nil {
 			response = s.applyArchivedQualitySignals(ctx, response, archived)
 			metadata["ranked_by_answer_id"] = archived.ID.String()
 		}
+
 		s.persistAnswerRecord(ctx, q, response, "llm_direct", providerConfiguredModel(s.llmChain), metadata)
 
 		return response, nil
@@ -141,6 +146,7 @@ func (s *serviceImpl) Query(ctx context.Context, q *Query) (*Response, error) {
 		"intent":       parsed.Intent,
 		"result_count": total,
 	}
+
 	if archived != nil {
 		response = s.applyArchivedQualitySignals(ctx, response, archived)
 		metadata["ranked_by_answer_id"] = archived.ID.String()
@@ -160,20 +166,26 @@ func (s *serviceImpl) lookupBestArchivedAnswer(ctx context.Context, q *Query) *A
 	records, _, err := s.answerRecords.ListByQuery(ctx, strings.TrimSpace(q.Text), 0, 10)
 	if err != nil {
 		slog.WarnContext(ctx, "lookup archived answers failed", "error", err)
+
 		return nil
 	}
 
 	var best *AnswerRecord
+
 	bestScore := math.Inf(-1)
+
 	for _, record := range records {
 		if record == nil {
 			continue
 		}
+
 		feedback, err := s.feedback.TargetFeedback(ctx, "answer", record.ID.String())
 		if err != nil {
 			slog.WarnContext(ctx, "lookup answer feedback failed", "answer_id", record.ID, "error", err)
+
 			continue
 		}
+
 		score := communityScore(record.Confidence, feedback)
 		if score > bestScore {
 			bestScore = score
@@ -217,10 +229,9 @@ func appendUnique(items []string, item string) []string {
 	if item == "" {
 		return items
 	}
-	for _, existing := range items {
-		if existing == item {
-			return items
-		}
+
+	if slices.Contains(items, item) {
+		return items
 	}
 
 	return append(items, item)
@@ -230,7 +241,9 @@ func prependRelatedQuestion(items []RelatedQuestion, item RelatedQuestion) []Rel
 	if strings.TrimSpace(item.ID) == "" {
 		return items
 	}
+
 	out := make([]RelatedQuestion, 0, len(items)+1)
+
 	out = append(out, item)
 	for _, existing := range items {
 		if existing.ID != item.ID {
@@ -826,6 +839,7 @@ func (s *serviceImpl) persistAnswerRecord(
 
 	if err := s.answerRecords.Save(ctx, record); err != nil {
 		slog.WarnContext(ctx, "persist answer record failed", "error", err)
+
 		return
 	}
 

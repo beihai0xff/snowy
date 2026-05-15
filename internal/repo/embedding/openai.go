@@ -109,6 +109,7 @@ func (e *openaiEmbedding) Dimensions() int {
 	return e.cfg.Dimensions
 }
 
+//nolint:gosec // Hash indexes are bounded by the fixed sha256 digest length and modulo arithmetic.
 func (e *openaiEmbedding) localEmbeddings(texts []string) [][]float64 {
 	dimensions := e.cfg.Dimensions
 	if dimensions <= 0 {

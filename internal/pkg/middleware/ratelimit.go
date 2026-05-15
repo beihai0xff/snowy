@@ -88,7 +88,15 @@ func isRateLimitExempt(c *gin.Context) bool {
 	}
 
 	switch path {
-	case "/api/v1/user/profile", "/api/v1/history", "/api/v1/favorites", "/api/v1/reactions", "/api/v1/reactions/summary", "/api/v1/modeling/packages", "/api/v1/answers", "/api/v1/monitoring/llm", "/api/v1/recommendations":
+	case "/api/v1/user/profile",
+		"/api/v1/history",
+		"/api/v1/favorites",
+		"/api/v1/reactions",
+		"/api/v1/reactions/summary",
+		"/api/v1/modeling/packages",
+		"/api/v1/answers",
+		"/api/v1/monitoring/llm",
+		"/api/v1/recommendations":
 		return c.Request.Method == http.MethodGet
 	default:
 		return false

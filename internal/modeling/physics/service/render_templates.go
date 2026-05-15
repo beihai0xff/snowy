@@ -61,15 +61,15 @@ func (s *serviceImpl) generateNativePhysicsArtifact(
 
 func ensureNativePhysicsProps(sceneType string, props map[string]float64) {
 	switch sceneType {
-	case "physics_force_3d":
+	case scenePhysicsForce3D:
 		ensureForce3DProps(props)
-	case "physics_projectile_3d", "physics_projectile_2d":
+	case scenePhysicsProjectile3D, scenePhysicsProjectile2D:
 		ensureProjectileProps(props)
-	case "physics_orbit_3d":
+	case scenePhysicsOrbit3D:
 		ensureOrbitProps(props)
-	case "physics_spring_3d":
+	case scenePhysicsSpring3D:
 		ensureSpringProps(props)
-	case "physics_collision_3d":
+	case scenePhysicsCollision3D:
 		ensureCollisionProps(props)
 	default:
 		ensureSharedNativeProps(props)

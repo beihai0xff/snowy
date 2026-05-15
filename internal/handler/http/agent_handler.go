@@ -1,3 +1,4 @@
+//revive:disable:var-naming
 package http
 
 import (
@@ -312,6 +313,8 @@ func shouldSkipStreamPersistence(
 
 func recordAgentHistory(c *gin.Context, userSvc user.Service, mode agent.Mode, query string) {
 	switch mode {
+	case agent.ModeAuto:
+		recordHistory(c, userSvc, "search", query)
 	case agent.ModeSearch:
 		recordHistory(c, userSvc, "search", query)
 	case agent.ModePhysics:

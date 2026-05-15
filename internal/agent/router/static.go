@@ -15,6 +15,7 @@ type staticRouter struct {
 // NewStaticRouter 创建基于配置声明顺序的静态模型路由器。
 func NewStaticRouter(cfg config.LLMConfig) Router {
 	configuredModels := cfg.EffectiveModels()
+
 	models := make([]ModelInfo, 0, len(configuredModels))
 	for i, model := range configuredModels {
 		models = append(models, ModelInfo{

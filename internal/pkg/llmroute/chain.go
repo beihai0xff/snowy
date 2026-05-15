@@ -40,6 +40,7 @@ func NewRetryingProvider(provider llm.Provider, maxRetries int, retryInterval ti
 
 func (p *RetryingProvider) Generate(ctx context.Context, req *llm.Request) (*llm.Response, error) {
 	var lastErr error
+
 	for attempt := 0; attempt <= p.maxRetries; attempt++ {
 		resp, err := p.next.Generate(ctx, cloneRequest(req))
 		if err == nil {
@@ -61,6 +62,7 @@ func (p *RetryingProvider) Generate(ctx context.Context, req *llm.Request) (*llm
 
 func (p *RetryingProvider) GenerateStream(ctx context.Context, req *llm.Request, chunks chan<- llm.StreamChunk) error {
 	var lastErr error
+
 	for attempt := 0; attempt <= p.maxRetries; attempt++ {
 		err := p.next.GenerateStream(ctx, cloneRequest(req), chunks)
 		if err == nil {
@@ -93,6 +95,7 @@ func (p *RetryingProvider) ConfiguredBaseURL() string {
 
 	return ""
 }
+
 func (p *RetryingProvider) ConfiguredModelProvider() string {
 	if configured, ok := p.next.(llm.ConfiguredProvider); ok {
 		return configured.ConfiguredModelProvider()
@@ -194,11 +197,12 @@ func (c *Chain) HealthCheck(ctx context.Context) error {
 			continue
 		}
 
-		if err := provider.HealthCheck(ctx); err == nil {
+		err := provider.HealthCheck(ctx)
+		if err == nil {
 			return nil
-		} else {
-			failures = append(failures, fmt.Sprintf("%s: %v", provider.Name(), err))
 		}
+
+		failures = append(failures, fmt.Sprintf("%s: %v", provider.Name(), err))
 	}
 
 	return errors.New(strings.Join(failures, "; "))

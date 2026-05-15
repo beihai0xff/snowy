@@ -15,6 +15,7 @@ import (
 
 type reactionRepo struct{ db *gorm.DB }
 
+//nolint:revive // The concrete repository also satisfies search feedback ports at the composition root.
 func NewReactionRepository(db *gorm.DB) *reactionRepo {
 	return &reactionRepo{db: db}
 }
@@ -25,6 +26,7 @@ func (r *reactionRepo) Upsert(ctx context.Context, reaction *user.Reaction) erro
 	}
 
 	row := newReactionRow(reaction)
+
 	err := dbFromContext(ctx, r.db).Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "user_id"}, {Name: "target_type"}, {Name: "target_id"}},
 		DoUpdates: clause.Assignments(map[string]any{
@@ -63,8 +65,13 @@ func (r *reactionRepo) ListByUser(
 	)
 }
 
-func (r *reactionRepo) TargetFeedback(ctx context.Context, targetType string, targetID string) (searchdomain.FeedbackSummary, error) {
+func (r *reactionRepo) TargetFeedback(
+	ctx context.Context,
+	targetType string,
+	targetID string,
+) (searchdomain.FeedbackSummary, error) {
 	var summary searchdomain.FeedbackSummary
+
 	gdb := dbFromContext(ctx, r.db)
 
 	if err := gdb.Model(&reactionRow{}).
@@ -106,7 +113,10 @@ func (r *reactionRepo) Summary(
 
 	if userID != uuid.Nil {
 		var current reactionRow
-		err := gdb.Where("user_id = ? AND target_type = ? AND target_id = ?", userID, targetType, targetID).Take(&current).Error
+
+		err := gdb.Where("user_id = ? AND target_type = ? AND target_id = ?", userID, targetType, targetID).
+			Take(&current).
+			Error
 		if err == nil {
 			summary.CurrentReaction = current.ReactionType
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -119,10 +129,12 @@ func (r *reactionRepo) Summary(
 		if err != nil {
 			return nil, err
 		}
+
 		dislikes, err := r.reactionUsers(ctx, targetType, targetID, user.ReactionDislike)
 		if err != nil {
 			return nil, err
 		}
+
 		summary.LikeUsers = likes
 		summary.DislikeUsers = dislikes
 	}
@@ -143,10 +155,17 @@ func (r *reactionRepo) reactionUsers(
 	}
 
 	rows := []row{}
+
 	err := dbFromContext(ctx, r.db).Table("reactions").
 		Select("users.id, users.nickname, users.role").
 		Joins("JOIN users ON users.id = reactions.user_id").
-		Where("reactions.target_type = ? AND reactions.target_id = ? AND reactions.reaction_type = ? AND reactions.visibility = ?", targetType, targetID, reactionType, user.ReactionVisibilityPublic).
+		Where(
+			"reactions.target_type = ? AND reactions.target_id = ? AND reactions.reaction_type = ? AND reactions.visibility = ?",
+			targetType,
+			targetID,
+			reactionType,
+			user.ReactionVisibilityPublic,
+		).
 		Order("reactions.updated_at DESC").
 		Limit(20).
 		Scan(&rows).Error

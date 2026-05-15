@@ -1,3 +1,4 @@
+//nolint:goconst // Biology scenario identifiers are clearer inline beside their rule branches.
 package service
 
 import (

@@ -1,3 +1,4 @@
+//revive:disable:var-naming
 package http
 
 import (
@@ -53,20 +54,25 @@ func buildLLMRecordFilter(c *gin.Context) (monitoring.LLMRecordFilter, error) {
 		if err != nil {
 			return filter, err
 		}
+
 		filter.Limit = limit
 	}
+
 	if sinceText := strings.TrimSpace(c.Query("since")); sinceText != "" {
 		since, err := time.Parse(time.RFC3339, sinceText)
 		if err != nil {
 			return filter, err
 		}
+
 		filter.Since = since
 	}
+
 	if untilText := strings.TrimSpace(c.Query("until")); untilText != "" {
 		until, err := time.Parse(time.RFC3339, untilText)
 		if err != nil {
 			return filter, err
 		}
+
 		filter.Until = until
 	}
 

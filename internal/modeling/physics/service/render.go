@@ -1,3 +1,4 @@
+//nolint:cyclop,lll // Render prompting keeps long model contracts and JSON extraction logic explicit.
 package service
 
 import (
@@ -46,6 +47,7 @@ func (s *serviceImpl) generateLLMRenderArtifact(
 	if err != nil {
 		return nil, fmt.Errorf("llm render generation failed: %w", err)
 	}
+
 	if artifact == nil {
 		return nil, errors.New("llm render generation failed: empty artifact")
 	}
@@ -132,7 +134,7 @@ func (s *serviceImpl) validateArtifact(artifact *domain.RenderArtifact) error {
 		}
 	}
 
-	if artifact.SceneType == "physics_force_3d" {
+	if artifact.SceneType == scenePhysicsForce3D {
 		if err := validateForce3DArtifact(artifact.CodeBundle); err != nil {
 			return err
 		}
@@ -184,7 +186,10 @@ func renderSystemPrompt() string {
 }
 
 func buildRenderUserPrompt(sceneSpec *domain.SceneSpec, mode domain.RenderMode) string {
-	payload, _ := json.Marshal(sceneSpec)
+	payload, err := json.Marshal(sceneSpec)
+	if err != nil {
+		payload = []byte("{}")
+	}
 
 	prompt := fmt.Sprintf(
 		"scene_spec=%s\nrender_mode=%s\n只输出 JSON，不要 markdown；不要省略 code_bundle，不要用占位符；代码包长度不设上限，必须完整输出。",
@@ -269,7 +274,7 @@ func (r *rawRenderArtifact) UnmarshalJSON(data []byte) error {
 	return errors.New("unsupported code_bundle shape")
 }
 
-func (r rawRenderArtifact) toDomain() *domain.RenderArtifact {
+func (r *rawRenderArtifact) toDomain() *domain.RenderArtifact {
 	return &domain.RenderArtifact{
 		SceneType:      r.SceneType,
 		RenderMode:     r.RenderMode,
@@ -395,6 +400,8 @@ func normalizeRenderMode(input string, fallback domain.RenderMode) domain.Render
 	}
 
 	switch domain.RenderMode(strings.TrimSpace(input)) {
+	case domain.RenderModeHTMLIframe:
+		return domain.RenderModeHTMLIframe
 	case domain.RenderModeReactIframe:
 		return domain.RenderModeReactIframe
 	default:

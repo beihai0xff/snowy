@@ -1,3 +1,4 @@
+//nolint:lll // GORM index tags are intentionally kept with their schema fields.
 package mysql
 
 import (

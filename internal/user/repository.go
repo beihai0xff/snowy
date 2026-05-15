@@ -35,5 +35,11 @@ type ReactionRepository interface {
 	Upsert(ctx context.Context, reaction *Reaction) error
 	Delete(ctx context.Context, userID uuid.UUID, targetType string, targetID string) error
 	ListByUser(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*Reaction, int64, error)
-	Summary(ctx context.Context, userID uuid.UUID, targetType string, targetID string, includeUsers bool) (*ReactionSummary, error)
+	Summary(
+		ctx context.Context,
+		userID uuid.UUID,
+		targetType string,
+		targetID string,
+		includeUsers bool,
+	) (*ReactionSummary, error)
 }
