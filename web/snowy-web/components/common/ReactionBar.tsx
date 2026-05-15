@@ -45,6 +45,8 @@ export default function ReactionBar({ targetType, targetID, size = 'small', show
     void load();
   }, [load]);
 
+  const [animating, setAnimating] = useState<'like' | 'dislike' | null>(null);
+
   const mutate = async (reactionType: 'like' | 'dislike') => {
     if (!effectiveTargetID) return;
     setLoading(true);
@@ -62,6 +64,8 @@ export default function ReactionBar({ targetType, targetID, size = 'small', show
         });
         setSummary(resp.data || null);
         message.success(reactionType === 'like' ? '已点赞' : '已点踩');
+        setAnimating(reactionType);
+        setTimeout(() => setAnimating(null), 300);
         return;
       }
       await load();
@@ -79,6 +83,7 @@ export default function ReactionBar({ targetType, targetID, size = 'small', show
     <Space size={6} wrap>
       <Tooltip title={showUsers ? `公开点赞用户：${userTooltip(summary, 'like')}` : undefined}>
         <Button
+          className={animating === 'like' ? 'snowy-reaction-pop' : ''}
           size={size}
           type={likeActive ? 'primary' : 'default'}
           icon={<LikeOutlined />}
@@ -91,6 +96,7 @@ export default function ReactionBar({ targetType, targetID, size = 'small', show
       </Tooltip>
       <Tooltip title={showUsers ? `公开点踩用户：${userTooltip(summary, 'dislike')}` : undefined}>
         <Button
+          className={animating === 'dislike' ? 'snowy-reaction-pop' : ''}
           size={size}
           danger={dislikeActive}
           icon={<DislikeOutlined />}

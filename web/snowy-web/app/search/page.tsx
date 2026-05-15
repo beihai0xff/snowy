@@ -201,9 +201,10 @@ function SearchPageInner() {
 
       {errorText && !loading && (
         <Alert
+          className="snowy-diagnostic-panel"
           type="error"
           showIcon
-          message="检索请求失败"
+          message="AI 诊断：检索请求失败"
           description={errorText}
           action={<Button size="small" icon={<ReloadOutlined />} onClick={() => void handleSearch(query)}>重试</Button>}
           style={{ marginBottom: 16 }}
@@ -211,8 +212,11 @@ function SearchPageInner() {
       )}
 
       {loading && (
-        <Card className="snowy-glass" styles={{ body: { textAlign: 'center', padding: 54 } }}>
-          <Spin size="large" tip="正在检索课本、考纲、题库和讲义证据..." />
+        <Card className="snowy-glass" styles={{ body: { padding: 54 } }}>
+          <div className="snowy-scanner-loader">
+            <SearchOutlined className="snowy-scanner-loader-icon" />
+            <div className="snowy-scanner-loader-text">正在检索证据库与构建知识星图...</div>
+          </div>
         </Card>
       )}
 

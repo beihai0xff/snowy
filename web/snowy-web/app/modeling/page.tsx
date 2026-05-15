@@ -315,7 +315,7 @@ function ModelingPageInner() {
           </Space>
         </Card>
 
-        {errorText && <Alert type="error" showIcon message="建模失败" description={errorText} action={<Button size="small" onClick={handleRegenerate}>重试</Button>} />}
+        {errorText && <Alert className="snowy-diagnostic-panel" type="error" showIcon message="AI 诊断：建模失败" description={errorText} action={<Button size="small" onClick={handleRegenerate}>重试</Button>} />}
         {pkg?.warnings && pkg.warnings.length > 0 && <Alert type="warning" showIcon message="生成提示" description={pkg.warnings.join('；')} />}
 
         <div className="snowy-modeling-grid">
@@ -343,7 +343,14 @@ function ModelingPageInner() {
             className="snowy-glass"
             styles={{ body: { minHeight: 620 } }}
           >
-            {loading && !pkg ? <div style={{ padding: 120, textAlign: 'center' }}><Spin size="large" tip="AI 正在生成模型包..." /></div> : renderCanvas()}
+            {loading && !pkg ? (
+              <div style={{ padding: 120 }}>
+                <div className="snowy-scanner-loader" style={{ height: 200 }}>
+                  <ExperimentOutlined className="snowy-scanner-loader-icon" />
+                  <div className="snowy-scanner-loader-text">AI 正在编译生成式模型包...</div>
+                </div>
+              </div>
+            ) : renderCanvas()}
           </Card>
 
           <Space direction="vertical" style={{ width: '100%' }} size="middle">

@@ -87,9 +87,13 @@ function missionPath(item: RecommendationItem): string {
   return `/search?q=${encodeURIComponent(item.title)}`;
 }
 
-function inferMissionSubject(text: string): 'physics' | 'biology' {
-  if (/光合|细胞|酶|遗传|突触|神经|生态|呼吸|膜|DNA|RNA|蛋白质/.test(text)) return 'biology';
-  return 'physics';
+function inferMissionSubject(text: string): { type: 'physics' | 'biology', target: 'modeling' | 'search' } {
+  const isBiology = /光合|细胞|酶|遗传|突触|神经|生态|呼吸|膜|DNA|RNA|蛋白质/.test(text);
+  const isSearch = /什么是|定义|概念|哪些|区别|特点/.test(text);
+  return {
+    type: isBiology ? 'biology' : 'physics',
+    target: isSearch ? 'search' : 'modeling'
+  };
 }
 
 export default function HomePage() {
@@ -121,7 +125,14 @@ export default function HomePage() {
 
   const handleSearch = (value: string) => {
     const text = value.trim();
-    if (text) router.push(`/modeling?type=${inferMissionSubject(text)}&q=${encodeURIComponent(text)}`);
+    if (text) {
+      const inference = inferMissionSubject(text);
+      if (inference.target === 'search') {
+        router.push(`/search?q=${encodeURIComponent(text)}`);
+      } else {
+        router.push(`/modeling?type=${inference.type}&q=${encodeURIComponent(text)}`);
+      }
+    }
   };
 
   return (
