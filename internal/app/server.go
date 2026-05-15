@@ -10,9 +10,13 @@ import (
 
 // RunAPI 启动 HTTP API 服务，支持优雅关闭。
 func (a *App) RunAPI(ctx context.Context) error {
+	if a.api == nil || a.api.router == nil {
+		return errors.New("api surface is not configured")
+	}
+
 	srv := &http.Server{
 		Addr:         a.cfg.Server.Addr(),
-		Handler:      a.router,
+		Handler:      a.api.router,
 		ReadTimeout:  a.cfg.Server.ReadTimeout,
 		WriteTimeout: a.cfg.Server.WriteTimeout,
 	}

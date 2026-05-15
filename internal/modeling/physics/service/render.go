@@ -1,3 +1,4 @@
+//nolint:cyclop,lll // Render prompting keeps long model contracts and JSON extraction logic explicit.
 package service
 
 import (
@@ -5,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
 	"strings"
 
@@ -35,37 +37,21 @@ func (s *serviceImpl) generateLLMRenderArtifact(
 	mode domain.RenderMode,
 ) (*domain.RenderArtifact, error) {
 	scene := *sceneSpec
+
 	scene.RenderMode = mode
 	if scene.DefaultProps == nil {
 		scene.DefaultProps = map[string]float64{}
 	}
 
-	var attemptErrors []string
-
-	for _, provider := range []llm.Provider{s.primaryLLM, s.fallbackLLM} {
-		artifact, err := s.tryGenerateWithProvider(ctx, provider, &scene, mode)
-		if err == nil && artifact != nil {
-			return artifact, nil
-		}
-		if err != nil {
-			attemptErrors = append(attemptErrors, err.Error())
-		}
-	}
-
-	artifact, err := s.generateTemplateArtifact(&scene, mode)
+	artifact, err := s.tryGenerateWithProvider(ctx, s.llmChain, &scene, mode)
 	if err != nil {
-		attemptErrors = append(attemptErrors, err.Error())
-		return nil, fmt.Errorf("render generation failed: %s", strings.Join(attemptErrors, " | "))
+		return nil, fmt.Errorf("llm render generation failed: %w", err)
 	}
 
-	if len(attemptErrors) > 0 {
-		artifact.Warnings = append(
-			artifact.Warnings,
-			"大模型生成未通过，已回退到本地模板生成代码："+strings.Join(attemptErrors, " | "),
-		)
-	} else {
-		artifact.Warnings = append(artifact.Warnings, "当前未配置可用大模型提供方，已回退到本地模板生成代码")
+	if artifact == nil {
+		return nil, errors.New("llm render generation failed: empty artifact")
 	}
+
 	return artifact, nil
 }
 
@@ -83,7 +69,7 @@ func (s *serviceImpl) tryGenerateWithProvider(
 		return nil, errors.New("llm provider is nil")
 	}
 
-	temperature, maxTokens := renderGenerationOptions(sceneSpec)
+	temperature := renderGenerationTemperature(sceneSpec)
 	request := &llm.Request{
 		Model: providerModel(provider),
 		Messages: []llm.Message{
@@ -91,7 +77,7 @@ func (s *serviceImpl) tryGenerateWithProvider(
 			{Role: "user", Content: buildRenderUserPrompt(sceneSpec, mode)},
 		},
 		Temperature: temperature,
-		MaxTokens:   maxTokens,
+		MaxTokens:   llm.MaxTokens128K,
 	}
 
 	response, err := provider.Generate(ctx, request)
@@ -107,17 +93,21 @@ func (s *serviceImpl) tryGenerateWithProvider(
 	if artifact.SceneType == "" {
 		artifact.SceneType = sceneSpec.SceneType
 	}
+
 	if artifact.RenderMode == "" {
 		artifact.RenderMode = mode
 	}
+
 	if artifact.ResultSummary == "" {
 		artifact.ResultSummary = sceneSpec.Summary
 	}
+
 	if artifact.RenderManifest == nil {
 		artifact.RenderManifest = &domain.RenderManifest{}
 	}
 
 	applyManifestDefaults(artifact.RenderManifest, sceneSpec, mode)
+
 	if len(artifact.CodeBundle) == 0 {
 		return nil, errors.New("provider returned empty code bundle")
 	}
@@ -133,15 +123,18 @@ func (s *serviceImpl) validateArtifact(artifact *domain.RenderArtifact) error {
 	if artifact == nil {
 		return errors.New("artifact is nil")
 	}
+
 	if artifact.RenderManifest == nil {
 		return errors.New("render manifest is nil")
 	}
+
 	if s.codeValidator != nil {
 		if err := s.codeValidator.Validate(artifact.CodeBundle); err != nil {
 			return err
 		}
 	}
-	if artifact.SceneType == "physics_force_3d" {
+
+	if artifact.SceneType == scenePhysicsForce3D {
 		if err := validateForce3DArtifact(artifact.CodeBundle); err != nil {
 			return err
 		}
@@ -151,7 +144,8 @@ func (s *serviceImpl) validateArtifact(artifact *domain.RenderArtifact) error {
 }
 
 func renderSystemPrompt() string {
-	return strings.TrimSpace(`你是一名专业的交互式科学可视化前端工程师。任务是根据 scene_spec 生成一个可在浏览器 iframe srcDoc 中独立运行的原生 HTML/CSS/JavaScript 教学演示页面。不要展开推理，不要输出 markdown，不要输出解释文字；最终只输出符合约定的 JSON。
+	return strings.TrimSpace(
+		`你是一名专业的交互式科学可视化前端工程师。任务是根据 scene_spec 生成一个可在浏览器 iframe srcDoc 中独立运行的原生 HTML/CSS/JavaScript 教学演示页面。不要展开推理，不要输出 markdown，不要输出解释文字；最终只输出符合约定的 JSON。
 
 总体目标：
 - 生成离线可运行、无需网络、无需外部依赖、适合 iframe sandbox 的单文件交互式演示。
@@ -187,23 +181,34 @@ func renderSystemPrompt() string {
 7. physics_* 场景由宿主应用的本地物理引擎承载；不要为 physics_* 生成可执行前端代码。本生成链路主要服务 biology_* 等非物理可视化场景。
 8. biology_* 场景可以使用 Canvas 2D 或 WebGL；必须包含粒子/流动路径、阶段切换、概念标签、过程箭头、解释面板、播放/暂停或自动动画。biology_photosynthesis_3d 要表现叶绿体、光子、CO₂/H₂O 输入、O₂/糖输出；biology_cell_process_3d 要表现细胞膜/细胞器/物质运输；biology_concept_flow 要表现动态概念关系网络。
 9. 输出前自检：JSON 必须包含 code_bundle.index.html；biology_* 的 index.html 中必须能找到 snowy:update-props、snowy-preview ready、CanvasRenderingContext2D 或 getContext('2d')、particle/flow/stage/label 等可视化语义。
-10. JSON 字符串中的换行和引号必须合法转义；代码包长度不设上限，如果代码较长，继续完整输出，不要截断 code_bundle。`)
+10. JSON 字符串中的换行和引号必须合法转义；代码包长度不设上限，如果代码较长，继续完整输出，不要截断 code_bundle。`,
+	)
 }
 
 func buildRenderUserPrompt(sceneSpec *domain.SceneSpec, mode domain.RenderMode) string {
-	payload, _ := json.Marshal(sceneSpec)
-	prompt := fmt.Sprintf("scene_spec=%s\nrender_mode=%s\n只输出 JSON，不要 markdown；不要省略 code_bundle，不要用占位符；代码包长度不设上限，必须完整输出。", string(payload), mode)
+	payload, err := json.Marshal(sceneSpec)
+	if err != nil {
+		payload = []byte("{}")
+	}
+
+	prompt := fmt.Sprintf(
+		"scene_spec=%s\nrender_mode=%s\n只输出 JSON，不要 markdown；不要省略 code_bundle，不要用占位符；代码包长度不设上限，必须完整输出。",
+		string(payload),
+		mode,
+	)
 	if sceneSpec != nil && strings.HasPrefix(sceneSpec.SceneType, "biology_") {
 		prompt += "\n\nbiology_* 成功标准：code_bundle.index.html 必须是完整单文件 HTML；必须监听 snowy:update-props；必须发送 snowy-preview ready；必须包含 CanvasRenderingContext2D 或 getContext('2d')；必须包含 particle/flow/stage/label 等可视化语义；代码包长度不设上限，代码较长也要完整输出。"
 	}
+
 	return prompt
 }
 
-func renderGenerationOptions(sceneSpec *domain.SceneSpec) (float64, int) {
+func renderGenerationTemperature(sceneSpec *domain.SceneSpec) float64 {
 	if sceneSpec != nil && strings.HasPrefix(sceneSpec.SceneType, "biology_") {
-		return 0.15, 16384
+		return 0.15
 	}
-	return 0.2, 8192
+
+	return 0.2
 }
 
 func decodeRenderArtifact(content string) (*domain.RenderArtifact, error) {
@@ -237,10 +242,13 @@ type rawRenderArtifact struct {
 
 func (r *rawRenderArtifact) UnmarshalJSON(data []byte) error {
 	type alias rawRenderArtifact
+
 	var aux struct {
 		*alias
+
 		CodeBundle json.RawMessage `json:"code_bundle"`
 	}
+
 	aux.alias = (*alias)(r)
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
@@ -250,20 +258,23 @@ func (r *rawRenderArtifact) UnmarshalJSON(data []byte) error {
 	if trimmed == "" || trimmed == "null" {
 		return nil
 	}
+
 	if strings.HasPrefix(trimmed, "{") {
 		if err := json.Unmarshal(aux.CodeBundle, &r.CodeBundle); err != nil {
 			return err
 		}
+
 		return nil
 	}
+
 	if strings.HasPrefix(trimmed, "\"") {
 		return json.Unmarshal(aux.CodeBundle, &r.CodeBundleString)
 	}
 
-	return fmt.Errorf("unsupported code_bundle shape")
+	return errors.New("unsupported code_bundle shape")
 }
 
-func (r rawRenderArtifact) toDomain() *domain.RenderArtifact {
+func (r *rawRenderArtifact) toDomain() *domain.RenderArtifact {
 	return &domain.RenderArtifact{
 		SceneType:      r.SceneType,
 		RenderMode:     r.RenderMode,
@@ -280,9 +291,7 @@ func cloneStringMap(input map[string]string) map[string]string {
 	}
 
 	cloned := make(map[string]string, len(input))
-	for key, value := range input {
-		cloned[key] = value
-	}
+	maps.Copy(cloned, input)
 
 	return cloned
 }
@@ -309,6 +318,7 @@ var markdownJSONFencePattern = regexp.MustCompile("(?is)^```(?:json)?\\s*(.*?)\\
 
 func stripMarkdownFence(content string) string {
 	trimmed := strings.TrimSpace(content)
+
 	matches := markdownJSONFencePattern.FindStringSubmatch(trimmed)
 	if len(matches) == 2 {
 		return strings.TrimSpace(matches[1])
@@ -327,6 +337,7 @@ func firstJSONObject(content string) string {
 		if next < 0 {
 			break
 		}
+
 		start += next + 1
 	}
 
@@ -337,19 +348,24 @@ func jsonObjectFrom(content string, start int) string {
 	depth := 0
 	inString := false
 	escaped := false
+
 	for i := start; i < len(content); i++ {
 		ch := content[i]
+
 		if inString {
 			if escaped {
 				escaped = false
+
 				continue
 			}
+
 			switch ch {
 			case '\\':
 				escaped = true
 			case '"':
 				inString = false
 			}
+
 			continue
 		}
 
@@ -365,6 +381,7 @@ func jsonObjectFrom(content string, start int) string {
 				if json.Valid([]byte(candidate)) {
 					return candidate
 				}
+
 				return ""
 			}
 		}
@@ -378,10 +395,13 @@ func normalizeRenderMode(input string, fallback domain.RenderMode) domain.Render
 		if fallback != "" {
 			return fallback
 		}
+
 		return domain.RenderModeHTMLIframe
 	}
 
 	switch domain.RenderMode(strings.TrimSpace(input)) {
+	case domain.RenderModeHTMLIframe:
+		return domain.RenderModeHTMLIframe
 	case domain.RenderModeReactIframe:
 		return domain.RenderModeReactIframe
 	default:
@@ -393,24 +413,47 @@ func applyManifestDefaults(manifest *domain.RenderManifest, sceneSpec *domain.Sc
 	if manifest.Entry == "" {
 		manifest.Entry = "index.html"
 	}
+
 	if manifest.Framework == "" {
 		manifest.Framework = "vanilla"
 	}
+
 	if manifest.Sandbox == "" {
 		manifest.Sandbox = "iframe"
 	}
+
 	if manifest.RenderMode == "" {
 		manifest.RenderMode = mode
 	}
+
 	if manifest.MountSelector == "" {
 		manifest.MountSelector = "#snowy-preview-root"
 	}
+
 	if len(manifest.AllowedAPIs) == 0 {
-		manifest.AllowedAPIs = []string{"requestAnimationFrame", "setTimeout", "postMessage", "CanvasRenderingContext2D", "WebGLRenderingContext", "WebGL2RenderingContext"}
+		manifest.AllowedAPIs = []string{
+			"requestAnimationFrame",
+			"setTimeout",
+			"postMessage",
+			"CanvasRenderingContext2D",
+			"WebGLRenderingContext",
+			"WebGL2RenderingContext",
+		}
 	}
+
 	if len(manifest.BlockedAPIs) == 0 {
-		manifest.BlockedAPIs = []string{"fetch", "XMLHttpRequest", "localStorage", "sessionStorage", "indexedDB", "document.cookie", "WebSocket", "navigator.sendBeacon"}
+		manifest.BlockedAPIs = []string{
+			"fetch",
+			"XMLHttpRequest",
+			"localStorage",
+			"sessionStorage",
+			"indexedDB",
+			"document.cookie",
+			"WebSocket",
+			"navigator.sendBeacon",
+		}
 	}
+
 	if len(manifest.InitialProps) == 0 {
 		manifest.InitialProps = cloneNumberMap(sceneSpec.DefaultProps)
 	}
@@ -418,21 +461,37 @@ func applyManifestDefaults(manifest *domain.RenderManifest, sceneSpec *domain.Sc
 
 func validateForce3DArtifact(bundle map[string]string) error {
 	joined := strings.ToLower(strings.Join(bundleValues(bundle), "\n"))
+
 	checks := []struct {
 		ok      bool
 		message string
 	}{
-		{strings.Contains(joined, "getcontext('webgl") || strings.Contains(joined, "getcontext(\"webgl") || strings.Contains(joined, "webgl2"), "missing native WebGL context"},
+		{
+			strings.Contains(joined, "getcontext('webgl") || strings.Contains(joined, "getcontext(\"webgl") ||
+				strings.Contains(joined, "webgl2"),
+			"missing native WebGL context",
+		},
 		{strings.Contains(joined, "snowy:update-props"), "missing update-props listener"},
-		{strings.Contains(joined, "snowy-preview") && strings.Contains(joined, "ready"), "missing ready postMessage handshake"},
-		{strings.Contains(joined, "view_dimension") || (strings.Contains(joined, "3d") && strings.Contains(joined, "2d")), "missing 3D/2D view switch"},
-		{containsAny(joined, "perspective", "mat4", "projection", "camera", "rotate"), "missing 3D camera/projection semantics"},
+		{
+			strings.Contains(joined, "snowy-preview") && strings.Contains(joined, "ready"),
+			"missing ready postMessage handshake",
+		},
+		{
+			strings.Contains(joined, "view_dimension") ||
+				(strings.Contains(joined, "3d") && strings.Contains(joined, "2d")),
+			"missing 3D/2D view switch",
+		},
+		{
+			containsAny(joined, "perspective", "mat4", "projection", "camera", "rotate"),
+			"missing 3D camera/projection semantics",
+		},
 	}
 	for _, check := range checks {
 		if !check.ok {
 			return fmt.Errorf("physics_force_3d artifact invalid: %s", check.message)
 		}
 	}
+
 	return nil
 }
 
@@ -441,6 +500,7 @@ func bundleValues(bundle map[string]string) []string {
 	for _, value := range bundle {
 		values = append(values, value)
 	}
+
 	return values
 }
 

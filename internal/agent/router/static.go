@@ -9,52 +9,35 @@ import (
 )
 
 type staticRouter struct {
-	primary  ModelInfo
-	fallback ModelInfo
+	models []ModelInfo
 }
 
-// NewStaticRouter 创建基于配置的静态模型路由器。
+// NewStaticRouter 创建基于配置声明顺序的静态模型路由器。
 func NewStaticRouter(cfg config.LLMConfig) Router {
-	return &staticRouter{
-		primary: ModelInfo{
-			Provider:  normalizeProvider(cfg.Primary.Provider),
-			Model:     cfg.Primary.EffectiveModel(),
-			IsPrimary: true,
-		},
-		fallback: ModelInfo{
-			Provider:  normalizeProvider(cfg.Fallback.Provider),
-			Model:     cfg.Fallback.EffectiveModel(),
-			IsPrimary: false,
-		},
+	configuredModels := cfg.EffectiveModels()
+
+	models := make([]ModelInfo, 0, len(configuredModels))
+	for i, model := range configuredModels {
+		models = append(models, ModelInfo{
+			Provider: normalizeProvider(model.Provider),
+			Model:    model.EffectiveModel(),
+			Order:    i + 1,
+		})
 	}
+
+	return &staticRouter{models: models}
 }
 
 func (r *staticRouter) Route(_ context.Context, _ TaskType) (*ModelInfo, error) {
-	if r.primary.Model == "" {
-		return nil, errors.New("primary model is not configured")
+	if len(r.models) == 0 || r.models[0].Model == "" {
+		return nil, errors.New("model list is not configured")
 	}
 
-	model := r.primary
-
-	return &model, nil
-}
-
-func (r *staticRouter) Fallback(_ context.Context, _ TaskType) (*ModelInfo, error) {
-	if r.fallback.Model == "" {
-		return nil, errors.New("fallback model is not configured")
-	}
-
-	model := r.fallback
+	model := r.models[0]
 
 	return &model, nil
 }
 
 func normalizeProvider(provider string) string {
-	provider = strings.ToLower(strings.TrimSpace(provider))
-	switch provider {
-	case "google":
-		return "gemini"
-	default:
-		return provider
-	}
+	return strings.ToLower(strings.TrimSpace(provider))
 }

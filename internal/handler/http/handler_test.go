@@ -30,15 +30,69 @@ func init() {
 // ── Mock Services ────────────────────────────────────────
 
 type mockUserService struct {
-	getProfileFn    func(ctx context.Context, userID uuid.UUID) (*user.User, error)
-	getHistoryFn    func(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*user.HistoryItem, int64, error)
-	addHistoryFn    func(ctx context.Context, item *user.HistoryItem) error
-	addFavoriteFn   func(ctx context.Context, fav *user.Favorite) error
-	listFavoritesFn func(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*user.Favorite, int64, error)
+	getProfileFn      func(ctx context.Context, userID uuid.UUID) (*user.User, error)
+	getHistoryFn      func(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*user.HistoryItem, int64, error)
+	addHistoryFn      func(ctx context.Context, item *user.HistoryItem) error
+	addFavoriteFn     func(ctx context.Context, fav *user.Favorite) error
+	listFavoritesFn   func(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*user.Favorite, int64, error)
+	emailRegisterFn   func(ctx context.Context, email, password, nickname string) (string, string, *user.User, error)
+	emailLoginFn      func(ctx context.Context, email, password string) (string, string, *user.User, error)
+	setReactionFn     func(ctx context.Context, reaction *user.Reaction) error
+	deleteReactionFn  func(ctx context.Context, userID uuid.UUID, targetType string, targetID string) error
+	listReactionsFn   func(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*user.Reaction, int64, error)
+	reactionSummaryFn func(ctx context.Context, userID uuid.UUID, targetType string, targetID string, includeUsers bool) (*user.ReactionSummary, error)
 }
 
 func (m *mockUserService) GoogleLogin(_ context.Context, _ *user.GoogleUserInfo) (string, string, error) {
 	return "", "", nil
+}
+
+func (m *mockUserService) EmailRegister(ctx context.Context, email, password, nickname string) (string, string, *user.User, error) {
+	if m.emailRegisterFn != nil {
+		return m.emailRegisterFn(ctx, email, password, nickname)
+	}
+
+	return "access", "refresh", &user.User{ID: uuid.New(), Email: email, Nickname: nickname}, nil
+}
+
+func (m *mockUserService) EmailLogin(ctx context.Context, email, password string) (string, string, *user.User, error) {
+	if m.emailLoginFn != nil {
+		return m.emailLoginFn(ctx, email, password)
+	}
+
+	return "access", "refresh", &user.User{ID: uuid.New(), Email: email, Nickname: email}, nil
+}
+
+func (m *mockUserService) SetReaction(ctx context.Context, reaction *user.Reaction) error {
+	if m.setReactionFn != nil {
+		return m.setReactionFn(ctx, reaction)
+	}
+
+	return nil
+}
+
+func (m *mockUserService) DeleteReaction(ctx context.Context, userID uuid.UUID, targetType string, targetID string) error {
+	if m.deleteReactionFn != nil {
+		return m.deleteReactionFn(ctx, userID, targetType, targetID)
+	}
+
+	return nil
+}
+
+func (m *mockUserService) ListReactions(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*user.Reaction, int64, error) {
+	if m.listReactionsFn != nil {
+		return m.listReactionsFn(ctx, userID, offset, limit)
+	}
+
+	return nil, 0, nil
+}
+
+func (m *mockUserService) ReactionSummary(ctx context.Context, userID uuid.UUID, targetType string, targetID string, includeUsers bool) (*user.ReactionSummary, error) {
+	if m.reactionSummaryFn != nil {
+		return m.reactionSummaryFn(ctx, userID, targetType, targetID, includeUsers)
+	}
+
+	return &user.ReactionSummary{TargetType: targetType, TargetID: targetID}, nil
 }
 
 func (m *mockUserService) GetProfile(ctx context.Context, userID uuid.UUID) (*user.User, error) {

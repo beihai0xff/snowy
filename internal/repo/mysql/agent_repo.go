@@ -45,8 +45,8 @@ func (r *agentSessionRepo) UpdateStatus(ctx context.Context, id uuid.UUID, statu
 		Model(&agentSessionRow{}).
 		Where("id = ?", id).
 		Updates(map[string]any{
-			"status":     status,
-			"updated_at": gorm.Expr("NOW(3)"),
+			"status":             status,
+			mysqlColumnUpdatedAt: gorm.Expr("NOW(3)"),
 		}).Error
 	if err != nil {
 		return fmt.Errorf("update agent session status: %w", err)

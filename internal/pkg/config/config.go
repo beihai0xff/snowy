@@ -16,7 +16,6 @@ type Config struct {
 	Database      DatabaseConfig      `mapstructure:"database"`
 	Redis         RedisConfig         `mapstructure:"redis"`
 	OpenSearch    OpenSearchConfig    `mapstructure:"opensearch"`
-	MinIO         MinIOConfig         `mapstructure:"minio"`
 	LLM           LLMConfig           `mapstructure:"llm"`
 	Embedding     EmbeddingConfig     `mapstructure:"embedding"`
 	Auth          AuthConfig          `mapstructure:"auth"`
@@ -29,15 +28,73 @@ type Config struct {
 type ServerConfig struct {
 	Host            string        `mapstructure:"host"`
 	Port            int           `mapstructure:"port"`
+	RunMode         string        `mapstructure:"run_mode"`
 	Mode            string        `mapstructure:"mode"` // debug / release / test
 	ReadTimeout     time.Duration `mapstructure:"read_timeout"`
 	WriteTimeout    time.Duration `mapstructure:"write_timeout"`
 	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
 }
 
+const (
+	RunModeAll    = "all"
+	RunModeAPI    = "api"
+	RunModeWorker = "worker"
+)
+
 // Addr 返回监听地址。
 func (s ServerConfig) Addr() string {
 	return fmt.Sprintf("%s:%d", s.Host, s.Port)
+}
+
+// EffectiveRunMode 返回规范化后的运行模式。
+func (s ServerConfig) EffectiveRunMode() string {
+	return NormalizeRunMode(s.RunMode)
+}
+
+// APIEnabled 返回当前运行模式是否包含 HTTP API 运行面。
+func (s ServerConfig) APIEnabled() bool {
+	switch s.EffectiveRunMode() {
+	case RunModeAll, RunModeAPI:
+		return true
+	default:
+		return false
+	}
+}
+
+// WorkerEnabled 返回当前运行模式是否包含 Worker 运行面。
+func (s ServerConfig) WorkerEnabled() bool {
+	switch s.EffectiveRunMode() {
+	case RunModeAll, RunModeWorker:
+		return true
+	default:
+		return false
+	}
+}
+
+// ValidateRunMode 校验运行模式是否合法。
+func (s ServerConfig) ValidateRunMode() error {
+	switch s.EffectiveRunMode() {
+	case RunModeAll, RunModeAPI, RunModeWorker:
+		return nil
+	default:
+		return fmt.Errorf(
+			"invalid server.run_mode %q: must be one of %s, %s, %s",
+			s.RunMode,
+			RunModeAll,
+			RunModeAPI,
+			RunModeWorker,
+		)
+	}
+}
+
+// NormalizeRunMode 返回规范化后的运行模式；空值默认 all。
+func NormalizeRunMode(mode string) string {
+	normalized := strings.ToLower(strings.TrimSpace(mode))
+	if normalized == "" {
+		return RunModeAll
+	}
+
+	return normalized
 }
 
 // DatabaseConfig MySQL 连接配置。
@@ -89,15 +146,6 @@ type OpenSearchConfig struct {
 	InsecureSkipVerify bool     `mapstructure:"insecure_skip_verify"`
 }
 
-// MinIOConfig 对象存储配置。
-type MinIOConfig struct {
-	Endpoint  string `mapstructure:"endpoint"`
-	AccessKey string `mapstructure:"access_key"`
-	SecretKey string `mapstructure:"secret_key"`
-	Bucket    string `mapstructure:"bucket"`
-	UseSSL    bool   `mapstructure:"use_ssl"`
-}
-
 // ModelProviderConfig 单个模型供应商配置。
 type ModelProviderConfig struct {
 	Provider            string        `mapstructure:"provider"`
@@ -108,7 +156,10 @@ type ModelProviderConfig struct {
 	BaseURL             string        `mapstructure:"base_url"`
 	BaseURLNoUnderscore string        `mapstructure:"baseurl"`
 	Timeout             time.Duration `mapstructure:"timeout"`
+	Temperature         float64       `mapstructure:"temperature"`
+	MaxTokens           int           `mapstructure:"max_tokens"`
 	MaxRetries          int           `mapstructure:"max_retries"`
+	RetryInterval       time.Duration `mapstructure:"retry_interval"`
 }
 
 // EffectiveModel 返回最终模型名，兼容 model_name 与 model 两种配置键。
@@ -129,10 +180,29 @@ func (m ModelProviderConfig) EffectiveBaseURL() string {
 	return strings.TrimSpace(m.BaseURL)
 }
 
-// LLMConfig 大模型配置（主 + 备选）。
+// LLMConfig 大模型配置。
+//
+// v5 只支持 models[] 显式模型列表；调用顺序严格等于配置声明顺序。
 type LLMConfig struct {
-	Primary  ModelProviderConfig `mapstructure:"primary"`
-	Fallback ModelProviderConfig `mapstructure:"fallback"`
+	Models []ModelProviderConfig `mapstructure:"models"`
+}
+
+// EffectiveModels returns configured models in declaration order.
+func (c LLMConfig) EffectiveModels() []ModelProviderConfig {
+	return filterConfiguredModels(c.Models)
+}
+
+func filterConfiguredModels(models []ModelProviderConfig) []ModelProviderConfig {
+	out := make([]ModelProviderConfig, 0, len(models))
+	for _, model := range models {
+		if strings.TrimSpace(model.Provider) == "" && model.EffectiveModel() == "" && model.EffectiveBaseURL() == "" {
+			continue
+		}
+
+		out = append(out, model)
+	}
+
+	return out
 }
 
 // EmbeddingConfig Embedding 模型配置。
@@ -210,6 +280,7 @@ func Load(configPath string) (*Config, error) {
 	v.SetEnvPrefix("SNOWY")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
+
 	if err := bindEnvironment(v); err != nil {
 		return nil, err
 	}
@@ -223,29 +294,18 @@ func Load(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("unmarshal config: %w", err)
 	}
 
+	cfg.Server.RunMode = cfg.Server.EffectiveRunMode()
+	if err := cfg.Server.ValidateRunMode(); err != nil {
+		return nil, err
+	}
+
 	return &cfg, nil
 }
 
 func bindEnvironment(v *viper.Viper) error {
 	keys := []string{
-		"llm.primary.provider",
-		"llm.primary.model_provider",
-		"llm.primary.model",
-		"llm.primary.model_name",
-		"llm.primary.api_key",
-		"llm.primary.base_url",
-		"llm.primary.baseurl",
-		"llm.primary.timeout",
-		"llm.primary.max_retries",
-		"llm.fallback.provider",
-		"llm.fallback.model_provider",
-		"llm.fallback.model",
-		"llm.fallback.model_name",
-		"llm.fallback.api_key",
-		"llm.fallback.base_url",
-		"llm.fallback.baseurl",
-		"llm.fallback.timeout",
-		"llm.fallback.max_retries",
+		"server.run_mode",
+		"llm.models",
 		"embedding.provider",
 		"embedding.model",
 		"embedding.model_name",

@@ -34,10 +34,12 @@ func (b *simpleDiagramBuilder) Build(
 	edges := make([]domain.DiagramEdge, 0, len(relations))
 	for _, relation := range relations {
 		sourceID, sourceOK := nameToID[relation.Source]
+
 		targetID, targetOK := nameToID[relation.Target]
 		if !sourceOK || !targetOK || sourceID == "" || targetID == "" {
 			continue
 		}
+
 		edges = append(edges, domain.DiagramEdge{
 			Source: sourceID,
 			Target: targetID,

@@ -12,11 +12,12 @@ import (
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
-func TestMiMoProviderRequiresConfiguredModel(t *testing.T) {
-	provider := NewMiMoProvider(config.ModelProviderConfig{
+func TestOpenAICompatibleProviderRequiresConfiguredModel(t *testing.T) {
+	provider := NewOpenAIProvider(config.ModelProviderConfig{
+		Provider:      "openai",
 		APIKey:        "test-key",
 		BaseURL:       "https://example.test/v1",
-		ModelProvider: "mimo",
+		ModelProvider: "gateway",
 		Timeout:       time.Second,
 	})
 
@@ -26,25 +27,12 @@ func TestMiMoProviderRequiresConfiguredModel(t *testing.T) {
 	assert.Contains(t, err.Error(), "model is empty")
 }
 
-func TestMiMoProviderRequiresConfiguredModelProvider(t *testing.T) {
-	provider := NewMiMoProvider(config.ModelProviderConfig{
-		APIKey:  "test-key",
-		BaseURL: "https://example.test/v1",
-		Model:   "mimo-test-model",
-		Timeout: time.Second,
-	})
-
-	_, err := provider.Generate(context.Background(), &Request{Messages: []Message{{Role: "user", Content: "hello"}}})
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "model_provider is empty")
-}
-
-func TestMiMoProviderRequiresConfiguredBaseURL(t *testing.T) {
-	provider := NewMiMoProvider(config.ModelProviderConfig{
+func TestOpenAICompatibleProviderRequiresConfiguredBaseURL(t *testing.T) {
+	provider := NewOpenAIProvider(config.ModelProviderConfig{
+		Provider:      "openai",
 		APIKey:        "test-key",
-		Model:         "mimo-test-model",
-		ModelProvider: "mimo",
+		Model:         "gateway-test-model",
+		ModelProvider: "gateway",
 		Timeout:       time.Second,
 	})
 
@@ -54,10 +42,11 @@ func TestMiMoProviderRequiresConfiguredBaseURL(t *testing.T) {
 	assert.Contains(t, err.Error(), "base_url is empty")
 }
 
-func TestMiMoProviderUsesRequestModelButStillRequiresConfiguredBaseURLAndModelProvider(t *testing.T) {
-	provider := NewMiMoProvider(config.ModelProviderConfig{
+func TestOpenAICompatibleProviderUsesRequestModel(t *testing.T) {
+	provider := NewOpenAIProvider(config.ModelProviderConfig{
+		Provider:      "openai",
 		APIKey:        "test-key",
-		ModelProvider: "mimo",
+		ModelProvider: "gateway",
 		Timeout:       time.Second,
 	})
 
@@ -68,32 +57,21 @@ func TestMiMoProviderUsesRequestModelButStillRequiresConfiguredBaseURLAndModelPr
 	assert.NotContains(t, err.Error(), "model is empty")
 }
 
-func TestOpenAIProviderRequiresConfiguredBaseURL(t *testing.T) {
+func TestOpenAICompatibleProviderMetadataIsTrimmed(t *testing.T) {
 	provider := NewOpenAIProvider(config.ModelProviderConfig{
-		APIKey:  "test-key",
-		Model:   "test-model",
-		Timeout: time.Second,
-	})
-
-	_, err := provider.Generate(context.Background(), &Request{Messages: []Message{{Role: "user", Content: "hello"}}})
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "base_url is empty")
-}
-
-func TestConfiguredProviderMetadataIsTrimmed(t *testing.T) {
-	provider := NewMiMoProvider(config.ModelProviderConfig{
-		Model:         "  mimo-test-model  ",
+		Provider:      "  openai  ",
+		Model:         "  gateway-test-model  ",
 		BaseURL:       " https://example.test/v1/ ",
-		ModelProvider: "  mimo  ",
+		ModelProvider: "  gateway  ",
 	})
 
 	configured, ok := provider.(ConfiguredProvider)
 	require.True(t, ok)
-	assert.Equal(t, "mimo-test-model", configured.ConfiguredModel())
+	assert.Equal(t, "gateway-test-model", configured.ConfiguredModel())
 	assert.Equal(t, "https://example.test/v1", configured.ConfiguredBaseURL())
-	assert.Equal(t, "mimo", configured.ConfiguredModelProvider())
+	assert.Equal(t, "gateway", configured.ConfiguredModelProvider())
 	assert.False(t, strings.HasSuffix(configured.ConfiguredBaseURL(), "/"))
+	assert.Equal(t, "openai", provider.Name())
 }
 
 func TestUnsupportedProviderNameDefaultsToUnconfigured(t *testing.T) {

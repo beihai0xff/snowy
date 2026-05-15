@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -32,12 +33,12 @@ var forbiddenSnippets = []string{
 
 func (v *defaultCodeValidator) Validate(bundle map[string]string) error {
 	if len(bundle) == 0 {
-		return fmt.Errorf("code bundle is empty")
+		return errors.New("code bundle is empty")
 	}
 
 	indexHTML, ok := bundle["index.html"]
 	if !ok || strings.TrimSpace(indexHTML) == "" {
-		return fmt.Errorf("index.html is required")
+		return errors.New("index.html is required")
 	}
 
 	for name, content := range bundle {

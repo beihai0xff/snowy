@@ -83,6 +83,7 @@ func assemblePhysicsResponse(mode agent.Mode, toolOutputs map[string]any) (*agen
 	}
 
 	artifact, _ := toolOutputs["render"].(*physicsmodel.RenderArtifact)
+
 	payload := map[string]any{
 		"analysis": model,
 	}
@@ -111,6 +112,7 @@ func assembleBiologyResponse(mode agent.Mode, toolOutputs map[string]any) (*agen
 	}
 
 	artifact, _ := toolOutputs["render"].(*physicsmodel.RenderArtifact)
+
 	payload := map[string]any{
 		"analysis": response,
 	}

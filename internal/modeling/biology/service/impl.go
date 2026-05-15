@@ -1,3 +1,4 @@
+//nolint:goconst // Biology scenario identifiers are clearer inline beside their rule branches.
 package service
 
 import (
@@ -116,15 +117,18 @@ func conceptNames(concepts []domain.Concept) string {
 	if len(concepts) == 0 {
 		return "核心概念"
 	}
+
 	names := make([]string, 0, len(concepts))
 	for _, concept := range concepts {
 		if strings.TrimSpace(concept.Name) != "" {
 			names = append(names, concept.Name)
 		}
 	}
+
 	if len(names) == 0 {
 		return "核心概念"
 	}
+
 	return strings.Join(names, "、")
 }
 
@@ -132,15 +136,18 @@ func stepTitles(steps []domain.ProcessStep) string {
 	if len(steps) == 0 {
 		return "概念提取、关系建立"
 	}
+
 	titles := make([]string, 0, len(steps))
 	for _, step := range steps {
 		if strings.TrimSpace(step.Title) != "" {
 			titles = append(titles, step.Title)
 		}
 	}
+
 	if len(titles) == 0 {
 		return "概念提取、关系建立"
 	}
+
 	return strings.Join(titles, " → ")
 }
 

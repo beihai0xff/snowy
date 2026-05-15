@@ -5,8 +5,8 @@ import 'katex/dist/katex.min.css';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Snowy - AIGC 学习平台',
-  description: '面向高中生的知识检索、物理仿真与生物可视化统一建模学习平台',
+  title: 'Snowy · AI 学习工具',
+  description: '面向高中生的 AI 学习工具：用大白话问问题、用动画看公式、用图谱理流程。',
 };
 
 export default function RootLayout({

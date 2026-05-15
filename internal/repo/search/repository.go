@@ -17,6 +17,25 @@ type LogRepository interface {
 	SaveLog(ctx context.Context, log *Log) error
 }
 
+// AnswerRecordRepository persists generated search answers for the learning archive.
+type AnswerRecordRepository interface {
+	Save(ctx context.Context, record *AnswerRecord) error
+	GetByID(ctx context.Context, id string) (*AnswerRecord, error)
+	ListByUser(ctx context.Context, userID string, offset, limit int) ([]*AnswerRecord, int64, error)
+	ListByQuery(ctx context.Context, query string, offset, limit int) ([]*AnswerRecord, int64, error)
+}
+
+// FeedbackRepository exposes community quality feedback to search ranking and recommendations.
+type FeedbackRepository interface {
+	TargetFeedback(ctx context.Context, targetType string, targetID string) (FeedbackSummary, error)
+}
+
+// FeedbackSummary is intentionally small so search does not depend on the user domain model.
+type FeedbackSummary struct {
+	LikeCount    int64 `json:"like_count"`
+	DislikeCount int64 `json:"dislike_count"`
+}
+
 // Log 检索行为日志。
 type Log struct {
 	QueryText   string  `json:"query_text"`

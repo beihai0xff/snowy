@@ -1,5 +1,4 @@
-// Snowy Worker 入口 — 异步任务处理。
-// 参考技术方案 §10.6。
+// Snowy unified server 入口。
 package main
 
 import (
@@ -39,10 +38,11 @@ func run() int {
 	}
 
 	common.InitLogger(cfg.Observability.LogLevel, cfg.Observability.LogFormat)
-	slog.Info("snowy-worker starting",
+	slog.Info("snowy starting",
 		"version", Version,
 		"build_time", BuildTime,
 		"commit", Commit,
+		"run_mode", cfg.Server.EffectiveRunMode(),
 	)
 
 	application, err := app.New(cfg)
@@ -65,8 +65,8 @@ func run() int {
 		cancel()
 	}()
 
-	if err := application.RunWorker(ctx); err != nil {
-		slog.Error("worker error", "error", err)
+	if err := application.Run(ctx); err != nil {
+		slog.Error("app run error", "error", err)
 
 		return 1
 	}

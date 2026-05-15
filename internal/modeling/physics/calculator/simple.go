@@ -9,6 +9,8 @@ import (
 
 type simpleCalculator struct{}
 
+const chartTypeLine = "line"
+
 // NewSimpleCalculator 创建默认计算器实现。
 func NewSimpleCalculator() Calculator {
 	return &simpleCalculator{}
@@ -52,26 +54,48 @@ func (c *simpleCalculator) SupportedModels() []domain.ModelType {
 
 func computeProjectile(params map[string]float64) *domain.ComputeResult {
 	v0 := valueOrDefault(params, "v0", 20)
-	angleDeg := valueOrDefault(params, "angle_deg", 45)
-	t := valueOrDefault(params, "t", 2)
-	g := valueOrDefault(params, "g", 9.8)
-	angleRad := angleDeg * math.Pi / 180
-	x := v0 * math.Cos(angleRad) * t
-	y := v0*math.Sin(angleRad)*t - 0.5*g*t*t
-	series := make([][]float64, 0, 11)
+	angleDeg := valueOrDefault(params, "angle_deg", 0)
+	h := valueOrDefault(params, "h", valueOrDefault(params, "height", 20))
 
-	for i := range 11 {
-		pointT := t * float64(i) / 10
+	g := valueOrDefault(params, "g", 9.8)
+	if g <= 0 {
+		g = 9.8
+	}
+
+	angleRad := angleDeg * math.Pi / 180
+	vy0 := v0 * math.Sin(angleRad)
+	vx := v0 * math.Cos(angleRad)
+
+	landingTime := (vy0 + math.Sqrt(math.Max(0, vy0*vy0+2*g*h))) / g
+	if landingTime <= 0 {
+		landingTime = math.Sqrt(math.Max(0.01, 2*h/g))
+	}
+
+	t := valueOrDefault(params, "t", landingTime)
+	x := vx * t
+	y := h + vy0*t - 0.5*g*t*t
+	landingX := vx * landingTime
+	targetX := valueOrDefault(params, "target_x", 40)
+	series := make([][]float64, 0, 21)
+
+	for i := range 21 {
+		pointT := landingTime * float64(i) / 20
 		series = append(series, []float64{
-			v0 * math.Cos(angleRad) * pointT,
-			v0*math.Sin(angleRad)*pointT - 0.5*g*pointT*pointT,
+			vx * pointT,
+			math.Max(0, h+vy0*pointT-0.5*g*pointT*pointT),
 		})
 	}
 
 	return &domain.ComputeResult{
-		Values: map[string]float64{"x": x, "y": y},
+		Values: map[string]float64{
+			"x":            x,
+			"y":            y,
+			"landing_time": landingTime,
+			"landing_x":    landingX,
+			"target_error": landingX - targetX,
+		},
 		Chart: &domain.ChartSpec{
-			ChartType: "line",
+			ChartType: chartTypeLine,
 			Title:     "抛体轨迹图",
 			XAxis:     domain.AxisSpec{Label: "x", Unit: "m"},
 			YAxis:     domain.AxisSpec{Label: "y", Unit: "m"},
@@ -98,7 +122,7 @@ func computeUniformAcceleration(params map[string]float64) *domain.ComputeResult
 	return &domain.ComputeResult{
 		Values: map[string]float64{"x": x, "v": v},
 		Chart: &domain.ChartSpec{
-			ChartType: "line",
+			ChartType: chartTypeLine,
 			Title:     "位移-时间图像",
 			XAxis:     domain.AxisSpec{Label: "t", Unit: "s"},
 			YAxis:     domain.AxisSpec{Label: "x", Unit: "m"},
@@ -122,7 +146,7 @@ func computeUniformMotion(params map[string]float64) *domain.ComputeResult {
 	return &domain.ComputeResult{
 		Values: map[string]float64{"x": x, "v": v},
 		Chart: &domain.ChartSpec{
-			ChartType: "line",
+			ChartType: chartTypeLine,
 			Title:     "匀速直线运动图像",
 			XAxis:     domain.AxisSpec{Label: "t", Unit: "s"},
 			YAxis:     domain.AxisSpec{Label: "x", Unit: "m"},
@@ -194,10 +218,12 @@ func computeCollisionMotion(params map[string]float64) *domain.ComputeResult {
 	v1 := valueOrDefault(params, "v1", 5)
 	v2 := valueOrDefault(params, "v2", -2)
 	restitution := math.Max(0, math.Min(1, valueOrDefault(params, "restitution", 0.9)))
+
 	totalMass := m1 + m2
 	if totalMass <= 0 {
 		totalMass = 1
 	}
+
 	newV1 := ((m1-restitution*m2)*v1 + (1+restitution)*m2*v2) / totalMass
 	newV2 := ((m2-restitution*m1)*v2 + (1+restitution)*m1*v1) / totalMass
 	initialMomentum := m1*v1 + m2*v2
