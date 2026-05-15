@@ -55,7 +55,39 @@ func TestServerConfig_Addr(t *testing.T) {
 	}
 }
 
+func TestServerConfig_RunMode(t *testing.T) {
+	t.Run("default to all", func(t *testing.T) {
+		cfg := ServerConfig{}
+		assert.Equal(t, RunModeAll, cfg.EffectiveRunMode())
+		assert.True(t, cfg.APIEnabled())
+		assert.True(t, cfg.WorkerEnabled())
+		require.NoError(t, cfg.ValidateRunMode())
+	})
+
+	t.Run("api only", func(t *testing.T) {
+		cfg := ServerConfig{RunMode: " api "}
+		assert.Equal(t, RunModeAPI, cfg.EffectiveRunMode())
+		assert.True(t, cfg.APIEnabled())
+		assert.False(t, cfg.WorkerEnabled())
+		require.NoError(t, cfg.ValidateRunMode())
+	})
+
+	t.Run("worker only", func(t *testing.T) {
+		cfg := ServerConfig{RunMode: "WORKER"}
+		assert.Equal(t, RunModeWorker, cfg.EffectiveRunMode())
+		assert.False(t, cfg.APIEnabled())
+		assert.True(t, cfg.WorkerEnabled())
+		require.NoError(t, cfg.ValidateRunMode())
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		cfg := ServerConfig{RunMode: "invalid"}
+		require.Error(t, cfg.ValidateRunMode())
+	})
+}
+
 func TestLoad_EnvOverride(t *testing.T) {
+	t.Setenv("SNOWY_SERVER_RUN_MODE", "worker")
 	t.Setenv("SNOWY_DATABASE_HOST", "127.0.0.1")
 	t.Setenv("SNOWY_REDIS_ADDR", "127.0.0.1:6379")
 
@@ -72,44 +104,41 @@ redis:
 
 	assert.Equal(t, "127.0.0.1", cfg.Database.Host)
 	assert.Equal(t, "127.0.0.1:6379", cfg.Redis.Addr)
+	assert.Equal(t, RunModeWorker, cfg.Server.EffectiveRunMode())
 }
 
-func TestLoad_LLMEnvOverride(t *testing.T) {
-	t.Setenv("SNOWY_LLM_PRIMARY_PROVIDER", "mimo")
-	t.Setenv("SNOWY_LLM_PRIMARY_MODEL_PROVIDER", "mimo-env")
-	t.Setenv("SNOWY_LLM_PRIMARY_MODEL", "mimo-env-model")
-	t.Setenv("SNOWY_LLM_PRIMARY_MODEL_NAME", "mimo-env-model-name")
-	t.Setenv("SNOWY_LLM_PRIMARY_BASE_URL", "https://llm.example.test/v1")
-	t.Setenv("SNOWY_LLM_PRIMARY_BASEURL", "https://llm-baseurl.example.test/v1")
-	t.Setenv("SNOWY_LLM_FALLBACK_PROVIDER", "openai")
-	t.Setenv("SNOWY_LLM_FALLBACK_MODEL", "fallback-env-model")
-	t.Setenv("SNOWY_LLM_FALLBACK_BASE_URL", "https://fallback.example.test/v1")
-
+func TestLoad_LLMModels(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(t, os.WriteFile(configPath, []byte(`llm:
-  primary:
-    provider: "openai"
-    model_provider: "openai"
-    model: "file-model"
-    base_url: "https://file.example.test/v1"
-  fallback:
-    provider: "google"
-    model: "file-fallback-model"
-    base_url: "https://file-fallback.example.test/v1"
+  models:
+    - provider: "openai"
+      model_provider: "gateway"
+      model: "gateway-test-model"
+      base_url: "https://gateway.example.test/v1"
+      timeout: 10m
+      temperature: 0.2
+      max_tokens: 131072
+      max_retries: 2
+      retry_interval: 1s
+    - provider: "openai"
+      model_name: "gpt-test"
+      baseurl: "https://openai.example.test/v1"
 `), 0o600))
 
 	cfg, err := Load(configPath)
 	require.NoError(t, err)
+	require.Len(t, cfg.LLM.Models, 2)
 
-	assert.Equal(t, "mimo", cfg.LLM.Primary.Provider)
-	assert.Equal(t, "mimo-env", cfg.LLM.Primary.ModelProvider)
-	assert.Equal(t, "mimo-env-model", cfg.LLM.Primary.Model)
-	assert.Equal(t, "mimo-env-model-name", cfg.LLM.Primary.EffectiveModel())
-	assert.Equal(t, "https://llm.example.test/v1", cfg.LLM.Primary.BaseURL)
-	assert.Equal(t, "https://llm-baseurl.example.test/v1", cfg.LLM.Primary.EffectiveBaseURL())
-	assert.Equal(t, "openai", cfg.LLM.Fallback.Provider)
-	assert.Equal(t, "fallback-env-model", cfg.LLM.Fallback.Model)
-	assert.Equal(t, "https://fallback.example.test/v1", cfg.LLM.Fallback.BaseURL)
+	assert.Equal(t, "openai", cfg.LLM.Models[0].Provider)
+	assert.Equal(t, "gateway", cfg.LLM.Models[0].ModelProvider)
+	assert.Equal(t, "gateway-test-model", cfg.LLM.Models[0].EffectiveModel())
+	assert.Equal(t, "https://gateway.example.test/v1", cfg.LLM.Models[0].EffectiveBaseURL())
+	assert.Equal(t, 600, int(cfg.LLM.Models[0].Timeout.Seconds()))
+	assert.Equal(t, 0.2, cfg.LLM.Models[0].Temperature)
+	assert.Equal(t, 131072, cfg.LLM.Models[0].MaxTokens)
+	assert.Equal(t, 2, cfg.LLM.Models[0].MaxRetries)
+	assert.Equal(t, "gpt-test", cfg.LLM.Models[1].EffectiveModel())
+	assert.Equal(t, "https://openai.example.test/v1", cfg.LLM.Models[1].EffectiveBaseURL())
 }
 
 func TestModelProviderConfig_EffectiveAliases(t *testing.T) {
@@ -122,6 +151,33 @@ func TestModelProviderConfig_EffectiveAliases(t *testing.T) {
 
 	assert.Equal(t, "alias-model", cfg.EffectiveModel())
 	assert.Equal(t, "https://alias.example.test/v1", cfg.EffectiveBaseURL())
+}
+
+func TestLLMConfig_EffectiveModelsKeepsDeclarationOrder(t *testing.T) {
+	cfg := LLMConfig{
+		Models: []ModelProviderConfig{
+			{Provider: "openai", Model: "first", BaseURL: "https://first.example.test/v1"},
+			{Provider: "openai", Model: "second", BaseURL: "https://second.example.test/v1"},
+		},
+	}
+
+	models := cfg.EffectiveModels()
+	require.Len(t, models, 2)
+	assert.Equal(t, "first", models[0].EffectiveModel())
+	assert.Equal(t, "second", models[1].EffectiveModel())
+}
+
+func TestLLMConfig_EffectiveModelsFiltersEmptyEntries(t *testing.T) {
+	cfg := LLMConfig{
+		Models: []ModelProviderConfig{
+			{},
+			{Provider: "openai", Model: "configured", BaseURL: "https://configured.example.test/v1"},
+		},
+	}
+
+	models := cfg.EffectiveModels()
+	require.Len(t, models, 1)
+	assert.Equal(t, "configured", models[0].EffectiveModel())
 }
 
 func TestEmbeddingConfig_EffectiveAliases(t *testing.T) {

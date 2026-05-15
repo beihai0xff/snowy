@@ -1,3 +1,4 @@
+//revive:disable:var-naming
 package http
 
 import (
@@ -24,11 +25,13 @@ func recordHistory(c *gin.Context, userSvc user.Service, actionType, query strin
 	uid, err := uuid.Parse(userID)
 	if err != nil {
 		slog.WarnContext(c.Request.Context(), "skip history with invalid user id", "error", err)
+
 		return
 	}
 
 	if _, err := userSvc.EnsureAnonymousUser(c.Request.Context()); err != nil && userID == common.DefaultUserID {
 		slog.WarnContext(c.Request.Context(), "ensure anonymous user before history failed", "error", err)
+
 		return
 	}
 

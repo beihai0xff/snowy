@@ -35,6 +35,10 @@ func (r *userRepo) GetByID(ctx context.Context, id uuid.UUID) (*user.User, error
 
 	err := dbFromContext(ctx, r.db).Where("id = ?", id).Take(row).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, user.ErrUserNotFound
+		}
+
 		return nil, fmt.Errorf("get user by id: %w", err)
 	}
 
@@ -46,7 +50,26 @@ func (r *userRepo) GetByPhone(ctx context.Context, phone string) (*user.User, er
 
 	err := dbFromContext(ctx, r.db).Where("phone = ?", phone).Take(row).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, user.ErrUserNotFound
+		}
+
 		return nil, fmt.Errorf("get user by phone: %w", err)
+	}
+
+	return row.toDomain(), nil
+}
+
+func (r *userRepo) GetByEmail(ctx context.Context, email string) (*user.User, error) {
+	row := &userRow{}
+
+	err := dbFromContext(ctx, r.db).Where("email = ?", email).Take(row).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, user.ErrUserNotFound
+		}
+
+		return nil, fmt.Errorf("get user by email: %w", err)
 	}
 
 	return row.toDomain(), nil
@@ -72,8 +95,8 @@ func (r *userRepo) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 		Model(&userRow{}).
 		Where("id = ?", id).
 		Updates(map[string]any{
-			"last_login_at": gorm.Expr("NOW(3)"),
-			"updated_at":    gorm.Expr("NOW(3)"),
+			"last_login_at":      gorm.Expr("NOW(3)"),
+			mysqlColumnUpdatedAt: gorm.Expr("NOW(3)"),
 		}).Error
 	if err != nil {
 		return fmt.Errorf("update last login: %w", err)

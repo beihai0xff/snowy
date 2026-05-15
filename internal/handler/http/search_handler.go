@@ -1,9 +1,12 @@
+//revive:disable:var-naming
 package http
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/beihai0xff/snowy/internal/handler/http/dto"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
@@ -46,6 +49,22 @@ func (h *SearchHandler) Query(c *gin.Context) {
 			Chapter: req.Filters.Chapter,
 			Source:  req.Filters.Source,
 		},
+	}
+	if strings.TrimSpace(req.SessionID) != "" {
+		if sid, parseErr := uuid.Parse(req.SessionID); parseErr == nil {
+			query.SessionID = sid
+		} else {
+			reqID := common.RequestIDFromContext(c.Request.Context())
+			c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage("invalid session_id"), reqID))
+
+			return
+		}
+	}
+
+	if userID := common.UserIDFromContext(c.Request.Context()); strings.TrimSpace(userID) != "" {
+		if uid, parseErr := uuid.Parse(userID); parseErr == nil {
+			query.UserID = uid
+		}
 	}
 
 	resp, err := h.searchSvc.Query(c.Request.Context(), query)

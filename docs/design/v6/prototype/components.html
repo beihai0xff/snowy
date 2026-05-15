@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Snowy · 组件清单</title>
+  <link rel="stylesheet" href="../tokens.css" />
+  <link rel="stylesheet" href="../components.css" />
+  <script defer src="./shell.js"></script>
+  <style>
+    .comp-section { margin-bottom: var(--space-12); }
+    .comp-section > h2 {
+      padding-bottom: var(--space-2);
+      border-bottom: 1px solid var(--color-border);
+      margin-bottom: var(--space-4);
+      font-size: var(--text-xl);
+    }
+    .comp-section > p {
+      color: var(--color-text-muted);
+      margin-bottom: var(--space-4);
+      max-width: 720px;
+    }
+    .comp-block {
+      padding: var(--space-5);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      margin-bottom: var(--space-3);
+    }
+    .comp-block__label {
+      display: block;
+      color: var(--color-text-subtle);
+      font-size: var(--text-xs);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: var(--space-3);
+    }
+    .swatch-row { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+    .swatch {
+      display: flex; flex-direction: column; gap: 4px;
+      min-width: 120px;
+    }
+    .swatch__color {
+      width: 100%;
+      height: 56px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+    }
+    .swatch__name { font-size: var(--text-xs); color: var(--color-text); font-weight: var(--weight-medium); }
+    .swatch__hex { font-size: var(--text-xs); color: var(--color-text-subtle); font-family: var(--font-mono); }
+
+    .type-row { padding: var(--space-3) 0; border-bottom: 1px solid var(--color-divider); }
+    .type-row:last-child { border-bottom: 0; }
+    .type-row__label { font-size: var(--text-xs); color: var(--color-text-subtle); font-family: var(--font-mono); }
+  </style>
+</head>
+<body data-page="components">
+  <div class="app">
+
+    <header class="app-header">
+      <a href="./home.html" class="brand"><span class="brand__mark">❄</span><span>Snowy</span></a>
+      <nav class="nav">
+        <a class="nav__link" data-page="home"     href="./home.html">首页</a>
+        <a class="nav__link" data-page="ask"      href="./ask.html">提问</a>
+        <a class="nav__link" data-page="modeling" href="./modeling.html">推演</a>
+        <a class="nav__link" data-page="learning" href="./learning.html">我的学习</a>
+        <a class="nav__link nav__link--active"   href="./components.html">组件</a>
+      </nav>
+      <div class="row row--sm middle">
+        <button class="btn btn--ghost btn--sm" data-theme-toggle>☾ 深色</button>
+      </div>
+      <button class="nav-toggle" aria-label="菜单">☰</button>
+    </header>
+
+    <main class="app-main">
+      <span class="kicker">Design System · Component Catalog</span>
+      <h1 class="page-title">组件清单</h1>
+      <p class="page-subtitle">Snowy v6 设计系统全部基础组件。后续 React/AntD 实现阶段应一一对照本页，保证视觉一致。</p>
+
+      <!-- ─── 色板 ─────────────────────── -->
+      <section class="comp-section">
+        <h2>1 · 色板</h2>
+        <p>中性色用 stone（暖中性）系列，避免冷感。主色为学术蓝，传达可信。学科色用于物理 / 生物 / 化学 / 数学区分。</p>
+
+        <div class="comp-block">
+          <span class="comp-block__label">中性色</span>
+          <div class="swatch-row">
+            <div class="swatch"><div class="swatch__color" style="background:#FAFAF9;"></div><div class="swatch__name">页面背景</div><div class="swatch__hex">#FAFAF9</div></div>
+            <div class="swatch"><div class="swatch__color" style="background:#FFFFFF;"></div><div class="swatch__name">卡片背景</div><div class="swatch__hex">#FFFFFF</div></div>
+            <div class="swatch"><div class="swatch__color" style="background:#F4F4F2;"></div><div class="swatch__name">次级面板</div><div class="swatch__hex">#F4F4F2</div></div>
+            <div class="swatch"><div class="swatch__color" style="background:#E7E5E4;"></div><div class="swatch__name">边框</div><div class="swatch__hex">#E7E5E4</div></div>
+            <div class="swatch"><div class="swatch__color" style="background:#A8A29E;"></div><div class="swatch__name">弱文本</div><div class="swatch__hex">#A8A29E</div></div>
+            <div class="swatch"><div class="swatch__color" style="background:#57534E;"></div><div class="swatch__name">次文本</div><div class="swatch__hex">#57534E</div></div>
+            <div class="swatch"><div class="swatch__color" style="background:#1C1917;"></div><div class="swatch__name">主文本</div><div class="swatch__hex">#1C1917</div></div>
+          </div>
+        </div>
+
+        <div class="comp-block">
+          <span class="comp-block__label">语义 / 主色</span>
+          <div class="swatch-row">
+            <div class="swatch"><div class="swatch__color" style="background:#2563EB;"></div><div class="swatch__name">主色 / 信息</div><div class="swatch__hex">#2563EB</div></div>
+            <div class="swatch"><div class="swatch__color" style="background:#16A34A;"></div><div class="swatch__name">成功</div><div class="swatch__hex">#16A34A</div></div>
+            <div class="swatch"><div class="swatch__color" style="background:#D97706;"></div><div class="swatch__name">警告</div><div class="swatch__hex">#D97706</div></div>
+            <div class="swatch"><div class="swatch__color" style="background:#DC2626;"></div><div class="swatch__name">错误</div><div class="swatch__hex">#DC2626</div></div>
+          </div>
+        </div>
+
+        <div class="comp-block">
+          <span class="comp-block__label">学科色</span>
+          <div class="swatch-row">
+            <div class="swatch"><div class="swatch__color" style="background:#0891B2;"></div><div class="swatch__name">物理 · 青</div><div class="swatch__hex">#0891B2</div></div>
+            <div class="swatch"><div class="swatch__color" style="background:#16A34A;"></div><div class="swatch__name">生物 · 绿</div><div class="swatch__hex">#16A34A</div></div>
+            <div class="swatch"><div class="swatch__color" style="background:#D97706;"></div><div class="swatch__name">化学 · 琥珀</div><div class="swatch__hex">#D97706</div></div>
+            <div class="swatch"><div class="swatch__color" style="background:#9333EA;"></div><div class="swatch__name">数学 · 紫</div><div class="swatch__hex">#9333EA</div></div>
+          </div>
+        </div>
+
+        <div class="comp-block">
+          <span class="comp-block__label">证据高亮（教辅划重点风）</span>
+          <p style="margin-bottom: var(--space-3);">
+            示例：在阅读 <span class="evidence-mark" style="background:#FEF3C7;color:#92400E;padding:1px 4px;border-radius:2px;font-weight:500;">沿斜面分量 mg·sinθ</span> 时，
+            这种黄色背景模拟纸质教辅划重点的视觉，帮助学生快速识别"这是关键证据"。
+          </p>
+          <div class="swatch-row">
+            <div class="swatch"><div class="swatch__color" style="background:#FEF3C7;"></div><div class="swatch__name">高亮背景</div><div class="swatch__hex">#FEF3C7</div></div>
+            <div class="swatch"><div class="swatch__color" style="background:#92400E;"></div><div class="swatch__name">高亮文字</div><div class="swatch__hex">#92400E</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 字体 ─────────────────────── -->
+      <section class="comp-section">
+        <h2>2 · 字体与阶梯</h2>
+        <p>中文 PingFang SC / Noto Sans SC（不再用衬线），英文 Inter，代码 JetBrains Mono，公式 KaTeX。</p>
+        <div class="comp-block">
+          <div class="type-row" style="display:flex;align-items:baseline;gap:var(--space-4);justify-content:space-between;">
+            <span style="font-size:56px;font-weight:700;letter-spacing:-0.025em;">问一个高中题，看见答案的来路</span>
+            <span class="type-row__label">--text-5xl · 56 · 700 / Hero</span>
+          </div>
+          <div class="type-row" style="display:flex;align-items:baseline;gap:var(--space-4);justify-content:space-between;">
+            <span style="font-size:32px;font-weight:700;letter-spacing:-0.02em;">页面主标题 H1</span>
+            <span class="type-row__label">--text-3xl · 32 · 700</span>
+          </div>
+          <div class="type-row" style="display:flex;align-items:baseline;gap:var(--space-4);justify-content:space-between;">
+            <span style="font-size:24px;font-weight:600;">区块标题 H2</span>
+            <span class="type-row__label">--text-2xl · 24 · 600</span>
+          </div>
+          <div class="type-row" style="display:flex;align-items:baseline;gap:var(--space-4);justify-content:space-between;">
+            <span style="font-size:20px;font-weight:600;">卡片标题 H3</span>
+            <span class="type-row__label">--text-xl · 20 · 600</span>
+          </div>
+          <div class="type-row" style="display:flex;align-items:baseline;gap:var(--space-4);justify-content:space-between;">
+            <span style="font-size:18px;">大段正文 / 副标题</span>
+            <span class="type-row__label">--text-lg · 18 · 400</span>
+          </div>
+          <div class="type-row" style="display:flex;align-items:baseline;gap:var(--space-4);justify-content:space-between;">
+            <span style="font-size:16px;">正文 Body：牛顿第二定律的数学表达式为 F 合 = ma。</span>
+            <span class="type-row__label">--text-base · 16 · 400</span>
+          </div>
+          <div class="type-row" style="display:flex;align-items:baseline;gap:var(--space-4);justify-content:space-between;">
+            <span style="font-size:14px;color:var(--color-text-muted);">辅助文本 Small · 用于次要描述</span>
+            <span class="type-row__label">--text-sm · 14 · 400</span>
+          </div>
+          <div class="type-row" style="display:flex;align-items:baseline;gap:var(--space-4);justify-content:space-between;">
+            <span style="font-size:12px;color:var(--color-text-subtle);">CAPTION / 时间戳 / TAG</span>
+            <span class="type-row__label">--text-xs · 12 · 500</span>
+          </div>
+          <div class="type-row" style="display:flex;align-items:baseline;gap:var(--space-4);justify-content:space-between;">
+            <code style="font-size:14px;font-family:var(--font-mono);">a = g(sinθ − μcosθ)</code>
+            <span class="type-row__label">font-mono · JetBrains Mono</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 按钮 ─────────────────────── -->
+      <section class="comp-section">
+        <h2>3 · 按钮 Button</h2>
+        <p>5 种类型 × 3 种尺寸。primary 用于关键 CTA（每屏 ≤1 个）；outline 用于次要操作；ghost 用于工具栏；danger 用于破坏性操作。</p>
+
+        <div class="comp-block">
+          <span class="comp-block__label">类型</span>
+          <div class="row wrap">
+            <button class="btn btn--primary">主按钮 Primary</button>
+            <button class="btn">默认按钮 Default</button>
+            <button class="btn btn--outline">描边 Outline</button>
+            <button class="btn btn--ghost">幽灵 Ghost</button>
+            <button class="btn btn--danger">危险 Danger</button>
+            <button class="btn btn--primary" disabled>禁用</button>
+          </div>
+        </div>
+
+        <div class="comp-block">
+          <span class="comp-block__label">尺寸</span>
+          <div class="row wrap middle">
+            <button class="btn btn--primary btn--sm">Small</button>
+            <button class="btn btn--primary">Medium（默认）</button>
+            <button class="btn btn--primary btn--lg">Large</button>
+            <button class="btn btn--primary btn--xl">⚡ XL · CTA</button>
+          </div>
+        </div>
+
+        <div class="comp-block">
+          <span class="comp-block__label">图标按钮 / 含图标</span>
+          <div class="row wrap middle">
+            <button class="btn btn--icon">⚙</button>
+            <button class="btn btn--icon btn--sm">×</button>
+            <button class="btn"><span>📋</span> 复制</button>
+            <button class="btn btn--primary"><span>⚡</span> 发起任务</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 输入 / 表单 ─────────────────────── -->
+      <section class="comp-section">
+        <h2>4 · 输入 / 表单</h2>
+
+        <div class="comp-block">
+          <span class="comp-block__label">输入框</span>
+          <div class="grid-3">
+            <div class="field">
+              <span class="field__label">默认</span>
+              <input class="input" placeholder="请输入..." />
+              <span class="field__hint">提示信息</span>
+            </div>
+            <div class="field">
+              <span class="field__label">已填写</span>
+              <input class="input" value="user@example.com" />
+            </div>
+            <div class="field">
+              <span class="field__label">禁用</span>
+              <input class="input" placeholder="不可编辑" disabled style="opacity:0.5;cursor:not-allowed;background:var(--color-bg-subtle);" />
+            </div>
+            <div class="field">
+              <span class="field__label">大号 input--lg</span>
+              <input class="input input--lg" placeholder="48 高，用于重要表单" />
+            </div>
+            <div class="field">
+              <span class="field__label">下拉选择</span>
+              <select class="input">
+                <option>物理</option><option>生物</option><option>化学</option><option>数学</option>
+              </select>
+            </div>
+            <div class="field">
+              <span class="field__label">多行文本</span>
+              <textarea class="input" placeholder="补充上下文..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="comp-block">
+          <span class="comp-block__label">搜索框（组合）</span>
+          <div class="search search--lg" style="max-width:680px;">
+            <span class="search__icon">🔍</span>
+            <input class="search__input" placeholder="输入题目、知识点或现象..." />
+            <button class="search__submit">提问</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 标签 ─────────────────────── -->
+      <section class="comp-section">
+        <h2>5 · 标签 Tag</h2>
+        <div class="comp-block">
+          <span class="comp-block__label">语义</span>
+          <div class="row wrap">
+            <span class="tag">默认</span>
+            <span class="tag tag--primary">主色</span>
+            <span class="tag tag--success">成功</span>
+            <span class="tag tag--warning">警告</span>
+            <span class="tag tag--danger">错误</span>
+            <span class="tag tag--outline">描边</span>
+            <span class="tag tag--evidence">证据高亮</span>
+          </div>
+        </div>
+        <div class="comp-block">
+          <span class="comp-block__label">学科</span>
+          <div class="row wrap">
+            <span class="tag tag--physics">物理</span>
+            <span class="tag tag--biology">生物</span>
+            <span class="tag tag--chemistry">化学</span>
+            <span class="tag tag--math">数学</span>
+          </div>
+        </div>
+        <div class="comp-block">
+          <span class="comp-block__label">状态点</span>
+          <div class="row wrap middle" style="gap: var(--space-4);">
+            <span><span class="dot dot--success"></span>&nbsp;成功</span>
+            <span><span class="dot dot--warning"></span>&nbsp;待处理</span>
+            <span><span class="dot dot--danger"></span>&nbsp;失败</span>
+            <span><span class="dot dot--primary"></span>&nbsp;进行中</span>
+            <span><span class="dot"></span>&nbsp;待定</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 卡片 ─────────────────────── -->
+      <section class="comp-section">
+        <h2>6 · 卡片 Card</h2>
+        <div class="grid-3">
+          <div class="card">
+            <div class="card__header"><span class="card__title">默认卡片</span></div>
+            <p class="text-muted text-sm">背景白、边框 1px、圆角 12、内边距 24。用于承载内容。</p>
+          </div>
+          <div class="card card--flat">
+            <div class="card__header"><span class="card__title">扁平卡 (flat)</span></div>
+            <p class="text-muted text-sm">无边框 + 灰色背景。用于提示框、辅助内容。</p>
+          </div>
+          <div class="card card--hover">
+            <div class="card__header"><span class="card__title">可点击 (hover)</span></div>
+            <p class="text-muted text-sm">悬停加深边框 + 浅阴影。用于跳转入口。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Tab ─────────────────────── -->
+      <section class="comp-section">
+        <h2>7 · 选项卡 Tabs</h2>
+        <div class="comp-block">
+          <div class="tabs">
+            <button class="tabs__tab tabs__tab--active">最近 <span class="tabs__count">18</span></button>
+            <button class="tabs__tab">收藏 <span class="tabs__count">23</span></button>
+            <button class="tabs__tab">答案 <span class="tabs__count">15</span></button>
+            <button class="tabs__tab">模型包 <span class="tabs__count">7</span></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Alert ─────────────────────── -->
+      <section class="comp-section">
+        <h2>8 · 提示 Alert</h2>
+        <div class="comp-block col col--sm">
+          <div class="alert alert--info">
+            <span class="alert__icon">ℹ︎</span>
+            <div class="alert__body">
+              <div class="alert__title">提示信息</div>
+              <div class="alert__desc">蓝色用于提示和说明，例如"提问技巧""下一步建议"。</div>
+            </div>
+          </div>
+          <div class="alert alert--success">
+            <span class="alert__icon">✓</span>
+            <div class="alert__body">
+              <div class="alert__title">操作成功</div>
+              <div class="alert__desc">绿色用于成功反馈，例如"已收藏""校验通过"。</div>
+            </div>
+          </div>
+          <div class="alert alert--warning">
+            <span class="alert__icon">⚠</span>
+            <div class="alert__body">
+              <div class="alert__title">需要注意</div>
+              <div class="alert__desc">橙色用于需要核验、警告或低可信结果。</div>
+            </div>
+          </div>
+          <div class="alert alert--danger">
+            <span class="alert__icon">✕</span>
+            <div class="alert__body">
+              <div class="alert__title">失败 / 错误</div>
+              <div class="alert__desc">红色用于错误，例如"检索失败""API 超时"。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 手风琴 ─────────────────────── -->
+      <section class="comp-section">
+        <h2>9 · 手风琴 Accordion</h2>
+        <p>用于公式卡 / 易错点 / 题型映射 / FAQ 等"次要细节"区域，避免页面信息过载。</p>
+        <div class="accordion">
+          <details class="accordion__item" open>
+            <summary class="accordion__summary"><span>第一项 · 默认展开</span></summary>
+            <div class="accordion__content">内容区域，使用次文本色与较小字号。可以包含公式、列表、其他组件。</div>
+          </details>
+          <details class="accordion__item">
+            <summary class="accordion__summary"><span>第二项 · 折叠中</span></summary>
+            <div class="accordion__content">折叠时只看到标题，节省垂直空间。</div>
+          </details>
+          <details class="accordion__item">
+            <summary class="accordion__summary"><span>第三项</span></summary>
+            <div class="accordion__content">用于次要细节。</div>
+          </details>
+        </div>
+      </section>
+
+      <!-- ─── 空状态 / 加载态 ─────────────────────── -->
+      <section class="comp-section">
+        <h2>10 · 空状态 / 加载态</h2>
+        <div class="grid-2">
+          <div class="card" style="padding:0;">
+            <div class="empty">
+              <div class="empty__icon">📒</div>
+              <div class="empty__title">还没有任何记录</div>
+              <div class="empty__desc">先去问一个问题，或跑一次推演。</div>
+              <button class="btn btn--primary">去提问</button>
+            </div>
+          </div>
+          <div class="card" style="padding:0;">
+            <div class="empty">
+              <div class="empty__icon"><span class="spinner"></span></div>
+              <div class="empty__title">正在加载...</div>
+              <div class="empty__desc">通常 1~3 秒。如果超过 10 秒，可能后端有问题。</div>
+            </div>
+          </div>
+        </div>
+        <div class="comp-block mt-3">
+          <span class="comp-block__label">骨架屏 Skeleton</span>
+          <div>
+            <div class="skel skel--title"></div>
+            <div class="skel skel--text"></div>
+            <div class="skel skel--text"></div>
+            <div class="skel skel--text"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 表格 ─────────────────────── -->
+      <section class="comp-section">
+        <h2>11 · 表格 Table</h2>
+        <p>用于"我的学习""管理后台"等需要快速扫描多条记录的场景。优先用表格而非长 List.Item 卡片。</p>
+        <div class="comp-block" style="padding:0;">
+          <table class="table table--clickable">
+            <thead>
+              <tr><th>主题</th><th>类型</th><th>反馈</th><th style="text-align:right;">时间</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>牛顿第二定律在斜面题中怎么用？</strong></td>
+                <td><span class="tag tag--primary">提问</span></td>
+                <td><span class="text-success">👍</span></td>
+                <td style="text-align:right;color:var(--color-text-subtle);">今天 14:32</td>
+              </tr>
+              <tr>
+                <td><strong>平抛运动如何命中目标窗口？</strong></td>
+                <td><span class="tag tag--physics">推演</span></td>
+                <td>—</td>
+                <td style="text-align:right;color:var(--color-text-subtle);">昨天 19:08</td>
+              </tr>
+              <tr>
+                <td><strong>光照强度如何影响有机物积累？</strong></td>
+                <td><span class="tag tag--biology">推演</span></td>
+                <td><span class="text-success">👍</span></td>
+                <td style="text-align:right;color:var(--color-text-subtle);">5 月 12 日</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ─── 圆角 / 阴影 / 间距 ─────────────────────── -->
+      <section class="comp-section">
+        <h2>12 · 圆角 / 阴影 / 间距</h2>
+        <div class="comp-block">
+          <span class="comp-block__label">圆角阶梯</span>
+          <div class="row wrap">
+            <div class="col col--sm" style="align-items:center;">
+              <div style="width:64px;height:64px;background:var(--color-primary-soft);border-radius:var(--radius-xs);"></div>
+              <span class="text-xs">--radius-xs · 4</span>
+            </div>
+            <div class="col col--sm" style="align-items:center;">
+              <div style="width:64px;height:64px;background:var(--color-primary-soft);border-radius:var(--radius-md);"></div>
+              <span class="text-xs">--radius-md · 8</span>
+            </div>
+            <div class="col col--sm" style="align-items:center;">
+              <div style="width:64px;height:64px;background:var(--color-primary-soft);border-radius:var(--radius-lg);"></div>
+              <span class="text-xs">--radius-lg · 12</span>
+            </div>
+            <div class="col col--sm" style="align-items:center;">
+              <div style="width:64px;height:64px;background:var(--color-primary-soft);border-radius:var(--radius-xl);"></div>
+              <span class="text-xs">--radius-xl · 16</span>
+            </div>
+            <div class="col col--sm" style="align-items:center;">
+              <div style="width:64px;height:64px;background:var(--color-primary-soft);border-radius:var(--radius-full);"></div>
+              <span class="text-xs">--radius-full</span>
+            </div>
+          </div>
+        </div>
+        <div class="comp-block">
+          <span class="comp-block__label">阴影阶梯</span>
+          <div class="row wrap">
+            <div class="col col--sm" style="align-items:center;">
+              <div style="width:96px;height:64px;background:#fff;border-radius:var(--radius-md);box-shadow:var(--shadow-xs);"></div>
+              <span class="text-xs">--shadow-xs</span>
+            </div>
+            <div class="col col--sm" style="align-items:center;">
+              <div style="width:96px;height:64px;background:#fff;border-radius:var(--radius-md);box-shadow:var(--shadow-sm);"></div>
+              <span class="text-xs">--shadow-sm</span>
+            </div>
+            <div class="col col--sm" style="align-items:center;">
+              <div style="width:96px;height:64px;background:#fff;border-radius:var(--radius-md);box-shadow:var(--shadow-md);"></div>
+              <span class="text-xs">--shadow-md</span>
+            </div>
+            <div class="col col--sm" style="align-items:center;">
+              <div style="width:96px;height:64px;background:#fff;border-radius:var(--radius-md);box-shadow:var(--shadow-lg);"></div>
+              <span class="text-xs">--shadow-lg</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <div class="app-footer__inner">
+        <span>Snowy · 组件清单 · v6 设计原型</span>
+        <span class="text-subtle">2026</span>
+      </div>
+    </footer>
+
+    <button class="preview-toggle" data-preview-toggle>📱 移动预览</button>
+  </div>
+</body>
+</html>

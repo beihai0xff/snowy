@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Snowy · 首页</title>
+  <link rel="stylesheet" href="../tokens.css" />
+  <link rel="stylesheet" href="../components.css" />
+  <script defer src="./shell.js"></script>
+  <style>
+    /* —— 首页专属样式 —— */
+    .hero {
+      padding: var(--space-12) 0 var(--space-10);
+      text-align: center;
+    }
+    .hero__title {
+      font-size: clamp(36px, 5vw, 56px);
+      line-height: 1.15;
+      letter-spacing: -0.025em;
+      font-weight: 700;
+      color: var(--color-text);
+      margin-bottom: var(--space-4);
+    }
+    .hero__title em {
+      font-style: normal;
+      color: var(--color-primary);
+    }
+    .hero__sub {
+      max-width: 620px;
+      margin: 0 auto var(--space-8);
+      color: var(--color-text-muted);
+      font-size: var(--text-lg);
+      line-height: var(--leading-relaxed);
+    }
+    .hero__search {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .hero__examples {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: var(--space-2);
+      margin-top: var(--space-4);
+    }
+    .hero__example {
+      padding: var(--space-2) var(--space-3);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-full);
+      background: var(--color-bg-card);
+      color: var(--color-text-muted);
+      font-size: var(--text-sm);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .hero__example:hover {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+      background: var(--color-primary-soft);
+    }
+
+    /* 能力卡 */
+    .capability {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-12);
+    }
+    .capability__card {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      padding: var(--space-6);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      text-decoration: none;
+      color: inherit;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+    }
+    .capability__card:hover {
+      border-color: var(--color-border-strong);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+      text-decoration: none;
+    }
+    .capability__icon {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      font-size: 22px;
+    }
+    .capability__icon--ask     { background: var(--color-primary-soft);   color: var(--color-primary); }
+    .capability__icon--lab     { background: var(--color-physics-soft);   color: var(--color-physics); }
+    .capability__icon--my      { background: var(--color-biology-soft);   color: var(--color-biology); }
+    .capability__title { font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+    .capability__desc  { color: var(--color-text-muted); font-size: var(--text-sm); line-height: var(--leading-relaxed); }
+    .capability__meta  { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: auto; padding-top: var(--space-2); }
+
+    /* 横向滚动列表 */
+    .scroller {
+      display: flex;
+      gap: var(--space-3);
+      overflow-x: auto;
+      padding-bottom: var(--space-2);
+      margin-inline: calc(-1 * var(--content-padding-desktop));
+      padding-inline: var(--content-padding-desktop);
+      scroll-snap-type: x mandatory;
+      scrollbar-width: thin;
+    }
+    .scroller::-webkit-scrollbar { height: 6px; }
+    .scroller::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: var(--radius-full); }
+
+    .recent-card {
+      flex: 0 0 280px;
+      scroll-snap-align: start;
+      padding: var(--space-4);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      cursor: pointer;
+      transition: border-color var(--transition-fast);
+    }
+    .recent-card:hover { border-color: var(--color-border-strong); }
+    .recent-card__head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: var(--space-2);
+    }
+    .recent-card__title {
+      font-size: var(--text-sm);
+      font-weight: var(--weight-medium);
+      color: var(--color-text);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      line-height: var(--leading-snug);
+      margin-bottom: var(--space-2);
+    }
+    .recent-card__time { color: var(--color-text-subtle); font-size: var(--text-xs); }
+
+    /* 推荐卡 */
+    .recommend-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+    .recommend-card {
+      padding: var(--space-5);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      cursor: pointer;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .recommend-card:hover { border-color: var(--color-border-strong); box-shadow: var(--shadow-sm); }
+    .recommend-card__title {
+      font-size: var(--text-base);
+      font-weight: var(--weight-semibold);
+      margin-bottom: var(--space-2);
+      line-height: var(--leading-snug);
+    }
+    .recommend-card__desc {
+      color: var(--color-text-muted);
+      font-size: var(--text-sm);
+      line-height: var(--leading-relaxed);
+      margin-bottom: var(--space-3);
+    }
+
+    /* 移动端 */
+    @media (max-width: 720px) {
+      .hero { padding: var(--space-6) 0 var(--space-8); }
+      .capability,
+      .recommend-grid { grid-template-columns: 1fr; }
+      .scroller { margin-inline: calc(-1 * var(--space-4)); padding-inline: var(--space-4); }
+    }
+    .app--mobile-preview .capability,
+    .app--mobile-preview .recommend-grid { grid-template-columns: 1fr; }
+  </style>
+</head>
+<body data-page="home">
+  <div class="app">
+
+    <!-- ─── Header ─────────────────────────────────────── -->
+    <header class="app-header">
+      <a href="./home.html" class="brand">
+        <span class="brand__mark">❄</span>
+        <span>Snowy</span>
+      </a>
+      <nav class="nav">
+        <a class="nav__link" data-page="home"     href="./home.html">首页</a>
+        <a class="nav__link" data-page="ask"      href="./ask.html">提问</a>
+        <a class="nav__link" data-page="modeling" href="./modeling.html">推演</a>
+        <a class="nav__link" data-page="learning" href="./learning.html">我的学习</a>
+      </nav>
+      <div class="row row--sm middle">
+        <button class="btn btn--ghost btn--icon" aria-label="搜索">🔍</button>
+        <button class="btn btn--ghost btn--sm" data-theme-toggle>☾ 深色</button>
+        <button class="btn btn--outline btn--sm">登录</button>
+      </div>
+      <button class="nav-toggle" aria-label="菜单">☰</button>
+    </header>
+
+    <main class="app-main">
+
+      <!-- ─── Hero ─────────────────────────────────────── -->
+      <section class="hero">
+        <h1 class="hero__title">问一个高中题，<em>看见答案的来路</em></h1>
+        <p class="hero__sub">
+          Snowy 帮你查证据、看推导、跑仿真。每个结论都附原文出处与公式卡，理解不靠死记。
+        </p>
+
+        <div class="hero__search">
+          <div class="search search--lg">
+            <span class="search__icon">🔍</span>
+            <input class="search__input" placeholder="输入题目、知识点或现象，例如：平抛运动如何命中目标？" />
+            <button class="search__submit">提问</button>
+          </div>
+          <div class="hero__examples">
+            <button class="hero__example">牛顿第二定律的适用条件</button>
+            <button class="hero__example">光照强度如何影响有机物积累</button>
+            <button class="hero__example">平抛运动 2 秒后的轨迹</button>
+            <button class="hero__example">遗传分离定律推导</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 能力卡 ──────────────────────────────────── -->
+      <div class="capability">
+        <a href="./ask.html" class="capability__card">
+          <div class="capability__icon capability__icon--ask">🔍</div>
+          <div class="capability__title">提问 · 找证据</div>
+          <p class="capability__desc">输入问题，先检索课本 / 考纲 / 题库 / 讲义，再给答案。每条结论可点引用回到原文。</p>
+          <div class="capability__meta">
+            <span class="tag">引用脚注</span>
+            <span class="tag">公式卡</span>
+            <span class="tag">易错点</span>
+          </div>
+        </a>
+        <a href="./modeling.html" class="capability__card">
+          <div class="capability__icon capability__icon--lab">⚗︎</div>
+          <div class="capability__title">推演 · 跑仿真</div>
+          <p class="capability__desc">把题干变量变成可调参数。物理走轨迹 / 受力 / 曲线，生物走过程图 / 关系图 / 变量分析。</p>
+          <div class="capability__meta">
+            <span class="tag tag--physics">物理</span>
+            <span class="tag tag--biology">生物</span>
+            <span class="tag">参数可调</span>
+          </div>
+        </a>
+        <a href="./learning.html" class="capability__card">
+          <div class="capability__icon capability__icon--my">📂</div>
+          <div class="capability__title">我的学习</div>
+          <p class="capability__desc">所有提问、收藏、推演的模型包都沉淀在这里。登录后可在不同设备同步。</p>
+          <div class="capability__meta">
+            <span class="tag">历史</span>
+            <span class="tag">收藏</span>
+            <span class="tag">模型包</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- ─── 继续上次的学习 ───────────────────────── -->
+      <div class="section-title">
+        <h2>继续上次的学习</h2>
+        <a href="./learning.html">查看全部 →</a>
+      </div>
+      <div class="scroller mb-8">
+        <div class="recent-card">
+          <div class="recent-card__head">
+            <span class="tag tag--primary">提问</span>
+            <span class="recent-card__time">今天 14:32</span>
+          </div>
+          <div class="recent-card__title">牛顿第二定律在斜面题中怎么用？</div>
+          <div class="row row--sm wrap">
+            <span class="tag">高一</span>
+            <span class="tag">力学</span>
+          </div>
+        </div>
+        <div class="recent-card">
+          <div class="recent-card__head">
+            <span class="tag tag--physics">推演 · 物理</span>
+            <span class="recent-card__time">昨天 19:08</span>
+          </div>
+          <div class="recent-card__title">平抛运动如何影响水平位移？v0 = 20 m/s, h = 20 m</div>
+          <div class="row row--sm wrap">
+            <span class="tag tag--success">可信度 92%</span>
+          </div>
+        </div>
+        <div class="recent-card">
+          <div class="recent-card__head">
+            <span class="tag tag--biology">推演 · 生物</span>
+            <span class="recent-card__time">5 月 12 日</span>
+          </div>
+          <div class="recent-card__title">光照强度如何影响有机物积累？</div>
+          <div class="row row--sm wrap">
+            <span class="tag">光合作用</span>
+            <span class="tag">限制因素</span>
+          </div>
+        </div>
+        <div class="recent-card">
+          <div class="recent-card__head">
+            <span class="tag tag--primary">提问</span>
+            <span class="recent-card__time">5 月 10 日</span>
+          </div>
+          <div class="recent-card__title">弹簧振子周期为什么与振幅无关？</div>
+          <div class="row row--sm wrap">
+            <span class="tag">高二</span>
+            <span class="tag">简谐运动</span>
+          </div>
+        </div>
+        <div class="recent-card">
+          <div class="recent-card__head">
+            <span class="tag tag--biology">推演 · 生物</span>
+            <span class="recent-card__time">5 月 8 日</span>
+          </div>
+          <div class="recent-card__title">突触传递信号的方向性如何解释？</div>
+          <div class="row row--sm wrap">
+            <span class="tag">神经调节</span>
+          </div>
+        </div>
+        <div class="recent-card">
+          <div class="recent-card__head">
+            <span class="tag">收藏</span>
+            <span class="recent-card__time">5 月 5 日</span>
+          </div>
+          <div class="recent-card__title">遗传分离定律子代表现型比例推导</div>
+          <div class="row row--sm wrap">
+            <span class="tag">高三</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── 今日可以试试 ─────────────────────── -->
+      <div class="section-title">
+        <h2>今日可以试试</h2>
+        <a href="#">更多推荐 →</a>
+      </div>
+      <div class="recommend-grid mb-8">
+        <div class="recommend-card">
+          <div class="row row--sm wrap mb-2">
+            <span class="tag tag--physics">物理</span>
+            <span class="tag">高一</span>
+          </div>
+          <div class="recommend-card__title">牛顿第二定律：F、m、a 谁是因谁是果？</div>
+          <p class="recommend-card__desc">用一个斜面题做证据约束，看清三个变量关系，然后做迁移题。</p>
+          <div class="row row--sm middle">
+            <a href="./ask.html" class="btn btn--ghost btn--sm">先看证据</a>
+            <a href="./modeling.html" class="btn btn--ghost btn--sm">直接推演 →</a>
+          </div>
+        </div>
+        <div class="recommend-card">
+          <div class="row row--sm wrap mb-2">
+            <span class="tag tag--biology">生物</span>
+            <span class="tag">高二</span>
+          </div>
+          <div class="recommend-card__title">光合作用的平台期是谁卡住了？</div>
+          <p class="recommend-card__desc">调节光照、CO₂、温度三个变量，看曲线如何从线性变成平台，识别限制因素。</p>
+          <div class="row row--sm middle">
+            <a href="./ask.html" class="btn btn--ghost btn--sm">先看证据</a>
+            <a href="./modeling.html" class="btn btn--ghost btn--sm">直接推演 →</a>
+          </div>
+        </div>
+        <div class="recommend-card">
+          <div class="row row--sm wrap mb-2">
+            <span class="tag tag--physics">物理</span>
+            <span class="tag">高一</span>
+          </div>
+          <div class="recommend-card__title">平抛运动如何命中目标窗口？</div>
+          <p class="recommend-card__desc">改高度与初速度，让轨迹穿过目标。观察水平 / 竖直分速度的独立性。</p>
+          <div class="row row--sm middle">
+            <a href="./ask.html" class="btn btn--ghost btn--sm">先看证据</a>
+            <a href="./modeling.html" class="btn btn--ghost btn--sm">直接推演 →</a>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="app-footer">
+      <div class="app-footer__inner">
+        <span>Snowy · 面向高中生的 AI 学习工具 · v6 设计原型</span>
+        <span class="row row--sm">
+          <a href="#" class="text-muted">使用说明</a>
+          <a href="#" class="text-muted">反馈</a>
+          <a href="#" class="text-muted">GitHub</a>
+        </span>
+      </div>
+    </footer>
+
+    <button class="preview-toggle" data-preview-toggle>📱 移动预览</button>
+  </div>
+
+  <!--
+    Mock data sample (供后续接 API 时参考):
+    GET /api/v1/recommendations
+    {
+      "hot_topics": [
+        { "id": "newton-law", "title": "牛顿第二定律：F、m、a 谁是因谁是果？", ... }
+      ],
+      "physics_models": [...],
+      "biology_topics": [...]
+    }
+    GET /api/v1/history
+    { "items": [{ "id": "...", "action_type": "search", "query": "牛顿第二定律..." }] }
+  -->
+</body>
+</html>

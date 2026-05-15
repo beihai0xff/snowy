@@ -1,3 +1,4 @@
+//revive:disable:var-naming
 package http
 
 import (
@@ -77,6 +78,7 @@ func (h *AgentHandler) Chat(c *gin.Context) {
 	resp, err := h.agentSvc.Chat(c.Request.Context(), chatReq)
 	if err != nil {
 		slog.Warn("create session failed", "error", err)
+
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
 
@@ -311,6 +313,8 @@ func shouldSkipStreamPersistence(
 
 func recordAgentHistory(c *gin.Context, userSvc user.Service, mode agent.Mode, query string) {
 	switch mode {
+	case agent.ModeAuto:
+		recordHistory(c, userSvc, "search", query)
 	case agent.ModeSearch:
 		recordHistory(c, userSvc, "search", query)
 	case agent.ModePhysics:

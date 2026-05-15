@@ -24,26 +24,28 @@ const (
 
 // User 用户实体。
 type User struct {
-	ID          uuid.UUID `json:"id"`
-	GoogleID    string    `json:"google_id,omitempty"`
-	Email       string    `json:"email,omitempty"`
-	Phone       string    `json:"phone,omitempty"`
-	Nickname    string    `json:"nickname"`
-	Role        Role      `json:"role"`
-	AvatarURL   string    `json:"avatar_url,omitempty"`
-	LastLoginAt time.Time `json:"last_login_at"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID           uuid.UUID `json:"id"`
+	GoogleID     string    `json:"google_id,omitempty"`
+	Email        string    `json:"email,omitempty"`
+	PasswordHash string    `json:"-"`
+	Phone        string    `json:"phone,omitempty"`
+	Nickname     string    `json:"nickname"`
+	Role         Role      `json:"role"`
+	AvatarURL    string    `json:"avatar_url,omitempty"`
+	LastLoginAt  time.Time `json:"last_login_at"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // Favorite 收藏条目。
 type Favorite struct {
-	ID         uuid.UUID `json:"id"`
-	UserID     uuid.UUID `json:"user_id"`
-	TargetType string    `json:"target_type"` // search / physics / biology
-	TargetID   string    `json:"target_id"`
-	Title      string    `json:"title"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID           uuid.UUID      `json:"id"`
+	UserID       uuid.UUID      `json:"user_id"`
+	TargetType   string         `json:"target_type"` // search / answer / evidence / physics / biology / model_package / render_code / model_config
+	TargetID     string         `json:"target_id"`
+	Title        string         `json:"title"`
+	MetadataJSON map[string]any `json:"metadata_json,omitempty"`
+	CreatedAt    time.Time      `json:"created_at"`
 }
 
 // HistoryItem 历史记录条目。

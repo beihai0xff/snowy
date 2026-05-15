@@ -17,8 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -31,7 +29,6 @@ import (
 var (
 	integrationDB    *gorm.DB
 	integrationRedis *goredis.Client
-	integrationMinIO *minio.Client
 )
 
 func TestMain(m *testing.M) {
@@ -58,15 +55,6 @@ func TestMain(m *testing.M) {
 	}
 	integrationRedis = rdb
 
-	minioClient, err := newMinIOClient(integrationMinIOConfig())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to connect minio for integration tests: %v\n", err)
-		_ = integrationRedis.Close()
-		closeIntegrationDB(integrationDB)
-		os.Exit(1)
-	}
-	integrationMinIO = minioClient
-
 	if err := resetMySQL(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to reset mysql state for integration tests: %v\n", err)
 		_ = integrationRedis.Close()
@@ -79,16 +67,8 @@ func TestMain(m *testing.M) {
 		closeIntegrationDB(integrationDB)
 		os.Exit(1)
 	}
-	if err := resetMinIO(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to reset minio state for integration tests: %v\n", err)
-		_ = integrationRedis.Close()
-		closeIntegrationDB(integrationDB)
-		os.Exit(1)
-	}
-
 	code := m.Run()
 
-	_ = resetMinIO(ctx)
 	_ = resetRedis(ctx)
 	_ = integrationRedis.Close()
 	closeIntegrationDB(integrationDB)
@@ -134,44 +114,6 @@ func integrationOpenSearchConfig() config.OpenSearchConfig {
 		Username:  getenv("SNOWY_OPENSEARCH_USERNAME", "admin"),
 		Password:  getenv("SNOWY_OPENSEARCH_PASSWORD", "admin"),
 	}
-}
-
-func integrationMinIOConfig() config.MinIOConfig {
-	return config.MinIOConfig{
-		Endpoint:  getenv("SNOWY_MINIO_ENDPOINT", "127.0.0.1:9000"),
-		AccessKey: getenv("SNOWY_MINIO_ACCESS_KEY", "snowy_admin"),
-		SecretKey: getenv("SNOWY_MINIO_SECRET_KEY", "snowy_minio_secret"),
-		Bucket:    getenv("SNOWY_MINIO_BUCKET", "snowy"),
-		UseSSL:    false,
-	}
-}
-
-func integrationMinIOBucketConfig(bucket string) config.MinIOConfig {
-	cfg := integrationMinIOConfig()
-	cfg.Bucket = bucket
-	return cfg
-}
-
-func integrationMinIOBuckets() []string {
-	seen := map[string]struct{}{}
-	buckets := []string{}
-	for _, bucket := range []string{
-		integrationMinIOConfig().Bucket,
-		"snowy-content",
-		"snowy-charts",
-		"snowy-exports",
-	} {
-		bucket = strings.TrimSpace(bucket)
-		if bucket == "" {
-			continue
-		}
-		if _, ok := seen[bucket]; ok {
-			continue
-		}
-		seen[bucket] = struct{}{}
-		buckets = append(buckets, bucket)
-	}
-	return buckets
 }
 
 func getenv(key, defaultValue string) string {
@@ -374,47 +316,6 @@ func resetOpenSearchOnce(ctx context.Context) error {
 			createResp.StatusCode,
 			strings.TrimSpace(string(respBody)),
 		)
-	}
-	return nil
-}
-
-func newMinIOClient(cfg config.MinIOConfig) (*minio.Client, error) {
-	return minio.New(cfg.Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
-		Secure: cfg.UseSSL,
-	})
-}
-
-func resetMinIO(ctx context.Context) error {
-	return withRetry(ctx, 10, time.Second, func() error {
-		return resetMinIOOnce(ctx)
-	})
-}
-
-func resetMinIOOnce(ctx context.Context) error {
-	if integrationMinIO == nil {
-		return nil
-	}
-	for _, bucket := range integrationMinIOBuckets() {
-		exists, err := integrationMinIO.BucketExists(ctx, bucket)
-		if err != nil {
-			return fmt.Errorf("check minio bucket %s: %w", bucket, err)
-		}
-		if !exists {
-			if err := integrationMinIO.MakeBucket(ctx, bucket, minio.MakeBucketOptions{}); err != nil {
-				return fmt.Errorf("create minio bucket %s: %w", bucket, err)
-			}
-			continue
-		}
-
-		for objectInfo := range integrationMinIO.ListObjects(ctx, bucket, minio.ListObjectsOptions{Recursive: true}) {
-			if objectInfo.Err != nil {
-				return fmt.Errorf("list minio objects in %s: %w", bucket, objectInfo.Err)
-			}
-			if err := integrationMinIO.RemoveObject(ctx, bucket, objectInfo.Key, minio.RemoveObjectOptions{}); err != nil {
-				return fmt.Errorf("remove minio object %s/%s: %w", bucket, objectInfo.Key, err)
-			}
-		}
 	}
 	return nil
 }

@@ -24,14 +24,20 @@ LDFLAGS        := -s -w \
                   -X main.BuildTime=$(BUILD_TIME) \
                   -X main.Commit=$(COMMIT)
 GOTEST_FLAGS   := -race -count=1 -timeout 120s
-TEST_DEPS_SERVICES := mysql redis minio
-INFRA_SERVICES := mysql redis minio minio-init prometheus grafana
+TEST_DEPS_SERVICES := mysql redis
+INFRA_SERVICES := mysql redis
 
 # ── Docker 参数 ─────────────────────────────────────────────
 DOCKER_COMPOSE := docker compose -f $(DEPLOY_DIR)/docker-compose.yml -p $(PROJECT_NAME)
+
+# Load local, git-ignored runtime secrets when present (e.g. OPENAI_API_KEY).
+# This keeps `make docker-run` / `make run` usable without re-exporting env vars.
+ifneq (,$(wildcard $(ROOT_DIR)/.env))
+include $(ROOT_DIR)/.env
+export
+endif
 DOCKER_REG     ?=
-IMAGE_API      := $(if $(DOCKER_REG),$(DOCKER_REG)/)$(PROJECT_NAME)-api:$(VERSION)
-IMAGE_WORKER   := $(if $(DOCKER_REG),$(DOCKER_REG)/)$(PROJECT_NAME)-worker:$(VERSION)
+IMAGE_SERVER   := $(if $(DOCKER_REG),$(DOCKER_REG)/)$(PROJECT_NAME):$(VERSION)
 
 # ── 工具 ────────────────────────────────────────────────────
 GOLANGCI_LINT  := $(shell command -v golangci-lint 2>/dev/null)
@@ -64,24 +70,17 @@ RESET  := \033[0m
 #  Build
 # ============================================================
 
-.PHONY: build build-api build-worker clean
+.PHONY: build build-server clean
 
-## build: 编译全部 Go 二进制 (api + worker)
-build: build-api build-worker
+## build: 编译默认单体服务二进制
+build: build-server
 
-## build-api: 编译 API 服务
-build-api:
-	@echo "$(GREEN)▸ Building snowy-api...$(RESET)"
+## build-server: 编译统一服务二进制
+build-server:
+	@echo "$(GREEN)▸ Building snowy...$(RESET)"
 	@mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/snowy-api $(CMD_DIR)/api
-	@echo "$(GREEN)✓ $(BIN_DIR)/snowy-api$(RESET)"
-
-## build-worker: 编译 Worker 服务
-build-worker:
-	@echo "$(GREEN)▸ Building snowy-worker...$(RESET)"
-	@mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/snowy-worker $(CMD_DIR)/worker
-	@echo "$(GREEN)✓ $(BIN_DIR)/snowy-worker$(RESET)"
+	CGO_ENABLED=0 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/snowy $(CMD_DIR)/snowy
+	@echo "$(GREEN)✓ $(BIN_DIR)/snowy$(RESET)"
 
 ## clean: 清理编译产物
 clean:
@@ -104,7 +103,7 @@ test-unit:
 	@echo "$(GREEN)▸ Running unit tests...$(RESET)"
 	$(GO) test $(GOTEST_FLAGS) ./internal/...
 
-## test-integration: 启动 MySQL/Redis/MinIO Docker 依赖并运行集成测试
+## test-integration: 启动 MySQL/Redis Docker 依赖并运行集成测试
 test-integration:
 	@echo "$(GREEN)▸ Running integration tests with Docker dependencies...$(RESET)"
 	@bash ./scripts/test.sh --integration
@@ -145,12 +144,12 @@ vet:
 	@echo "$(GREEN)▸ Running vet...$(RESET)"
 	$(GO) vet ./...
 
-## test-deps-up: 启动测试所需 Docker 依赖 (MySQL/Redis/MinIO)
+## test-deps-up: 启动测试所需 Docker 依赖 (MySQL/Redis)
 test-deps-up:
 	@echo "$(CYAN)▸ Starting test dependencies: $(TEST_DEPS_SERVICES)...$(RESET)"
 	$(DOCKER_COMPOSE) up -d $(TEST_DEPS_SERVICES)
 
-## test-deps-down: 停止测试所需 Docker 依赖 (MySQL/Redis/MinIO)
+## test-deps-down: 停止测试所需 Docker 依赖 (MySQL/Redis)
 test-deps-down:
 	@echo "$(YELLOW)▸ Stopping test dependencies: $(TEST_DEPS_SERVICES)...$(RESET)"
 	-$(DOCKER_COMPOSE) stop $(TEST_DEPS_SERVICES)
@@ -160,25 +159,20 @@ test-deps-down:
 #  Docker — 基础设施 (docker-compose)
 # ============================================================
 
-.PHONY: docker-up docker-down docker-ps docker-logs docker-clean bootstrap
+.PHONY: docker-up docker-down docker-ps docker-logs docker-observability-up docker-clean bootstrap
 
-## docker-up: 启动基础设施并等待健康检查通过后自动执行 GORM migration
+## docker-up: 启动必需基础设施 (MySQL/Redis) 并等待健康检查通过后自动执行 GORM migration
 docker-up:
 	@echo "$(CYAN)▸ Starting infrastructure...$(RESET)"
 	$(DOCKER_COMPOSE) up -d $(INFRA_SERVICES)
 	@echo "$(CYAN)▸ Waiting for infrastructure health checks...$(RESET)"
 	@$(WAIT_FOR_CONTAINER) snowy-mysql 90 2
 	@$(WAIT_FOR_CONTAINER) snowy-redis 60 2
-	@$(WAIT_FOR_CONTAINER) snowy-minio 60 2
 	@$(MAKE) migrate-up
-	@echo "$(CYAN)✓ Infrastructure is healthy and MySQL schema is migrated$(RESET)"
+	@echo "$(CYAN)✓ Required infrastructure is healthy and MySQL schema is migrated$(RESET)"
 	@echo ""
 	@echo "  MySQL      : localhost:3306"
 	@echo "  Redis      : localhost:6379"
-	@echo "  MinIO API  : localhost:9000"
-	@echo "  MinIO Console: localhost:9001"
-	@echo "  Prometheus : localhost:9090"
-	@echo "  Grafana    : localhost:3000"
 
 ## docker-down: 停止全部基础设施 (保留数据卷)
 docker-down:
@@ -194,6 +188,15 @@ docker-ps:
 docker-logs:
 	$(DOCKER_COMPOSE) logs -f $(SVC)
 
+## docker-observability-up: 启动可选观测组件 (Prometheus/Grafana)
+docker-observability-up:
+	@echo "$(CYAN)▸ Starting optional observability services...$(RESET)"
+	$(DOCKER_COMPOSE) up -d prometheus grafana
+	@echo "$(CYAN)✓ Observability services are running$(RESET)"
+	@echo ""
+	@echo "  Prometheus : localhost:9090"
+	@echo "  Grafana    : localhost:3000"
+
 ## docker-clean: 停止全部基础设施并删除数据卷 (⚠️ 数据将丢失)
 docker-clean:
 	@echo "$(YELLOW)▸ Destroying infrastructure and volumes...$(RESET)"
@@ -207,32 +210,21 @@ bootstrap: deps docker-up
 #  Docker — 应用镜像构建 & 运行
 # ============================================================
 
-.PHONY: docker-build docker-build-api docker-build-worker docker-build-web docker-run docker-smoke docker-push
+.PHONY: docker-build docker-build-server docker-build-web docker-run docker-smoke docker-push
 
-## docker-build: 构建全部应用 Docker 镜像 (api + worker + web)
-docker-build: docker-build-api docker-build-worker docker-build-web
+## docker-build: 构建默认单体服务与前端镜像
+docker-build: docker-build-server docker-build-web
 
-## docker-build-api: 构建 API 服务镜像
-docker-build-api:
-	@echo "$(CYAN)▸ Building Docker image: $(IMAGE_API)...$(RESET)"
+## docker-build-server: 构建统一服务镜像
+docker-build-server:
+	@echo "$(CYAN)▸ Building Docker image: $(IMAGE_SERVER)...$(RESET)"
 	docker build \
-		--build-arg TARGET=api \
+		--build-arg TARGET=snowy \
 		-f $(DEPLOY_DIR)/Dockerfile \
-		-t $(IMAGE_API) \
-		-t $(PROJECT_NAME)-api:latest \
+		-t $(IMAGE_SERVER) \
+		-t $(PROJECT_NAME):latest \
 		$(ROOT_DIR)
-	@echo "$(CYAN)✓ $(IMAGE_API)$(RESET)"
-
-## docker-build-worker: 构建 Worker 服务镜像
-docker-build-worker:
-	@echo "$(CYAN)▸ Building Docker image: $(IMAGE_WORKER)...$(RESET)"
-	docker build \
-		--build-arg TARGET=worker \
-		-f $(DEPLOY_DIR)/Dockerfile \
-		-t $(IMAGE_WORKER) \
-		-t $(PROJECT_NAME)-worker:latest \
-		$(ROOT_DIR)
-	@echo "$(CYAN)✓ $(IMAGE_WORKER)$(RESET)"
+	@echo "$(CYAN)✓ $(IMAGE_SERVER)$(RESET)"
 
 ## docker-build-web: 构建前端 Nginx 服务镜像
 docker-build-web:
@@ -243,19 +235,18 @@ docker-build-web:
 		$(ROOT_DIR)
 	@echo "$(CYAN)✓ $(PROJECT_NAME)-web:latest$(RESET)"
 
-## docker-run: 通过 docker compose 一键启动 API / Worker / Web（会先确保基础设施与迁移完成）
+## docker-run: 通过 docker compose 一键启动统一服务与 Web（会先确保基础设施与迁移完成）
 docker-run: docker-up
-	@if [ -z "$${MIMO_API_KEY:-}" ] && [ -z "$${SNOWY_LLM_PRIMARY_API_KEY:-}" ]; then \
-		echo "$(YELLOW)✗ MIMO_API_KEY or SNOWY_LLM_PRIMARY_API_KEY is required for real MiMo LLM calls.$(RESET)"; \
-		echo "  Usage: MIMO_API_KEY='<runtime only>' make docker-run"; \
+	@if [ -z "$${OPENAI_API_KEY:-}" ]; then \
+		echo "$(YELLOW)✗ OPENAI_API_KEY is required for real LLM calls.$(RESET)"; \
+		echo "  Usage: OPENAI_API_KEY='<runtime only>' make docker-run"; \
 		exit 1; \
 	fi
-	@echo "$(GREEN)▸ Starting API, Worker, and Web services...$(RESET)"
-	$(DOCKER_COMPOSE) up -d snowy-api snowy-worker snowy-web
+	@echo "$(GREEN)▸ Starting Snowy and Web services...$(RESET)"
+	$(DOCKER_COMPOSE) up -d snowy snowy-web
 	@echo "$(GREEN)✓ Services are running$(RESET)"
 	@echo ""
 	@echo "  API    : http://localhost:8080"
-	@echo "  Worker : http://localhost:8081"
 	@echo "  Web    : http://localhost:3001"
 
 ## docker-smoke: 纯 Docker 运行态冒烟检查
@@ -267,20 +258,24 @@ docker-push:
 ifndef DOCKER_REG
 	$(error DOCKER_REG is not set. Usage: make docker-push DOCKER_REG=your-registry.com)
 endif
-	docker push $(IMAGE_API)
-	docker push $(IMAGE_WORKER)
+	docker push $(IMAGE_SERVER)
 
 # ============================================================
 #  Run — 本地开发运行
 # ============================================================
 
-.PHONY: dev web-dev web-build
+.PHONY: dev run web-dev web-build
 
 
-## dev: 一键开发（先 make bootstrap，再本地运行 API 服务）
+## dev: 一键开发（先 make bootstrap，再本地运行统一服务）
 dev: bootstrap
-	@echo "$(GREEN)▸ Running API service locally...$(RESET)"
-	$(GO) run $(CMD_DIR)/api
+	@echo "$(GREEN)▸ Running Snowy service locally...$(RESET)"
+	$(GO) run $(CMD_DIR)/snowy
+
+## run: 本地运行统一服务
+run:
+	@echo "$(GREEN)▸ Running Snowy service locally...$(RESET)"
+	$(GO) run $(CMD_DIR)/snowy
 
 ## web-dev: 启动前端开发服务器 (localhost:3000)
 web-dev:
@@ -386,4 +381,3 @@ help:
 		sed -e 's/^## //' | \
 		awk -F': ' '{printf "  $(GREEN)%-22s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
-

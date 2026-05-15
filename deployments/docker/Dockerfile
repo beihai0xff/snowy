@@ -1,19 +1,18 @@
 # ============================================================
 # Snowy — Multi-stage Dockerfile
-# 支持构建 api / worker 两个目标二进制
+# 支持构建 snowy 目标二进制
 #
 # 构建参数:
-#   TARGET  — 构建目标 (api | worker)，默认 api
+#   TARGET  — 构建目标 (snowy)，默认 snowy
 #
 # 用法:
-#   docker build --build-arg TARGET=api   -t snowy-api    .
-#   docker build --build-arg TARGET=worker -t snowy-worker .
+#   docker build --build-arg TARGET=snowy  -t snowy        .
 # ============================================================
 
 # ── Stage 1: Build ──────────────────────────────────────────
 FROM golang:1.25-alpine AS builder
 
-ARG TARGET=api
+ARG TARGET=snowy
 
 # 安装编译依赖
 RUN apk add --no-cache gcc musl-dev git ca-certificates tzdata
@@ -38,7 +37,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 # ── Stage 2: Runtime ────────────────────────────────────────
 FROM alpine:3.21
 
-ARG TARGET=api
+ARG TARGET=snowy
 
 # 时区 + CA 证书 (调用外部 LLM API 需要)
 RUN apk add --no-cache ca-certificates tzdata \
@@ -57,8 +56,7 @@ COPY --from=builder /out/snowy-${TARGET} ./snowy-server
 # 复制默认配置（运行时可通过 volume 或 env 覆盖）
 COPY configs/ ./configs/
 
-# API 默认端口 8080, Worker 默认端口 8081
-EXPOSE 8080 8081
+# 默认 API 端口 8080
+EXPOSE 8080
 
 ENTRYPOINT ["./snowy-server"]
-

@@ -134,7 +134,7 @@ Snowy 的 Agent 服务需要解决的问题不是“通用聊天”，而是：
 
 | 能力 | 说明 |
 |---|---|
-| **ChatModel 抽象** | 统一封装 OpenAI / Gemini / Anthropic 等，天然支持 Structured Output、Tool Calling、流式 |
+| **ChatModel 抽象** | 统一封装 OpenAI-compatible Chat Completions 协议，天然支持 Structured Output、Tool Calling、流式 |
 | **Tool / Function Calling** | 内置 Tool 注册与调用协议，支持 schema 自动生成 |
 | **Graph 编排** | 有向图编排（类 LangGraph），节点可为 ChatModel / Tool / Retriever / Lambda，支持条件分支、并行、循环 |
 | **Chain 编排** | 线性链路编排，适合简单 RAG pipeline |
@@ -187,7 +187,7 @@ Snowy 的 Agent 服务需要解决的问题不是“通用聊天”，而是：
 ```text
 go.mod:
   github.com/cloudwego/eino          // 核心
-  github.com/cloudwego/eino-ext      // 扩展（OpenAI/Gemini provider、OpenSearch retriever 等）
+  github.com/cloudwego/eino-ext      // 扩展（OpenAI-compatible provider、OpenSearch retriever 等）
 ```
 
 ## 4.3 最终选型结论
@@ -249,7 +249,6 @@ graph TB
         LLMAdapter["LLM Provider Adapter"]
         EmbAdapter["Embedding Provider"]
         SearchAdapter["Search Adapter"]
-        StorageAdapter["Storage Adapter"]
         CacheAdapter["Cache Adapter"]
         CodeGuard["Code Guard<br/>AST 校验 · 依赖白名单 · 危险 API 检测"]
     end
@@ -258,7 +257,6 @@ graph TB
         MySQL[(MySQL)]
         Redis[(Redis + Asynq)]
         OS[(OpenSearch)]
-        ObjStore[(Object Storage / MinIO)]
     end
 
     SnowyWeb -->|"HTTP / SSE"| Gateway
@@ -279,7 +277,7 @@ graph TB
     PhysicsSvc --> CodeGuard
     PhysicsSvc --> StorageAdapter
 
-    LLMAdapter -.->|"OpenAI / Gemini API"| ExtLLM((外部 LLM))
+    LLMAdapter -.->|"OpenAI-compatible API"| ExtLLM((外部 LLM))
     EmbAdapter -.->|"Embedding API"| ExtLLM
     SearchAdapter --> OS
     StorageAdapter --> ObjStore
@@ -440,15 +438,6 @@ graph TB
 - 统一全文与向量能力；
 - 更适合知识检索主场景。
 
-### 6.2.3 对象存储
-- **S3 兼容对象存储 / MinIO（开发环境）**
-
-用于：
-- 原始内容文件
-- 渲染代码包与预览快照
-- 结构图导出文件
-- 异步生成中间产物
-
 ## 6.3 LLM 与 AI 侧选型
 
 ### 6.3.1 主推理模型
@@ -460,13 +449,13 @@ graph TB
 - 物理 / 3D 场景代码生成
 - 生物关系抽取
 
-### 6.3.2 备选模型
-- **`gemini3`**
+### 6.3.2 模型链路
+- 通过 `llm.models[]` 按声明顺序配置一个或多个 OpenAI-compatible 模型。
 
 用途：
-- 主模型超时或失败时回退；
-- 成本兜底；
-- 灰度对照。
+- 统一通过 `/chat/completions` 协议调用模型网关；
+- 单模型内部按 `max_retries` 做同模型重试；
+- 多模型场景按 `models[]` 声明顺序串行尝试，配置语义单一且只由列表顺序决定。
 
 ### 6.3.3 Embedding 模型
 - **推荐方案**：OpenAI `text-embedding-3-large`（1536/3072 维）
@@ -576,7 +565,6 @@ snowy/
       llm/
       embedding/
       search/
-      storage/
 
     store/                     # DB / Redis 等底层访问
       mysql/
@@ -619,8 +607,7 @@ snowy/
 ```
 
 ## 7.3 结构说明
-- `cmd/api`：API 服务启动入口
-- `cmd/worker`：异步任务 worker 启动入口
+- `cmd/snowy`：默认单体服务启动入口（API + embedded worker）
 - `internal/agent`：Agent 编排逻辑核心
 - `internal/search`：检索业务实现
 - `internal/modeling/physics`：物理 / 3D 场景代码生成与渲染协议实现
@@ -786,27 +773,27 @@ flowchart TD
 
     subgraph SearchBranch ["知识检索链路"]
         S1["SearchTool<br/>多路召回"] --> S2["构造 RAG Prompt"]
-        S2 --> S3["调用主模型 gpt5"]
+        S2 --> S3["调用 models[] 顺序链路"]
         S3 --> S4{"结构化输出校验"}
         S4 -->|通过| S5["CitationTool<br/>引用拼装"]
-        S4 -->|失败| S6["Fallback gemini3"] --> S5
+        S4 -->|失败| S6["顺序链路重试"] --> S5
     end
 
     subgraph PhysicsBranch ["物理 / 3D 场景链路"]
         P1["PhysicsAnalyzeTool<br/>条件抽取 / 场景识别"] --> P2["构造前端代码生成 Prompt"]
-        P2 --> P3["调用主模型 gpt5"]
+        P2 --> P3["调用 models[] 顺序链路"]
         P3 --> P4{"代码安全 & 结构校验"}
         P4 -->|通过| P5["Render Manifest +<br/>浏览器渲染代码"]
-        P4 -->|失败| P6["Fallback gemini3"] --> P5
+        P4 -->|失败| P6["顺序链路重试"] --> P5
     end
 
     subgraph BiologyBranch ["生物建模链路"]
         B1["BiologyAnalyzeTool<br/>主题 & 概念识别"] --> B2["SearchTool<br/>知识片段召回"]
         B2 --> B3["构造生物过程 Prompt"]
-        B3 --> B4["调用主模型 gpt5"]
+        B3 --> B4["调用 models[] 顺序链路"]
         B4 --> B5{"Schema &<br/>关系规则校验"}
         B5 -->|通过| B6["结构图 / 流程图<br/>协议生成"]
-        B5 -->|失败| B7["Fallback gemini3<br/>或模板化结果"] --> B6
+        B5 -->|失败| B7["顺序链路重试<br/>或模板化结果"] --> B6
     end
 
     S5 --> Assemble
@@ -894,7 +881,7 @@ graph LR
         BioModel --> Validate
 
         Validate -->|"pass"| Assemble["AssembleNode<br/>(结果组装)"]
-        Validate -->|"fail"| Fallback["FallbackNode<br/>(备选模型重试)"]
+        Validate -->|"fail"| Fallback["FallbackNode<br/>(低可信降级)"]
         Fallback --> Validate
 
         Assemble --> Policy2["PostPolicyNode<br/>(后置内容安全)"]
@@ -924,7 +911,7 @@ graph LR
 | `RAGNode` | `eino/model` + `eino/retriever` | 直接使用 |
 | `RenderCodeNode` | `eino/model` + 自定义代码校验器 | 半自研 |
 | `ValidateNode` | 自定义 Lambda | 业务自研 |
-| `FallbackNode` | `eino/model` + 自定义路由 | 半自研 |
+| `FallbackNode` | 自定义降级节点 | 业务自研 |
 | `AssembleNode` | 自定义 Lambda | 业务自研 |
 | `OutputNode` | 自定义 Lambda（桥接 Gin SSE） | 业务自研 |
 
@@ -939,8 +926,8 @@ graph LR
 4. Search Service 执行全文、向量、标签、题库多路召回；
 5. Search Service 返回候选结果与引用片段；
 6. Agent 构造 RAG prompt；
-7. 优先调用 `gpt5` 生成结构化答案；
-8. 若主模型失败或质量不足，切换 `gemini3`；
+7. 调用 `llm.models[]` 声明顺序链路生成结构化答案；
+8. 若模型链路失败或质量不足，进入低可信降级；
 9. 返回 `answer + citations + knowledge_tags + related_questions + confidence`。
 
 ## 11.2 物理 / 3D 场景建模链路
@@ -962,7 +949,7 @@ graph LR
 6. 模型输出概念、关系、过程阶段与实验变量；
 7. Biology Modeling Service 做 schema 校验、关系规则校验；
 8. 输出结构图/流程图协议；
-9. 若关系冲突或结构异常，则回退到备选模型或模板化结果。
+9. 若关系冲突或结构异常，则按模型链路重试；仍失败时回退到模板化结果。
 
 ## 11.4 检索跳转建模链路
 1. 用户在知识检索结果页点击“进入物理建模”或“进入生物建模”；
@@ -1062,13 +1049,13 @@ graph LR
 触发条件：
 - 引用不足；
 - 召回分数过低；
-- 主模型超时；
+- 模型链路超时；
 - 输出结构不合法；
 - 领域规则校验失败。
 
 回退动作：
 1. 降级为检索结果直出 + 最小摘要；
-2. `gpt5 -> gemini3`；
+2. 按 `llm.models[]` 声明顺序尝试可用模型；
 3. 附加“可信度不足”提示；
 4. 记录审计日志和回退原因。
 
@@ -1077,17 +1064,15 @@ graph LR
 ## 14. 模型路由策略
 
 ## 14.1 当前策略
-- 主推理模型：`gpt5`
-- 备选模型：`gemini3`
+- 统一配置入口：`llm.models[]`
+- 调用协议：OpenAI-compatible Chat Completions
+- 调用顺序：严格等于 `models[]` 声明顺序
 
 ## 14.2 路由规则
-1. 默认优先走 `gpt5`；
-2. 以下情况切换 `gemini3`：
-   - 调用失败；
-   - 超时；
-   - 输出结构校验失败；
-   - 预算阈值超限；
-3. 高风险场景必须做领域校验：
+1. 按 `llm.models[]` 声明顺序构造模型链路；
+2. 单模型调用失败、超时或可重试错误时，先按该模型的 `max_retries` 重试；
+3. 当前模型不可用时继续尝试链路中的下一个模型，不引入额外配置入口或 provider 专用实现；
+4. 高风险场景必须做领域校验：
    - 物理 / 3D 场景代码生成；
    - 生物关系抽取；
    - 实验变量识别。
@@ -1100,17 +1085,14 @@ graph LR
 
 ## 14.4 路由伪代码
 ```text
-if task_type in [search_answer, physics_rendering, biology_modeling]:
-    try gpt5
+for model in llm.models in declaration_order:
+    try openai_compatible_chat_completions(model)
     validate schema
     validate citations
     validate domain rules
     if pass:
         return result
-    else:
-        fallback gemini3
-else:
-    route by config
+return low_confidence_fallback_or_template_result
 ```
 
 ---
@@ -1188,7 +1170,7 @@ else:
 ## 15.5 参数调节与再生成
 - 参数变化优先走浏览器本地 props 更新，不必每次重新请求 LLM；
 - 当用户切换场景类型、交互结构或依赖集合时，才触发代码再生成；
-- 首次生成失败时回退到备选模型或静态解释 + 参数卡片；
+- 首次生成失败时按模型链路继续尝试；仍失败时回退到静态解释 + 参数卡片；
 - 对 3D 场景，优先约束为轻量 WebGL / Three.js 模板，不引入通用建模编辑器能力。
 
 ## 16. 生物建模设计
@@ -1599,8 +1581,8 @@ data: {"confidence": 0.92, "token_usage": {"input": 1200, "output": 800}, "previ
 - 错误与异常情况自动记录
 
 ## 20.3 告警规则
-- `gpt5` 连续失败率超阈值
-- `gemini3` 回退率异常升高
+- 配置模型连续失败率超阈值
+- 模型链路整体失败率异常升高
 - Agent 结构化输出校验失败率升高
 - 生物关系抽取失败率升高
 - 检索引用覆盖率下降
@@ -1621,7 +1603,7 @@ Snowy 首发阶段推荐采用：
 - **Redis + Asynq 作为缓存与异步任务机制**
 - **OpenSearch 作为统一检索引擎**
 - **Browser Sandbox Runtime（iframe + postMessage）作为前端代码渲染容器**
-- **`gpt5` 主推理、`gemini3` 备选**
+- **`llm.models[]` 声明顺序模型链路，统一 OpenAI-compatible 调用协议**
 - **OpenAI `text-embedding-3-large` 作为首选 Embedding 模型**
 - **JWT 鉴权 + Redis 滑动窗口限流**
 - **SSE 流式输出 + 统一错误码体系**

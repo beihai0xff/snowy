@@ -1,3 +1,4 @@
+//revive:disable:var-naming
 package common
 
 // APIResponse 统一 API 响应结构，参考技术方案 §17.9。

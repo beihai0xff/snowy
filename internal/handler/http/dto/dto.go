@@ -72,16 +72,16 @@ type PhysicsSimulateReq struct {
 // RenderSceneSpec 前端渲染场景规格。
 type RenderSceneSpec struct {
 	SceneType    string             `binding:"required" json:"scene_type"`
-	Title        string             `json:"title,omitempty"`
-	Summary      string             `json:"summary,omitempty"`
-	RenderMode   string             `json:"render_mode,omitempty"`
-	DefaultProps map[string]float64 `json:"default_props,omitempty"`
+	Title        string             `                   json:"title,omitempty"`
+	Summary      string             `                   json:"summary,omitempty"`
+	RenderMode   string             `                   json:"render_mode,omitempty"`
+	DefaultProps map[string]float64 `                   json:"default_props,omitempty"`
 }
 
 // RenderGenerateReq 前端渲染代码生成请求 DTO。
 type RenderGenerateReq struct {
-	SceneSpec  RenderSceneSpec `binding:"required" json:"scene_spec"`
-	Context    string          `                   json:"context,omitempty"`
+	SceneSpec  RenderSceneSpec `binding:"required"                                 json:"scene_spec"`
+	Context    string          `                                                   json:"context,omitempty"`
 	RenderMode string          `binding:"omitempty,oneof=html_iframe react_iframe" json:"render_mode,omitempty"`
 }
 
@@ -93,13 +93,38 @@ type BiologyAnalyzeReq struct {
 	Context  string `                   json:"context,omitempty"`
 }
 
-// ── User ─────────────────────────────────────────────────
+// ── Auth / User ───────────────────────────────────────────
+
+type EmailRegisterReq struct {
+	Email    string `binding:"required,email" json:"email"`
+	Password string `binding:"required,min=8" json:"password"`
+	Nickname string `                         json:"nickname,omitempty"`
+}
+
+type EmailLoginReq struct {
+	Email    string `binding:"required,email" json:"email"`
+	Password string `binding:"required"       json:"password"`
+}
+
+type AuthResp struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	User         any    `json:"user"`
+}
 
 // FavoriteReq 收藏请求。
 type FavoriteReq struct {
-	TargetType string `binding:"required,oneof=search physics biology" json:"target_type"`
-	TargetID   string `binding:"required"                              json:"target_id"`
-	Title      string `binding:"required"                              json:"title"`
+	TargetType   string         `binding:"required,oneof=search answer evidence physics biology model_package render_code model_config" json:"target_type"`
+	TargetID     string         `binding:"required"                                                                                     json:"target_id"`
+	Title        string         `binding:"required"                                                                                     json:"title"`
+	MetadataJSON map[string]any `                                                                                                       json:"metadata_json,omitempty"`
+}
+
+type ReactionReq struct {
+	TargetType   string `binding:"required,oneof=search answer evidence physics biology model_package render_code" json:"target_type"`
+	TargetID     string `binding:"required"                                                                        json:"target_id"`
+	ReactionType string `binding:"required,oneof=like dislike"                                                     json:"reaction_type"`
+	Visibility   string `binding:"omitempty,oneof=public private"                                                  json:"visibility,omitempty"`
 }
 
 // RecommendationItem 首页推荐条目。
@@ -116,4 +141,32 @@ type RecommendationsResp struct {
 	HotTopics     []RecommendationItem `json:"hot_topics"`
 	PhysicsModels []RecommendationItem `json:"physics_models"`
 	BiologyTopics []RecommendationItem `json:"biology_topics"`
+}
+
+// ── Generative Modeling v4 ───────────────────────────────
+
+type EvidenceRefDTO struct {
+	DocID         string   `json:"doc_id"`
+	SourceType    string   `json:"source_type"`
+	Title         string   `json:"title,omitempty"`
+	Chapter       string   `json:"chapter,omitempty"`
+	Snippet       string   `json:"snippet"`
+	KnowledgeTags []string `json:"knowledge_tags,omitempty"`
+	Confidence    float64  `json:"confidence"`
+}
+
+type ModelingCompileContextReq struct {
+	Citations     []EvidenceRefDTO `json:"citations,omitempty"`
+	KnowledgeTags []string         `json:"knowledge_tags,omitempty"`
+	SourcePage    string           `json:"source_page,omitempty"`
+	UserNotes     string           `json:"user_notes,omitempty"`
+}
+
+type ModelingCompileReq struct {
+	SessionID  string                    `json:"session_id,omitempty"`
+	Message    string                    `json:"message"               binding:"required"`
+	Domain     string                    `json:"domain,omitempty"      binding:"omitempty,oneof=auto physics biology"`
+	GradeBand  string                    `json:"grade_band,omitempty"`
+	TargetMode string                    `json:"target_mode,omitempty" binding:"omitempty,oneof=interactive_model review explain"`
+	Context    ModelingCompileContextReq `json:"context,omitempty"`
 }

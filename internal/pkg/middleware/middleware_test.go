@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -96,7 +97,7 @@ func TestCORS_OptionsPreflight(t *testing.T) {
 
 // ── Auth Tests ───────────────────────────────────────────
 
-func TestAuth_AlwaysSetsDefaultUser(t *testing.T) {
+func TestAuth_NoTokenSetsDefaultAnonymousUser(t *testing.T) {
 	r := gin.New()
 	r.Use(RequestID())
 	r.Use(Auth(testAuthCfg))
@@ -106,7 +107,7 @@ func TestAuth_AlwaysSetsDefaultUser(t *testing.T) {
 		anon, _ := c.Get("anonymous")
 		assert.Equal(t, common.DefaultUserID, uid)
 		assert.Equal(t, "student", role)
-		assert.False(t, anon.(bool))
+		assert.True(t, anon.(bool))
 		c.Status(200)
 	})
 
@@ -114,13 +115,44 @@ func TestAuth_AlwaysSetsDefaultUser(t *testing.T) {
 	assert.Equal(t, 200, w.Code)
 }
 
-func TestAuth_SetsDefaultUserEvenWithToken(t *testing.T) {
+func TestAuth_ValidTokenSetsAuthenticatedUser(t *testing.T) {
+	uid := "00000000-0000-0000-0000-000000000123"
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": uid,
+		"role":    "teacher",
+		"exp":     time.Now().Add(time.Hour).Unix(),
+	})
+	tokenText, err := token.SignedString([]byte(testAuthCfg.JWTSecret))
+	require.NoError(t, err)
+
+	r := gin.New()
+	r.Use(RequestID())
+	r.Use(Auth(testAuthCfg))
+	r.GET("/test", func(c *gin.Context) {
+		actualUID, _ := c.Get("user_id")
+		role, _ := c.Get("role")
+		anon, _ := c.Get("anonymous")
+		assert.Equal(t, uid, actualUID)
+		assert.Equal(t, "teacher", role)
+		assert.False(t, anon.(bool))
+		c.Status(200)
+	})
+
+	w := performRequest(r, "GET", "/test", map[string]string{
+		"Authorization": "Bearer " + tokenText,
+	})
+	assert.Equal(t, 200, w.Code)
+}
+
+func TestAuth_InvalidTokenFallsBackAnonymous(t *testing.T) {
 	r := gin.New()
 	r.Use(RequestID())
 	r.Use(Auth(testAuthCfg))
 	r.GET("/test", func(c *gin.Context) {
 		uid, _ := c.Get("user_id")
+		anon, _ := c.Get("anonymous")
 		assert.Equal(t, common.DefaultUserID, uid)
+		assert.True(t, anon.(bool))
 		c.Status(200)
 	})
 
@@ -132,14 +164,15 @@ func TestAuth_SetsDefaultUserEvenWithToken(t *testing.T) {
 
 // ── RequireAuth Tests ────────────────────────────────────
 
-func TestRequireAuth_AlwaysPasses(t *testing.T) {
+func TestRequireAuth_RejectsAnonymous(t *testing.T) {
 	r := gin.New()
 	r.Use(RequestID())
+	r.Use(func(c *gin.Context) { c.Set("anonymous", true); c.Next() })
 	r.Use(RequireAuth())
 	r.GET("/test", func(c *gin.Context) { c.Status(200) })
 
 	w := performRequest(r, "GET", "/test", nil)
-	assert.Equal(t, 200, w.Code)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 // ── RateLimit Tests ──────────────────────────────────────
@@ -209,6 +242,50 @@ func TestRateLimit_LimiterError_FailOpen(t *testing.T) {
 	w := performRequest(r, "GET", "/test", nil)
 	// 限流器故障时放行
 	assert.Equal(t, 200, w.Code)
+}
+
+func TestRateLimit_ExemptsReadOnlyArchiveEndpoints(t *testing.T) {
+	called := false
+	limiter := &mockLimiter{
+		allowFn: func(_ context.Context, _ string, _ int, _ time.Duration) (bool, error) {
+			called = true
+			return false, nil
+		},
+	}
+	cfg := config.RateLimitConfig{AuthenticatedRPM: 1, AnonymousRPM: 1}
+
+	r := gin.New()
+	r.Use(RequestID())
+	r.Use(func(c *gin.Context) { c.Set("anonymous", true); c.Next() })
+	r.Use(RateLimit(limiter, cfg))
+	r.GET("/api/v1/answers", func(c *gin.Context) { c.Status(200) })
+
+	w := performRequest(r, "GET", "/api/v1/answers", nil)
+
+	assert.Equal(t, 200, w.Code)
+	assert.False(t, called)
+}
+
+func TestRateLimit_UsesSafeDefaultsWhenConfigIsZero(t *testing.T) {
+	var gotLimit int
+	limiter := &mockLimiter{
+		allowFn: func(_ context.Context, _ string, limit int, _ time.Duration) (bool, error) {
+			gotLimit = limit
+			return true, nil
+		},
+	}
+	cfg := config.RateLimitConfig{}
+
+	r := gin.New()
+	r.Use(RequestID())
+	r.Use(func(c *gin.Context) { c.Set("anonymous", false); c.Set("user_id", "uid-1"); c.Next() })
+	r.Use(RateLimit(limiter, cfg))
+	r.POST("/api/v1/search/query", func(c *gin.Context) { c.Status(200) })
+
+	w := performRequest(r, "POST", "/api/v1/search/query", nil)
+
+	assert.Equal(t, 200, w.Code)
+	assert.Equal(t, defaultAuthenticatedRPM, gotLimit)
 }
 
 // ── Recovery Tests ───────────────────────────────────────

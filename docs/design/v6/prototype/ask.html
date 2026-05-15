@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Snowy · 提问</title>
+  <link rel="stylesheet" href="../tokens.css" />
+  <link rel="stylesheet" href="../components.css" />
+  <script defer src="./shell.js"></script>
+  <style>
+    /* —— 提问页专属 —— */
+    .ask-search-bar {
+      position: sticky;
+      top: var(--header-height);
+      z-index: var(--z-sticky);
+      background: var(--color-bg);
+      padding: var(--space-4) 0;
+      margin-bottom: var(--space-6);
+      border-bottom: 1px solid var(--color-divider);
+    }
+    .ask-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: var(--space-8);
+      align-items: start;
+    }
+    .ask-main { min-width: 0; }
+    .ask-aside { position: sticky; top: 140px; }
+
+    @media (max-width: 1080px) {
+      .ask-layout { grid-template-columns: 1fr; }
+      .ask-aside { position: static; }
+    }
+    .app--mobile-preview .ask-layout { grid-template-columns: 1fr; }
+    .app--mobile-preview .ask-aside { position: static; }
+
+    /* 论文式答案 */
+    .answer {
+      font-size: var(--text-base);
+      line-height: var(--leading-relaxed);
+      color: var(--color-text);
+    }
+    .answer h3 {
+      margin: var(--space-6) 0 var(--space-3);
+      font-size: var(--text-lg);
+      font-weight: var(--weight-semibold);
+    }
+    .answer p { margin-bottom: var(--space-3); }
+    .answer .cite {
+      display: inline-block;
+      padding: 0 4px;
+      margin: 0 2px;
+      border-radius: var(--radius-xs);
+      background: var(--color-primary-soft);
+      color: var(--color-primary);
+      font-size: 11px;
+      font-weight: var(--weight-semibold);
+      vertical-align: super;
+      line-height: 1;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .answer .cite:hover { background: var(--color-primary); color: #fff; text-decoration: none; }
+    .answer .evidence-mark {
+      background: var(--color-evidence-bg);
+      color: var(--color-evidence-text);
+      padding: 1px 4px;
+      border-radius: 2px;
+      font-weight: var(--weight-medium);
+    }
+
+    /* 公式块 */
+    .formula {
+      display: block;
+      padding: var(--space-3) var(--space-4);
+      margin: var(--space-4) 0;
+      border-left: 3px solid var(--color-primary);
+      background: var(--color-bg-subtle);
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      font-family: var(--font-mono);
+      font-size: var(--text-base);
+      color: var(--color-text);
+    }
+    .formula .formula__label {
+      display: block;
+      font-family: var(--font-sans);
+      font-size: var(--text-xs);
+      color: var(--color-text-muted);
+      margin-bottom: var(--space-1);
+    }
+
+    /* 引用列表 */
+    .citations-list { display: flex; flex-direction: column; gap: var(--space-3); }
+    .citation {
+      display: grid;
+      grid-template-columns: 32px 1fr auto;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg-card);
+      cursor: pointer;
+      transition: border-color var(--transition-fast);
+    }
+    .citation:hover { border-color: var(--color-primary); }
+    .citation__num {
+      display: grid; place-items: center;
+      width: 26px; height: 26px;
+      border-radius: var(--radius-full);
+      background: var(--color-primary-soft);
+      color: var(--color-primary);
+      font-size: var(--text-xs);
+      font-weight: var(--weight-semibold);
+    }
+    .citation__snippet {
+      font-size: var(--text-sm);
+      color: var(--color-text);
+      line-height: var(--leading-relaxed);
+      margin-bottom: var(--space-1);
+    }
+    .citation__meta { color: var(--color-text-subtle); font-size: var(--text-xs); }
+    .citation__score {
+      color: var(--color-success);
+      font-size: var(--text-xs);
+      font-weight: var(--weight-medium);
+      white-space: nowrap;
+    }
+
+    /* 关联问题 */
+    .related-item {
+      padding: var(--space-3);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: background var(--transition-fast);
+      font-size: var(--text-sm);
+      color: var(--color-text);
+      line-height: var(--leading-snug);
+    }
+    .related-item:hover { background: var(--color-bg-hover); }
+    .related-item + .related-item { border-top: 1px solid var(--color-divider); border-radius: 0; }
+
+    /* 顶部置信度条 */
+    .confidence-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      background: var(--color-success-soft);
+      border: 1px solid var(--color-success);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-4);
+    }
+    .confidence-bar__icon { color: var(--color-success); font-size: 18px; }
+    .confidence-bar__text {
+      flex: 1;
+      font-size: var(--text-sm);
+      color: var(--color-text);
+    }
+    .confidence-bar__text strong { color: var(--color-success); }
+
+    /* 题型映射卡 */
+    .question-type {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      padding: var(--space-3) 0;
+      border-bottom: 1px solid var(--color-divider);
+    }
+    .question-type:last-child { border-bottom: 0; }
+    .question-type__tag { flex-shrink: 0; }
+    .question-type__title {
+      font-size: var(--text-sm);
+      font-weight: var(--weight-medium);
+      margin-bottom: 2px;
+    }
+    .question-type__desc {
+      color: var(--color-text-muted);
+      font-size: var(--text-sm);
+      line-height: var(--leading-relaxed);
+    }
+
+    /* 操作工具栏 */
+    .answer-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+      padding: var(--space-3) 0;
+      border-top: 1px solid var(--color-divider);
+      margin-top: var(--space-6);
+    }
+    .answer-toolbar__left { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+    .answer-toolbar__right { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+  </style>
+</head>
+<body data-page="ask">
+  <div class="app">
+    <header class="app-header">
+      <a href="./home.html" class="brand"><span class="brand__mark">❄</span><span>Snowy</span></a>
+      <nav class="nav">
+        <a class="nav__link" data-page="home"     href="./home.html">首页</a>
+        <a class="nav__link" data-page="ask"      href="./ask.html">提问</a>
+        <a class="nav__link" data-page="modeling" href="./modeling.html">推演</a>
+        <a class="nav__link" data-page="learning" href="./learning.html">我的学习</a>
+      </nav>
+      <div class="row row--sm middle">
+        <button class="btn btn--ghost btn--sm" data-theme-toggle>☾ 深色</button>
+        <button class="btn btn--outline btn--sm">登录</button>
+      </div>
+      <button class="nav-toggle" aria-label="菜单">☰</button>
+    </header>
+
+    <main class="app-main">
+
+      <!-- ─── 顶部 sticky 搜索条 ────────────────────────── -->
+      <div class="ask-search-bar">
+        <div class="search">
+          <span class="search__icon">🔍</span>
+          <input class="search__input" value="牛顿第二定律在斜面题中怎么用？" />
+          <button class="search__submit">检索</button>
+        </div>
+        <div class="row row--sm wrap mt-2">
+          <span class="text-sm text-muted">已用筛选：</span>
+          <span class="tag tag--physics">物理</span>
+          <span class="tag">高一</span>
+          <button class="btn btn--ghost btn--sm">＋ 更多筛选</button>
+          <span class="text-subtle text-xs" style="margin-left:auto;align-self:center;">检索 287 ms · 命中 24 条片段</span>
+        </div>
+      </div>
+
+      <!-- ─── 两栏布局 ───────────────────────────────────── -->
+      <div class="ask-layout">
+
+        <!-- ─── 主区：答案 ─── -->
+        <section class="ask-main">
+
+          <!-- 置信度条 -->
+          <div class="confidence-bar">
+            <span class="confidence-bar__icon">✓</span>
+            <span class="confidence-bar__text">
+              <strong>高可信</strong> · 答案基于 4 条课本 / 考纲引用与 1 条同类题库匹配，平均证据分 89%。
+            </span>
+            <span class="tag tag--success">92%</span>
+          </div>
+
+          <!-- 答案正文 -->
+          <article class="card">
+            <header class="row between wrap mb-4">
+              <h1 style="font-size:var(--text-2xl);">牛顿第二定律在斜面题中怎么用？</h1>
+              <span class="text-xs text-subtle">14:32 · 由 gpt-4o-mini 生成 · 已归档</span>
+            </header>
+
+            <div class="answer">
+              <h3>一句话答案</h3>
+              <p>
+                在斜面问题中，<span class="evidence-mark">沿斜面方向</span>列牛顿第二定律 <em>F<sub>合</sub> = ma</em>，
+                通常把重力分解为<span class="evidence-mark">沿斜面分量（mg sinθ）</span>与<span class="evidence-mark">垂直斜面分量（mg cosθ）</span>，
+                再分别处理摩擦力与支持力<a class="cite" href="#cite-1">[1]</a><a class="cite" href="#cite-2">[2]</a>。
+
+              </p>
+
+              <h3>关键步骤</h3>
+              <p>
+                <strong>第 1 步 · 选定坐标系。</strong>把 x 轴沿斜面（指向运动方向为正），y 轴垂直斜面。这样重力 mg 在 x 方向投影为
+                <code>mg·sinθ</code>，在 y 方向投影为 <code>mg·cosθ</code>，支持力 N 只在 y 方向<a class="cite" href="#cite-1">[1]</a>。
+              </p>
+              <p>
+                <strong>第 2 步 · 沿 y 方向求平衡。</strong>物体不脱离斜面 ⇒ y 方向加速度为 0：
+              </p>
+              <span class="formula"><span class="formula__label">y 方向 · 平衡</span>N − mg·cosθ = 0&nbsp;&nbsp;⇒&nbsp;&nbsp;N = mg·cosθ</span>
+              <p>
+                <strong>第 3 步 · 沿 x 方向列牛二。</strong>若有摩擦，<span class="evidence-mark">动摩擦力 f = μN = μmg·cosθ</span>，方向与运动方向相反<a class="cite" href="#cite-3">[3]</a>：
+              </p>
+              <span class="formula"><span class="formula__label">x 方向 · 牛顿第二定律</span>mg·sinθ − μmg·cosθ = ma&nbsp;&nbsp;⇒&nbsp;&nbsp;a = g(sinθ − μcosθ)</span>
+              <p>
+                若是无摩擦光滑斜面，μ = 0，得到经典结果 <code>a = g·sinθ</code><a class="cite" href="#cite-2">[2]</a>。
+              </p>
+
+              <h3>适用条件 / 易错点</h3>
+              <p>
+                ① 必须使用<strong>惯性参考系</strong>（地面通常视为惯性系），加速运动的斜面本身不是惯性系；
+                ② 物体不脱离斜面是隐含前提，若初速度过大可能导致脱离；
+                ③ 切忌把 sinθ 与 cosθ 写反——记忆口诀：<span class="evidence-mark">「斜面下滑取 sin，压斜面取 cos」</span><a class="cite" href="#cite-4">[4]</a>。
+              </p>
+
+              <h3>下一步推荐</h3>
+              <p>
+                想直观看到 θ、μ、m 改变时 a 怎么变？
+                <a href="./modeling.html"><strong>进入推演 →</strong></a> 跑一遍可调参数仿真。
+              </p>
+            </div>
+
+            <!-- 工具栏 -->
+            <div class="answer-toolbar">
+              <div class="answer-toolbar__left">
+                <span class="text-sm text-muted">这个答案有用吗？</span>
+                <button class="btn btn--ghost btn--sm">👍 24</button>
+                <button class="btn btn--ghost btn--sm">👎 1</button>
+              </div>
+              <div class="answer-toolbar__right">
+                <button class="btn btn--ghost btn--sm">📋 复制</button>
+                <button class="btn btn--ghost btn--sm">☆ 收藏</button>
+                <button class="btn btn--ghost btn--sm">↻ 继续追问</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- 引用列表 -->
+          <section class="mt-6">
+            <h2 class="mb-3" style="font-size:var(--text-lg);">参考来源</h2>
+            <div class="citations-list">
+              <a class="citation" id="cite-1" href="#">
+                <span class="citation__num">1</span>
+                <div>
+                  <div class="citation__snippet">"牛顿第二定律的数学表达式为 F 合 = ma，其中 F 合是物体所受合外力，方向与加速度方向相同……"</div>
+                  <div class="citation__meta"><span class="tag">课本</span> 人教版 · 物理必修第一册 · §4.3</div>
+                </div>
+                <span class="citation__score">94%</span>
+              </a>
+              <a class="citation" id="cite-2" href="#">
+                <span class="citation__num">2</span>
+                <div>
+                  <div class="citation__snippet">"对于光滑斜面上下滑的物体，加速度大小为 a = g·sinθ，与物体质量无关。"</div>
+                  <div class="citation__meta"><span class="tag">讲义</span> 高一物理 · 力与运动专题</div>
+                </div>
+                <span class="citation__score">91%</span>
+              </a>
+              <a class="citation" id="cite-3" href="#">
+                <span class="citation__num">3</span>
+                <div>
+                  <div class="citation__snippet">"滑动摩擦力 f = μN，方向沿接触面切线方向，与相对运动方向相反。"</div>
+                  <div class="citation__meta"><span class="tag">课本</span> 人教版 · 物理必修第一册 · §3.4</div>
+                </div>
+                <span class="citation__score">88%</span>
+              </a>
+              <a class="citation" id="cite-4" href="#">
+                <span class="citation__num">4</span>
+                <div>
+                  <div class="citation__snippet">"常见错误：将 mg·sinθ 与 mg·cosθ 角色互换；忽略物体是否脱离斜面这一前提。"</div>
+                  <div class="citation__meta"><span class="tag tag--warning">易错点</span> 教研组 · 高一周练 2024 春</div>
+                </div>
+                <span class="citation__score">83%</span>
+              </a>
+            </div>
+          </section>
+
+          <!-- 折叠：公式卡 / 易错点 / 题型映射 -->
+          <section class="mt-8">
+            <h2 class="mb-3" style="font-size:var(--text-lg);">深入</h2>
+            <div class="accordion">
+              <details class="accordion__item" open>
+                <summary class="accordion__summary">
+                  <span><span class="tag tag--primary">公式</span>&nbsp;&nbsp;牛顿第二定律 · 关联公式卡</span>
+                </summary>
+                <div class="accordion__content">
+                  <span class="formula"><span class="formula__label">主公式</span>F 合 = ma</span>
+                  <p><strong>变量：</strong>F 合（合外力 / N）· m（质量 / kg）· a（加速度 / m·s⁻²）</p>
+                  <p><strong>适用：</strong>惯性参考系；宏观低速；物体可视为质点。</p>
+                  <p><strong>边界：</strong>不适用于变质量系统（如火箭排气）；高速时需相对论修正。</p>
+                </div>
+              </details>
+              <details class="accordion__item">
+                <summary class="accordion__summary">
+                  <span><span class="tag tag--warning">易错</span>&nbsp;&nbsp;3 个常见误区</span>
+                </summary>
+                <div class="accordion__content">
+                  <ol style="padding-left:1.4em;">
+                    <li><strong>把 sinθ 与 cosθ 写反</strong>——记忆口诀：「斜面下滑取 sin，压斜面取 cos」。</li>
+                    <li><strong>把整体加速度 a 当作沿斜面分量 g·sinθ</strong>——有摩擦时还要减去 μg·cosθ。</li>
+                    <li><strong>忘记斜面本身是否加速</strong>——若斜面在运动，需引入参考系变换或用整体法。</li>
+                  </ol>
+                </div>
+              </details>
+              <details class="accordion__item">
+                <summary class="accordion__summary">
+                  <span><span class="tag">题型</span>&nbsp;&nbsp;高考 / 月考常见题型映射</span>
+                </summary>
+                <div class="accordion__content">
+                  <div class="question-type">
+                    <span class="question-type__tag"><span class="tag tag--physics">选择题</span></span>
+                    <div>
+                      <div class="question-type__title">已知 θ 与 μ，比较两物体加速度大小</div>
+                      <div class="question-type__desc">考点：a = g(sinθ − μcosθ) 的影响因素；常见陷阱：质量不同但加速度相同。</div>
+                    </div>
+                  </div>
+                  <div class="question-type">
+                    <span class="question-type__tag"><span class="tag tag--physics">计算题</span></span>
+                    <div>
+                      <div class="question-type__title">求滑下斜面所用时间与末速度</div>
+                      <div class="question-type__desc">先求 a，再用 v² = 2aL 或 L = ½at² 联立。</div>
+                    </div>
+                  </div>
+                  <div class="question-type">
+                    <span class="question-type__tag"><span class="tag tag--physics">实验题</span></span>
+                    <div>
+                      <div class="question-type__title">用斜面测动摩擦因数 μ</div>
+                      <div class="question-type__desc">控制变量：保持 θ 不变改 m；或保持 m 不变改 θ。</div>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </section>
+        </section>
+
+        <!-- ─── 辅区：下一步 + 相关 ─── -->
+        <aside class="ask-aside">
+          <div class="col col--lg">
+            <div class="card">
+              <div class="row between middle mb-3">
+                <span class="text-sm text-strong">下一步</span>
+                <span class="text-xs text-subtle">2 个推荐</span>
+              </div>
+              <a href="./modeling.html" class="btn btn--primary btn--block btn--lg mb-2">
+                ⚗︎&nbsp;&nbsp;用这个问题跑推演
+              </a>
+              <a href="./modeling.html" class="btn btn--outline btn--block">
+                📐&nbsp;&nbsp;查看斜面受力图
+              </a>
+              <div class="mt-3">
+                <span class="text-xs text-subtle">证据链完整度</span>
+                <div style="height:6px;background:var(--color-bg-subtle);border-radius:var(--radius-full);overflow:hidden;margin-top:6px;">
+                  <div style="width:92%;height:100%;background:var(--color-success);"></div>
+                </div>
+                <div class="row between mt-1">
+                  <span class="text-xs text-subtle">92%</span>
+                  <span class="text-xs text-success">高可信</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="text-sm text-strong mb-2">相关问题</div>
+              <div class="list">
+                <div class="related-item">为什么 g·sinθ 与质量无关？</div>
+                <div class="related-item">动摩擦因数 μ 怎么实验测？</div>
+                <div class="related-item">斜面 + 弹簧组合题如何分析？</div>
+                <div class="related-item">连接体（斜面 + 滑块）系统的整体法</div>
+                <div class="related-item">从斜面飞出后的抛体运动衔接</div>
+              </div>
+            </div>
+
+            <div class="card card--flat">
+              <div class="row middle mb-2">
+                <span style="font-size:18px;">💡</span>
+                <span class="text-sm text-strong">提问技巧</span>
+              </div>
+              <p class="text-sm text-muted" style="margin-bottom:0;">
+                条件越具体，答案越准。例如附上「质量 m = 2kg，θ = 30°，μ = 0.1」会让证据匹配更精确。
+              </p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <footer class="app-footer">
+      <div class="app-footer__inner">
+        <span>Snowy · 面向高中生的 AI 学习工具 · v6 设计原型</span>
+        <span class="text-subtle">2026</span>
+      </div>
+    </footer>
+
+    <button class="preview-toggle" data-preview-toggle>📱 移动预览</button>
+  </div>
+
+  <!--
+    Mock data sample:
+    POST /api/v1/search/query
+    Body: { "query": "牛顿第二定律在斜面题中怎么用？", "filters": { "subject": "physics", "grade": "high_school_1" } }
+    Resp: { "code": "ok", "data": {
+      "answer_id": "abc123", "answer": "... markdown ...",
+      "confidence": 0.92,
+      "citations": [{ "doc_id": "phy-1-43", "source_type": "textbook", "snippet": "...", "score": 0.94 }],
+      "knowledge_tags": ["牛顿第二定律", "斜面", "摩擦"],
+      "formula_cards": [...],
+      "misconceptions": [...],
+      "exam_mappings": [...],
+      "related_questions": [...],
+      "next_actions": [...]
+    }}
+  -->
+</body>
+</html>

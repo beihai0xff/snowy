@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Snowy · 我的学习</title>
+  <link rel="stylesheet" href="../tokens.css" />
+  <link rel="stylesheet" href="../components.css" />
+  <script defer src="./shell.js"></script>
+  <style>
+    /* —— 我的学习页专属 —— */
+
+    /* 用户卡 */
+    .user-card {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: var(--space-4);
+      align-items: center;
+      padding: var(--space-5) var(--space-6);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      margin-bottom: var(--space-4);
+    }
+    .avatar {
+      width: 56px; height: 56px;
+      border-radius: var(--radius-full);
+      background: linear-gradient(135deg, var(--color-primary), #1D4ED8);
+      color: #fff;
+      display: grid; place-items: center;
+      font-size: 22px;
+      font-weight: var(--weight-semibold);
+    }
+    .user-card__name { font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+    .user-card__sub { color: var(--color-text-muted); font-size: var(--text-sm); }
+
+    /* 统计卡 */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--space-3);
+      margin-bottom: var(--space-6);
+    }
+    .stat-card {
+      padding: var(--space-4) var(--space-5);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+    }
+    .stat-card__label {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      color: var(--color-text-muted);
+      font-size: var(--text-sm);
+      margin-bottom: var(--space-2);
+    }
+    .stat-card__value {
+      font-size: 28px;
+      font-weight: var(--weight-bold);
+      font-family: var(--font-display);
+      letter-spacing: -0.02em;
+      color: var(--color-text);
+      line-height: 1;
+    }
+    .stat-card__delta {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      color: var(--color-success);
+      font-size: var(--text-xs);
+      margin-left: var(--space-2);
+    }
+    .stat-card__delta--down { color: var(--color-danger); }
+
+    /* 列表表格 */
+    .learning-table {
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .learning-table .table thead th { background: var(--color-bg-subtle); border-bottom: 1px solid var(--color-border); }
+    .row-title {
+      display: flex; flex-direction: column; gap: 4px;
+      min-width: 0;
+    }
+    .row-title__main {
+      font-weight: var(--weight-medium);
+      color: var(--color-text);
+      font-size: var(--text-sm);
+      line-height: var(--leading-snug);
+    }
+    .row-title__sub {
+      color: var(--color-text-subtle);
+      font-size: var(--text-xs);
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .row-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+
+    /* 筛选条 */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      align-items: center;
+      padding: var(--space-3) var(--space-4);
+      background: var(--color-bg-subtle);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .filter-bar .input { height: 32px; max-width: 280px; }
+
+    /* 未登录引导 */
+    .auth-cta {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: var(--space-6);
+      align-items: center;
+      padding: var(--space-6);
+      background: linear-gradient(135deg, var(--color-primary-soft), var(--color-bg-card));
+      border: 1px solid var(--color-primary);
+      border-radius: var(--radius-lg);
+      margin-bottom: var(--space-6);
+    }
+    .auth-cta h2 { font-size: var(--text-xl); margin-bottom: var(--space-2); }
+    .auth-cta p { color: var(--color-text-muted); font-size: var(--text-sm); max-width: 480px; }
+    .auth-form { display: flex; gap: var(--space-2); margin-top: var(--space-3); }
+    .auth-form .input { max-width: 240px; }
+
+    @media (max-width: 720px) {
+      .user-card { grid-template-columns: 1fr; text-align: left; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .auth-cta { grid-template-columns: 1fr; }
+      .auth-form { flex-direction: column; }
+      .auth-form .input { max-width: none; }
+    }
+    .app--mobile-preview .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .app--mobile-preview .auth-cta { grid-template-columns: 1fr; }
+
+    /* 视图切换 */
+    [data-view] { display: none; }
+    [data-view].is-active { display: block; }
+  </style>
+</head>
+<body data-page="learning">
+  <div class="app">
+
+    <header class="app-header">
+      <a href="./home.html" class="brand"><span class="brand__mark">❄</span><span>Snowy</span></a>
+      <nav class="nav">
+        <a class="nav__link" data-page="home"     href="./home.html">首页</a>
+        <a class="nav__link" data-page="ask"      href="./ask.html">提问</a>
+        <a class="nav__link" data-page="modeling" href="./modeling.html">推演</a>
+        <a class="nav__link" data-page="learning" href="./learning.html">我的学习</a>
+      </nav>
+      <div class="row row--sm middle">
+        <button class="btn btn--ghost btn--sm" data-theme-toggle>☾ 深色</button>
+        <button class="btn btn--ghost btn--sm" onclick="toggleAuth()" id="auth-btn">切换：未登录</button>
+      </div>
+      <button class="nav-toggle" aria-label="菜单">☰</button>
+    </header>
+
+    <main class="app-main">
+
+      <h1 class="page-title">我的学习</h1>
+      <p class="page-subtitle">所有的提问、收藏、推演模型包都在这里。可按时间、学科、来源筛选。</p>
+
+      <!-- ─── 未登录态 ─────────────────────────────────── -->
+      <section data-view="logout" class="is-active">
+        <div class="auth-cta">
+          <div>
+            <h2>登录后保存你的学习记录</h2>
+            <p>访客模式下数据只保存在当前浏览器，换设备就丢。登录后，提问、收藏、模型包都会同步到你的账户。</p>
+            <form class="auth-form" onsubmit="event.preventDefault(); toggleAuth();">
+              <input class="input" type="email" placeholder="邮箱地址" required />
+              <input class="input" type="password" placeholder="密码" required />
+              <button class="btn btn--primary" type="submit">登录</button>
+              <button class="btn btn--outline" type="button">注册</button>
+            </form>
+            <p class="text-xs text-subtle" style="margin-top:var(--space-2);">忘记密码可通过邮箱重置</p>
+          </div>
+          <div class="col col--sm" style="text-align:right;">
+            <span style="font-size:48px;line-height:1;">📂</span>
+            <span class="text-xs text-subtle">访客本地缓存：3 条历史</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="empty">
+            <div class="empty__icon">📒</div>
+            <div class="empty__title">还没有任何学习记录</div>
+            <div class="empty__desc">先去问一个问题，或跑一次推演吧。</div>
+            <div class="row row--sm">
+              <a href="./ask.html" class="btn btn--primary">去提问</a>
+              <a href="./modeling.html" class="btn btn--outline">去推演</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 已登录态 ─────────────────────────────────── -->
+      <section data-view="login">
+
+        <!-- 用户卡 -->
+        <div class="user-card">
+          <div class="avatar">小</div>
+          <div>
+            <div class="user-card__name">小雪同学</div>
+            <div class="user-card__sub">snow@example.com · 高一 · 最近登录 14:32</div>
+          </div>
+          <div class="row row--sm">
+            <button class="btn btn--outline btn--sm">编辑资料</button>
+            <button class="btn btn--ghost btn--sm" onclick="toggleAuth()">退出</button>
+          </div>
+        </div>
+
+        <!-- 统计卡 -->
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="stat-card__label"><span>🔍</span><span>本周提问</span></div>
+            <div class="row middle">
+              <span class="stat-card__value">18</span>
+              <span class="stat-card__delta">↑ 6</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card__label"><span>⚗︎</span><span>推演模型包</span></div>
+            <div class="row middle">
+              <span class="stat-card__value">7</span>
+              <span class="stat-card__delta">↑ 2</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card__label"><span>☆</span><span>收藏</span></div>
+            <div class="row middle">
+              <span class="stat-card__value">23</span>
+              <span class="stat-card__delta">↑ 4</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card__label"><span>💡</span><span>覆盖知识点</span></div>
+            <div class="row middle">
+              <span class="stat-card__value">42</span>
+              <span class="stat-card__delta">↑ 12</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab -->
+        <div class="tabs">
+          <button class="tabs__tab tabs__tab--active" data-tab="recent" onclick="switchTab('recent')">
+            <span>最近</span>
+            <span class="tabs__count">18</span>
+          </button>
+          <button class="tabs__tab" data-tab="favorites" onclick="switchTab('favorites')">
+            <span>收藏</span>
+            <span class="tabs__count">23</span>
+          </button>
+          <button class="tabs__tab" data-tab="answers" onclick="switchTab('answers')">
+            <span>答案归档</span>
+            <span class="tabs__count">15</span>
+          </button>
+          <button class="tabs__tab" data-tab="packages" onclick="switchTab('packages')">
+            <span>模型包</span>
+            <span class="tabs__count">7</span>
+          </button>
+          <div style="margin-left:auto;" class="row row--sm middle">
+            <button class="btn btn--ghost btn--sm">↻ 刷新</button>
+            <button class="btn btn--ghost btn--sm">⤓ 导出</button>
+          </div>
+        </div>
+
+        <!-- ── 最近 ── -->
+        <div data-pane="recent" class="learning-table is-active" style="display:block;">
+          <div class="filter-bar">
+            <input class="input" placeholder="搜索关键词..." />
+            <select class="input" style="height:32px;width:auto;">
+              <option>全部类型</option>
+              <option>提问</option>
+              <option>推演 · 物理</option>
+              <option>推演 · 生物</option>
+              <option>收藏</option>
+            </select>
+            <select class="input" style="height:32px;width:auto;">
+              <option>最近 7 天</option>
+              <option>最近 30 天</option>
+              <option>全部</option>
+            </select>
+            <span class="text-xs text-subtle" style="margin-left:auto;">共 18 条</span>
+          </div>
+          <table class="table table--clickable">
+            <thead>
+              <tr>
+                <th style="width:40%">主题</th>
+                <th>类型</th>
+                <th>标签</th>
+                <th>反馈</th>
+                <th style="text-align:right;">时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">牛顿第二定律在斜面题中怎么用？</span>
+                    <span class="row-title__sub">答案：沿斜面方向列牛二，分解重力为 mg·sinθ 与 mg·cosθ…</span>
+                  </div>
+                </td>
+                <td><span class="tag tag--primary">提问</span></td>
+                <td><div class="row-tags"><span class="tag">力学</span><span class="tag">高一</span></div></td>
+                <td><span class="text-success">👍</span></td>
+                <td style="text-align:right;color:var(--color-text-subtle);">今天 14:32</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">平抛运动如何命中目标窗口？</span>
+                    <span class="row-title__sub">模型包 #pkg-7a2b · 校验通过 · 4 个参数</span>
+                  </div>
+                </td>
+                <td><span class="tag tag--physics">推演 · 物理</span></td>
+                <td><div class="row-tags"><span class="tag">抛体</span><span class="tag tag--success">可信度 92%</span></div></td>
+                <td>—</td>
+                <td style="text-align:right;color:var(--color-text-subtle);">昨天 19:08</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">光照强度如何影响有机物积累？</span>
+                    <span class="row-title__sub">关系图 · 光合作用 + 限制因素</span>
+                  </div>
+                </td>
+                <td><span class="tag tag--biology">推演 · 生物</span></td>
+                <td><div class="row-tags"><span class="tag">光合作用</span><span class="tag">限制因素</span></div></td>
+                <td><span class="text-success">👍</span></td>
+                <td style="text-align:right;color:var(--color-text-subtle);">5 月 12 日</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">弹簧振子周期为什么与振幅无关？</span>
+                    <span class="row-title__sub">答案：取决于 m 与 k；振幅不进入 T = 2π√(m/k)。</span>
+                  </div>
+                </td>
+                <td><span class="tag tag--primary">提问</span></td>
+                <td><div class="row-tags"><span class="tag">简谐运动</span><span class="tag">高二</span></div></td>
+                <td>—</td>
+                <td style="text-align:right;color:var(--color-text-subtle);">5 月 10 日</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">突触传递信号的方向性如何解释？</span>
+                    <span class="row-title__sub">关系图 · 神经递质单向释放 + 受体定位</span>
+                  </div>
+                </td>
+                <td><span class="tag tag--biology">推演 · 生物</span></td>
+                <td><div class="row-tags"><span class="tag">神经</span></div></td>
+                <td><span class="text-danger">👎</span></td>
+                <td style="text-align:right;color:var(--color-text-subtle);">5 月 8 日</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">遗传分离定律子代表现型比例推导</span>
+                    <span class="row-title__sub">已收藏 · 包含 3:1 与 1:2:1 两种表达</span>
+                  </div>
+                </td>
+                <td><span class="tag">收藏</span></td>
+                <td><div class="row-tags"><span class="tag">遗传</span><span class="tag">高三</span></div></td>
+                <td><span class="text-success">👍</span></td>
+                <td style="text-align:right;color:var(--color-text-subtle);">5 月 5 日</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">动量守恒定律与能量守恒怎么联立？</span>
+                    <span class="row-title__sub">碰撞专题 · 完全弹性 vs 完全非弹性</span>
+                  </div>
+                </td>
+                <td><span class="tag tag--primary">提问</span></td>
+                <td><div class="row-tags"><span class="tag">动量</span><span class="tag">能量</span></div></td>
+                <td>—</td>
+                <td style="text-align:right;color:var(--color-text-subtle);">5 月 4 日</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">酶活性受温度影响的实验变量设计</span>
+                    <span class="row-title__sub">自变量：温度 / 因变量：酶促反应速率 / 控制：底物浓度等</span>
+                  </div>
+                </td>
+                <td><span class="tag tag--biology">推演 · 生物</span></td>
+                <td><div class="row-tags"><span class="tag">实验变量</span></div></td>
+                <td><span class="text-success">👍</span></td>
+                <td style="text-align:right;color:var(--color-text-subtle);">5 月 2 日</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ── 收藏 ── -->
+        <div data-pane="favorites" class="learning-table" style="display:none;">
+          <table class="table table--clickable">
+            <thead>
+              <tr>
+                <th>标题</th>
+                <th>类型</th>
+                <th>标签</th>
+                <th style="text-align:right;">收藏于</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">☆ 遗传分离定律子代表现型比例推导</span>
+                    <span class="row-title__sub">已保存快照：含 3:1、1:2:1 两种表达式</span>
+                  </div>
+                </td>
+                <td><span class="tag">答案</span></td>
+                <td><div class="row-tags"><span class="tag">遗传</span></div></td>
+                <td style="text-align:right;color:var(--color-text-subtle);">5 月 5 日</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">☆ 平抛运动 · 命中目标窗口推演模型</span>
+                    <span class="row-title__sub">模型包 #pkg-7a2b · 4 参数可调</span>
+                  </div>
+                </td>
+                <td><span class="tag tag--physics">模型包</span></td>
+                <td><div class="row-tags"><span class="tag">抛体</span></div></td>
+                <td style="text-align:right;color:var(--color-text-subtle);">5 月 1 日</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">☆ 摩擦力 f = μN 的方向判定</span>
+                    <span class="row-title__sub">引用：人教版必修第一册 §3.4</span>
+                  </div>
+                </td>
+                <td><span class="tag tag--evidence">证据片段</span></td>
+                <td><div class="row-tags"><span class="tag">力学</span></div></td>
+                <td style="text-align:right;color:var(--color-text-subtle);">4 月 28 日</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ── 答案归档 ── -->
+        <div data-pane="answers" class="learning-table" style="display:none;">
+          <table class="table table--clickable">
+            <thead>
+              <tr>
+                <th>问题</th>
+                <th>可信度</th>
+                <th>引用</th>
+                <th>模型</th>
+                <th style="text-align:right;">时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">牛顿第二定律在斜面题中怎么用？</span>
+                    <span class="row-title__sub">沿斜面方向列牛二，分解重力为 mg·sinθ 与 mg·cosθ…</span>
+                  </div>
+                </td>
+                <td><span class="tag tag--success">92%</span></td>
+                <td>4</td>
+                <td class="text-mono text-sm">gpt-4o-mini</td>
+                <td style="text-align:right;color:var(--color-text-subtle);">今天 14:32</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">弹簧振子周期为什么与振幅无关？</span>
+                    <span class="row-title__sub">取决于 m 与 k；振幅不进入 T = 2π√(m/k)。</span>
+                  </div>
+                </td>
+                <td><span class="tag tag--success">88%</span></td>
+                <td>3</td>
+                <td class="text-mono text-sm">gpt-4o-mini</td>
+                <td style="text-align:right;color:var(--color-text-subtle);">5 月 10 日</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">突触传递信号的方向性如何解释？</span>
+                    <span class="row-title__sub">神经递质只能从突触前膜释放到突触后膜的受体…</span>
+                  </div>
+                </td>
+                <td><span class="tag tag--warning">62%</span></td>
+                <td>2</td>
+                <td class="text-mono text-sm">deepseek-chat</td>
+                <td style="text-align:right;color:var(--color-text-subtle);">5 月 8 日</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ── 模型包 ── -->
+        <div data-pane="packages" class="learning-table" style="display:none;">
+          <table class="table table--clickable">
+            <thead>
+              <tr>
+                <th>学习目标</th>
+                <th>学科</th>
+                <th>可信度</th>
+                <th>参数</th>
+                <th>状态</th>
+                <th style="text-align:right;">创建时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">平抛运动命中目标窗口</span>
+                    <span class="row-title__sub">#pkg-7a2b · 来源问题：平抛运动如何…</span>
+                  </div>
+                </td>
+                <td><span class="tag tag--physics">物理</span></td>
+                <td><span class="tag tag--success">92%</span></td>
+                <td>4</td>
+                <td><span class="dot dot--success"></span> 校验通过</td>
+                <td style="text-align:right;color:var(--color-text-subtle);">昨天 19:08</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">光合作用限制因素关系图</span>
+                    <span class="row-title__sub">#pkg-c1d3 · 来源问题：光照强度如何影响…</span>
+                  </div>
+                </td>
+                <td><span class="tag tag--biology">生物</span></td>
+                <td><span class="tag tag--success">88%</span></td>
+                <td>3</td>
+                <td><span class="dot dot--success"></span> 校验通过</td>
+                <td style="text-align:right;color:var(--color-text-subtle);">5 月 12 日</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="row-title">
+                    <span class="row-title__main">突触传递关系图</span>
+                    <span class="row-title__sub">#pkg-e5f1 · 用户反馈：信号方向不清晰</span>
+                  </div>
+                </td>
+                <td><span class="tag tag--biology">生物</span></td>
+                <td><span class="tag tag--warning">62%</span></td>
+                <td>2</td>
+                <td><span class="dot dot--warning"></span> 待再推理</td>
+                <td style="text-align:right;color:var(--color-text-subtle);">5 月 8 日</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <div class="app-footer__inner">
+        <span>Snowy · 我的学习 · v6 设计原型</span>
+        <span class="text-subtle">2026</span>
+      </div>
+    </footer>
+
+    <button class="preview-toggle" data-preview-toggle>📱 移动预览</button>
+  </div>
+
+  <script>
+    function toggleAuth() {
+      const login = document.querySelector('[data-view="login"]');
+      const logout = document.querySelector('[data-view="logout"]');
+      const btn = document.getElementById('auth-btn');
+      const isLogin = login.style.display === 'block' || login.classList.contains('is-active');
+      if (isLogin) {
+        login.style.display = 'none'; login.classList.remove('is-active');
+        logout.style.display = 'block'; logout.classList.add('is-active');
+        btn.textContent = '切换：未登录';
+      } else {
+        login.style.display = 'block'; login.classList.add('is-active');
+        logout.style.display = 'none'; logout.classList.remove('is-active');
+        btn.textContent = '切换：已登录';
+      }
+    }
+    function switchTab(name) {
+      document.querySelectorAll('[data-tab]').forEach((b) => {
+        b.classList.toggle('tabs__tab--active', b.dataset.tab === name);
+      });
+      document.querySelectorAll('[data-pane]').forEach((p) => {
+        p.style.display = p.dataset.pane === name ? 'block' : 'none';
+      });
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      // default: 显示未登录态（便于 review 看引导卡）
+      document.querySelector('[data-view="login"]').style.display = 'none';
+      document.querySelector('[data-view="logout"]').style.display = 'block';
+      // 切换按钮立即可见已登录态：用户点 nav 右侧"切换：未登录"按钮
+    });
+  </script>
+
+  <!--
+    Mock data sample:
+    GET /api/v1/history?limit=20
+    GET /api/v1/favorites
+    GET /api/v1/answers
+    GET /api/v1/modeling/packages
+  -->
+</body>
+</html>

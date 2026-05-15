@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Snowy v6 设计原型 · 索引</title>
+  <link rel="stylesheet" href="../tokens.css" />
+  <link rel="stylesheet" href="../components.css" />
+  <script defer src="./shell.js"></script>
+</head>
+<body data-page="prototype-index">
+  <div class="app">
+    <header class="app-header">
+      <a href="./index.html" class="brand">
+        <span class="brand__mark">❄</span>
+        <span>Snowy<span class="text-muted" style="font-weight:400;margin-left:6px;">v6 原型</span></span>
+      </a>
+      <div class="nav">
+        <a class="nav__link" href="./home.html">首页</a>
+        <a class="nav__link" href="./ask.html">提问</a>
+        <a class="nav__link" href="./modeling.html">推演</a>
+        <a class="nav__link" href="./learning.html">我的学习</a>
+      </div>
+      <button class="btn btn--ghost btn--sm" data-theme-toggle>☾ 深色</button>
+    </header>
+
+    <main class="app-main">
+      <span class="kicker">Prototype Index</span>
+      <h1 class="page-title">Snowy v6 设计原型集</h1>
+      <p class="page-subtitle">
+        本目录是 Snowy 前端 UI 重设计稿（v6 草案）的可交互静态原型。设计哲学：<strong>克制 · 现代 · 学习工具优先</strong>。
+        所有页面均为纯 HTML/CSS，使用浏览器直接打开即可预览。建议从「首页」开始 review。
+      </p>
+
+      <div class="grid-3 mb-8">
+        <a href="./home.html" class="card card--hover col" style="text-decoration:none;color:inherit;">
+          <span class="tag tag--primary">/</span>
+          <h3>首页</h3>
+          <p class="text-muted text-sm">大号搜索框 + 三大能力卡 + 最近学习 + 今日推荐。砍掉所有炫技装饰。</p>
+        </a>
+        <a href="./ask.html" class="card card--hover col" style="text-decoration:none;color:inherit;">
+          <span class="tag tag--primary">/ask</span>
+          <h3>提问页</h3>
+          <p class="text-muted text-sm">论文式答案排版 + 教辅黄高亮引用 + 手风琴折叠公式卡 / 易错点。</p>
+        </a>
+        <a href="./modeling.html" class="card card--hover col" style="text-decoration:none;color:inherit;">
+          <span class="tag tag--primary">/modeling</span>
+          <h3>可视化推演</h3>
+          <p class="text-muted text-sm">画布占 70% 主区，证据收到顶部折叠条，AI 教练在右栏。物理 / 生物两态。</p>
+        </a>
+        <a href="./learning.html" class="card card--hover col" style="text-decoration:none;color:inherit;">
+          <span class="tag tag--primary">/learning</span>
+          <h3>我的学习</h3>
+          <p class="text-muted text-sm">顶部统计卡 + 4 Tab + 表格化列表。含登录态与未登录态。</p>
+        </a>
+        <a href="./admin-llm.html" class="card card--hover col" style="text-decoration:none;color:inherit;">
+          <span class="tag">/admin/llm</span>
+          <h3>AI 调用监控</h3>
+          <p class="text-muted text-sm">从主导航移除。重新对齐全站浅色调，4 统计卡 + 3 Tab。</p>
+        </a>
+        <a href="./components.html" class="card card--hover col" style="text-decoration:none;color:inherit;">
+          <span class="tag">参考</span>
+          <h3>组件清单</h3>
+          <p class="text-muted text-sm">所有按钮 / 输入 / 标签 / 卡片 / 状态的完整样本，供实现阶段对照。</p>
+        </a>
+      </div>
+
+      <h2 class="mb-4">设计令牌速览</h2>
+      <div class="grid-3 mb-8">
+        <div class="card col">
+          <span class="kicker">色板</span>
+          <h3>语义色 + 学科色</h3>
+          <div class="row row--sm wrap mt-2">
+            <span class="tag tag--primary">主色 #2563EB</span>
+            <span class="tag tag--physics">物理 #0891B2</span>
+            <span class="tag tag--biology">生物 #16A34A</span>
+            <span class="tag tag--chemistry">化学 #D97706</span>
+            <span class="tag tag--math">数学 #9333EA</span>
+            <span class="tag tag--evidence">证据高亮 #FEF3C7</span>
+          </div>
+        </div>
+        <div class="card col">
+          <span class="kicker">字体</span>
+          <h3>PingFang SC + Inter</h3>
+          <p class="text-muted text-sm">中文不再用衬线，英文不再用 Baskerville。代码用 JetBrains Mono，公式保留 KaTeX。</p>
+        </div>
+        <div class="card col">
+          <span class="kicker">圆角 / 阴影</span>
+          <h3>4 / 8 / 12 / 16</h3>
+          <p class="text-muted text-sm">阴影单层 6%~10% 黑，告别 90px 大阴影。间距走 4 的倍数。</p>
+        </div>
+      </div>
+
+      <div class="alert alert--info mb-8">
+        <span class="alert__icon">ℹ︎</span>
+        <div class="alert__body">
+          <div class="alert__title">如何 review</div>
+          <div class="alert__desc">
+            1. 先看 <a href="./home.html">首页</a> 与 <a href="../README.md">README.md</a> 校准方向；
+            2. 每页右下角有「📱 移动预览」按钮，一键切到 414 宽视图，测响应式；
+            3. 顶栏右侧「☾ 深色」按钮切换深色主题，验证暗色对比度；
+            4. 反馈意见可以贴页面 + 区块名（如「首页 · 今日可以试试」），方便迭代。
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="app-footer">
+      <div class="app-footer__inner">
+        <span>Snowy v6 · 设计原型 · 仅 review 用途</span>
+        <span class="text-subtle">2026</span>
+      </div>
+    </footer>
+
+    <button class="preview-toggle" data-preview-toggle>📱 移动预览</button>
+  </div>
+</body>
+</html>

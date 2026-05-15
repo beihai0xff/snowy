@@ -5,621 +5,524 @@ import { useSearchParams } from 'next/navigation';
 import {
   Alert,
   Button,
-  Card,
-  Col,
+  Collapse,
   Empty,
   Input,
   List,
-  Progress,
-  Row,
   Segmented,
-  Slider,
   Space,
-  Spin,
-  Steps,
-  Table,
   Tag,
   Typography,
   message,
 } from 'antd';
 import {
+  BookOutlined,
   BranchesOutlined,
+  CheckCircleFilled,
+  CloseCircleFilled,
   ExperimentOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
+  RightOutlined,
   StarOutlined,
-  StopOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
-import {
-  agentChatStream,
-  api,
-  type AgentPhysicsPayload,
-  type BiologyModel,
-  type ChatReq,
-  type PhysicsModel,
-  type RenderArtifact,
-} from '@/lib/api';
-import BiologyDiagram from '@/components/biology/BiologyDiagram';
-import RenderPreviewSandbox from '@/components/common/RenderPreviewSandbox';
+import { api, type EvidenceRef, type GenerativeModelPackage, type VariableSpec } from '@/lib/api';
+import GenerativePhysicsCanvas from '@/components/generative/GenerativePhysicsCanvas';
+import GenerativeBiologyGraph from '@/components/generative/GenerativeBiologyGraph';
+import InteractionPlanPanel from '@/components/generative/InteractionPlanPanel';
+import ValidationReportPanel from '@/components/generative/ValidationReportPanel';
+import ReactionBar from '@/components/common/ReactionBar';
 
 const { Title, Paragraph, Text } = Typography;
 const { TextArea } = Input;
 
 type ModelingSubject = 'physics' | 'biology';
-type StreamStage = 'idle' | 'connecting' | 'thinking' | 'analyzing' | 'generating' | 'validating' | 'previewing' | 'done' | 'error' | 'aborted';
-type PreviewStatus = 'idle' | 'loading' | 'ready' | 'updated' | 'error' | 'timeout';
+type Stage = 'idle' | 'grounding' | 'reasoning' | 'validating' | 'rendering' | 'done' | 'error';
 
-const stageText: Record<StreamStage, string> = {
-  idle: '等待输入',
-  connecting: '连接 Agent',
-  thinking: 'Agent 思考中',
-  analyzing: '解析题目',
-  generating: '生成预览配置',
-  validating: '配置参数',
-  previewing: '挂载演示',
-  done: '完成',
-  error: '失败',
-  aborted: '已取消',
+const stageText: Record<Stage, string> = {
+  idle:        '等待输入',
+  grounding:   '检索证据',
+  reasoning:   'AI 推理',
+  validating:  '校验',
+  rendering:   '渲染',
+  done:        '完成',
+  error:       '失败',
 };
 
-const stagePercent: Record<StreamStage, number> = {
-  idle: 0,
-  connecting: 10,
-  thinking: 25,
-  analyzing: 40,
-  generating: 65,
-  validating: 78,
-  previewing: 90,
-  done: 100,
-  error: 100,
-  aborted: 100,
-};
+const stageOrder: Stage[] = ['grounding', 'reasoning', 'validating', 'rendering', 'done'];
 
 const subjectExamples: Record<ModelingSubject, string[]> = {
   physics: [
-    '质量2kg的物体受到6N水平力，展示 Rapier 3D 受力模型',
-    '卫星绕地球做轨道运动，展示天体运动 3D 模型',
-    '弹簧振子简谐运动，展示回复力和能量变化',
-    '两个小球弹性碰撞，展示动量和能量变化',
-    '生成一个3D空间中的抛体轨迹示意，初速度30m/s，角度35度',
+    '平抛运动如何影响水平位移？初速度 20m/s，高度 20m',
+    '牛顿第二定律在斜面题中怎么用？',
+    '弹簧振子简谐运动中周期和质量、劲度系数有什么关系？',
   ],
   biology: [
-    '光照强度对光合作用有机物积累的影响',
-    '细胞膜的结构如何决定选择透过性？',
-    '神经冲动在突触处如何传递？',
+    '光照强度如何影响有机物积累？',
+    '遗传分离定律如何推导子代表现型比例？',
+    '酶活性受温度影响的实验变量如何设计？',
   ],
 };
 
-const PLAYBACK_SPEED_PRESETS = [0.25, 0.5, 1, 1.5, 2, 4];
-const DEFAULT_PREVIEW_PROPS: Record<string, number> = { animation_speed: 1 };
-
-function clampPlaybackSpeed(value: number | undefined): number {
-  if (!Number.isFinite(value)) return 1;
-  return Math.min(4, Math.max(0.1, value || 1));
+function normalizeSubject(value: string | null): ModelingSubject {
+  return value === 'biology' ? 'biology' : 'physics';
 }
 
-function withDefaultAnimationSpeed(props: Record<string, number> = {}): Record<string, number> {
-  return { ...props, animation_speed: clampPlaybackSpeed(props.animation_speed ?? 1) };
+function initialValues(pkg: GenerativeModelPackage | null): Record<string, number> {
+  const vars: VariableSpec[] = pkg?.simulation_logic?.variables || pkg?.generative_model.variables || [];
+  return vars.reduce<Record<string, number>>((acc, variable) => {
+    acc[variable.name] = variable.default;
+    return acc;
+  }, {});
 }
 
-function PlaybackSpeedControl({
-  value,
-  disabled,
-  hint,
-  onChange,
-}: {
-  value: number;
-  disabled?: boolean;
-  hint?: string;
-  onChange: (value: number) => void;
-}) {
-  const speed = clampPlaybackSpeed(value);
-  return (
-    <Card size="small" title="播放速率" extra={<Tag color="blue">{speed.toFixed(2)}x</Tag>}>
-      <Space direction="vertical" style={{ width: '100%' }} size="small">
-        <Segmented
-          block
-          disabled={disabled}
-          value={PLAYBACK_SPEED_PRESETS.includes(speed) ? speed : 'custom'}
-          options={[
-            ...PLAYBACK_SPEED_PRESETS.map((item) => ({ label: `${item}x`, value: item })),
-            { label: '自定义', value: 'custom', disabled: true },
-          ]}
-          onChange={(next) => {
-            if (typeof next === 'number') onChange(next);
-          }}
-        />
-        <Slider
-          min={0.1}
-          max={4}
-          step={0.05}
-          disabled={disabled}
-          value={speed}
-          tooltip={{ formatter: (next) => `${(next ?? speed).toFixed(2)}x` }}
-          onChange={(next) => onChange(clampPlaybackSpeed(next))}
-        />
-        <Text type="secondary">{hint || '倍率会实时同步到当前动态演示；暂停/继续仍由预览区按钮控制。'}</Text>
-      </Space>
-    </Card>
-  );
-}
-
-function normalizeSubject(input: string | null): ModelingSubject {
-  return input === 'biology' ? 'biology' : 'physics';
-}
-
-function buildInitialProps(model: PhysicsModel): Record<string, number> {
-  const merged: Record<string, number> = { ...(model.scene_spec?.default_props || {}) };
-  model.parameters?.forEach((item) => {
-    if (merged[item.name] === undefined) merged[item.name] = item.default;
-  });
-  return withDefaultAnimationSpeed(merged);
+function stageStatus(current: Stage, target: Stage): 'pending' | 'active' | 'done' {
+  if (current === 'error') return target === stageOrder[stageOrder.length - 1] ? 'pending' : 'pending';
+  if (current === 'done') return 'done';
+  const idxCurrent = stageOrder.indexOf(current);
+  const idxTarget = stageOrder.indexOf(target);
+  if (idxTarget < idxCurrent) return 'done';
+  if (idxTarget === idxCurrent) return 'active';
+  return 'pending';
 }
 
 function ModelingPageInner() {
   const searchParams = useSearchParams();
-  const abortRef = useRef<AbortController | null>(null);
   const [subject, setSubject] = useState<ModelingSubject>(normalizeSubject(searchParams.get('type') || searchParams.get('subject')));
   const [question, setQuestion] = useState(searchParams.get('q') || '');
   const [context, setContext] = useState('');
-
-  const [physicsAnalysis, setPhysicsAnalysis] = useState<PhysicsModel | null>(null);
-  const [biologyResult, setBiologyResult] = useState<BiologyModel | null>(null);
-  const [artifact, setArtifact] = useState<RenderArtifact | null>(null);
-  const [previewProps, setPreviewProps] = useState<Record<string, number>>(DEFAULT_PREVIEW_PROPS);
-
+  const [pkg, setPkg] = useState<GenerativeModelPackage | null>(null);
+  const [values, setValues] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
-  const [stage, setStage] = useState<StreamStage>('idle');
-  const [previewStatus, setPreviewStatus] = useState<PreviewStatus>('idle');
+  const [stage, setStage] = useState<Stage>('idle');
   const [errorText, setErrorText] = useState<string | null>(null);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-  const [streamingText, setStreamingText] = useState('');
-  const [startedAt, setStartedAt] = useState<number | null>(null);
-  const [finishedAt, setFinishedAt] = useState<number | null>(null);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const loadedPackageRef = useRef<string | null>(null);
 
   const examples = subjectExamples[subject];
-  const hasResult = Boolean(physicsAnalysis || biologyResult || artifact);
-  const isPhysics = subject === 'physics';
-  const isPhysics3DArtifact = artifact?.scene_type?.startsWith('physics_') === true && artifact.scene_type.includes('3d');
-  const currentViewDimension = (previewProps.view_dimension ?? artifact?.render_manifest.initial_props?.view_dimension ?? 3) >= 2.5 ? '3d' : '2d';
+  const confidence = pkg?.validation_report?.confidence ?? pkg?.confidence ?? 0;
 
-  const elapsedText = useMemo(() => {
-    if (!startedAt) return '0.0s';
-    const end = finishedAt || Date.now();
-    return `${Math.max(0, (end - startedAt) / 1000).toFixed(1)}s`;
-  }, [finishedAt, startedAt]);
+  const evidenceTags = useMemo(() => {
+    const tags = new Set<string>();
+    pkg?.evidence_refs?.forEach((ref) => ref.knowledge_tags?.forEach((tag) => tags.add(tag)));
+    pkg?.learning_model?.knowledge_tags?.forEach((tag) => tags.add(tag));
+    return Array.from(tags).slice(0, 8);
+  }, [pkg]);
 
-  const resetResult = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setPhysicsAnalysis(null);
-    setBiologyResult(null);
-    setArtifact(null);
-    setPreviewProps(DEFAULT_PREVIEW_PROPS);
-    setPreviewStatus('idle');
+  const validationChecks = useMemo(() => {
+    const report = pkg?.validation_report;
+    if (!report) return [] as ReadonlyArray<readonly [string, boolean]>;
+    return [
+      ['Schema',   report.schema_valid] as const,
+      ['Evidence', report.evidence_valid] as const,
+      ['Domain',   report.domain_valid] as const,
+      ['Safety',   report.safety_valid] as const,
+    ];
+  }, [pkg]);
+
+  const handleCompile = useCallback(async (nextQuestion?: string, nextSubject?: ModelingSubject) => {
+    const text = (nextQuestion || question).trim();
+    const selectedSubject = nextSubject || subject;
+    if (!text) return;
+    setLoading(true);
     setErrorText(null);
-    setPreviewError(null);
-    setStreamingText('');
-    setStage('idle');
-    setStartedAt(null);
-    setFinishedAt(null);
-  }, []);
-
-  useEffect(() => () => abortRef.current?.abort(), []);
+    setPkg(null);
+    setValues({});
+    setStage('grounding');
+    try {
+      window.setTimeout(() => setStage((prev) => (prev === 'grounding' ? 'reasoning' : prev)), 200);
+      let compileGrounding: { citations: EvidenceRef[]; knowledge_tags: string[] } = { citations: [], knowledge_tags: [] };
+      try {
+        const searchRes = await api.searchQuery({ query: text, filters: { subject: selectedSubject, grade: 'high_school' } });
+        compileGrounding = {
+          citations: (searchRes.data?.citations || []).map((citation) => ({
+            doc_id:         citation.doc_id,
+            source_type:    citation.source_type,
+            snippet:        citation.snippet,
+            confidence:     citation.score,
+            knowledge_tags: searchRes.data?.knowledge_tags || [],
+          })),
+          knowledge_tags: searchRes.data?.knowledge_tags || [],
+        };
+      } catch {
+        compileGrounding = { citations: [], knowledge_tags: [] };
+      }
+      const res = await api.modelingCompile({
+        message: text,
+        domain: selectedSubject,
+        grade_band: 'high_school',
+        target_mode: 'interactive_model',
+        context: {
+          source_page: 'modeling-v6',
+          user_notes: context || undefined,
+          citations: compileGrounding.citations,
+          knowledge_tags: compileGrounding.knowledge_tags,
+        },
+      });
+      setStage('validating');
+      const data = res.data ?? null;
+      setPkg(data);
+      setValues(initialValues(data));
+      setStage('rendering');
+      window.setTimeout(() => setStage('done'), 150);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : '推演失败';
+      setErrorText(msg);
+      setStage('error');
+      message.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [context, question, subject]);
 
   useEffect(() => {
+    const packageID = searchParams.get('package_id');
+    if (packageID) {
+      if (loadedPackageRef.current === packageID) return;
+      loadedPackageRef.current = packageID;
+      setLoading(true);
+      setErrorText(null);
+      void api.getModelingPackage(packageID)
+        .then((res) => {
+          const data = res.data ?? null;
+          setPkg(data);
+          setValues(initialValues(data));
+          if (data?.question) setQuestion(data.question);
+          if (data?.domain === 'biology' || data?.domain === 'physics') setSubject(data.domain);
+          setStage(data ? 'done' : 'idle');
+        })
+        .catch((error) => {
+          const msg = error instanceof Error ? error.message : '模型包加载失败';
+          setErrorText(msg);
+          setStage('error');
+          message.error(msg);
+        })
+        .finally(() => setLoading(false));
+      return;
+    }
+
+    loadedPackageRef.current = null;
     const q = searchParams.get('q');
     const nextSubject = normalizeSubject(searchParams.get('type') || searchParams.get('subject'));
     setSubject(nextSubject);
     if (q) {
       setQuestion(q);
-      void handleAnalyze(q, nextSubject);
+      void handleCompile(q, nextSubject);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const handlePreviewStatusChange = useCallback((status: Exclude<PreviewStatus, 'idle'>, detail?: string) => {
-    setPreviewStatus(status);
-    setPreviewError(status === 'error' || status === 'timeout' ? detail || '预览运行失败' : null);
-    if (status === 'ready' || status === 'updated') {
-      setStage((prev) => (prev === 'previewing' || prev === 'generating' ? 'done' : prev));
-    }
-  }, []);
-
-  const handlePhysicsAnalyze = useCallback(async (text: string) => {
-    const controller = new AbortController();
-    abortRef.current = controller;
-    const payload: ChatReq = {
-      message: text,
-      mode: 'physics',
-      filters: context ? { subject: 'physics' } : undefined,
-    };
-
-    await agentChatStream(payload, (event) => {
-      if (event.event === 'thinking') {
-        setStage('thinking');
-        return;
-      }
-      if (event.event === 'heartbeat') {
-        const data = event.data as { tool?: string } | undefined;
-        if (data?.tool === 'PhysicsAnalyzeTool') setStage('analyzing');
-        else if (data?.tool === 'RenderCodeTool') setStage('generating');
-        return;
-      }
-      if (event.event === 'content') {
-        const data = event.data as { content?: string } | string;
-        const content = typeof data === 'string' ? data : data?.content || '';
-        if (content) setStreamingText(content);
-        return;
-      }
-      if (event.event === 'tool_call') {
-        const call = event.data as { tool?: string; status?: string };
-        if (call.tool === 'PhysicsAnalyzeTool') setStage(call.status === 'success' ? 'validating' : 'analyzing');
-        if (call.tool === 'RenderCodeTool') setStage(call.status === 'success' ? 'previewing' : 'generating');
-        return;
-      }
-      if (event.event === 'render_code') {
-        setArtifact(event.data as RenderArtifact);
-        setPreviewStatus('loading');
-        setStage('previewing');
-        return;
-      }
-      if (event.event === 'preview') {
-        const data = event.data as { status?: string; message?: string } | undefined;
-        if (data?.status === 'error') {
-          setPreviewStatus('error');
-          setPreviewError(data.message || '预览挂载失败');
-        } else if (data?.status === 'ready') {
-          setPreviewStatus('ready');
-        }
-        return;
-      }
-      if (event.event === 'done') {
-        const data = event.data as { structured_payload?: AgentPhysicsPayload; answer?: string };
-        const payloadData = data.structured_payload;
-        if (payloadData?.analysis) {
-          setPhysicsAnalysis(payloadData.analysis);
-          setPreviewProps(buildInitialProps(payloadData.analysis));
-        }
-        if (payloadData?.render_artifact) setArtifact(payloadData.render_artifact);
-        if (data.answer) setStreamingText(data.answer);
-        setStage('done');
-        setFinishedAt(Date.now());
-      }
-    }, {
-      signal: controller.signal,
-      onOpen: () => setStage('thinking'),
-      onError: (error) => {
-        if (error.name !== 'AbortError') {
-          setStage('error');
-          setErrorText(error.message);
-        }
-      },
-    });
-  }, [context]);
-
-  const handleBiologyAnalyze = useCallback(async (text: string) => {
-    setStage('analyzing');
-    const res = await api.biologyAnalyze({ question: text, context: context || undefined });
-    const model = res.data ?? null;
-    setBiologyResult(model);
-    if (!model) return;
-    setPreviewProps(withDefaultAnimationSpeed(model.scene_spec?.default_props || {}));
-    setStreamingText(model.result_summary);
-    if (model.scene_spec) {
-      setStage('generating');
-      setPreviewStatus('loading');
-      try {
-        const renderRes = await api.renderGenerate({ scene_spec: model.scene_spec, render_mode: model.scene_spec.render_mode || 'html_iframe' });
-        setArtifact(renderRes.data ?? null);
-        setStage('previewing');
-      } catch (error) {
-        setPreviewError(error instanceof Error ? error.message : '生物动态演示生成失败');
-        setPreviewStatus('error');
-      }
-    }
-    setStage('done');
-    setFinishedAt(Date.now());
-  }, [context]);
-
-  const handleAnalyze = useCallback(async (nextQuestion?: string, nextSubject?: ModelingSubject) => {
-    const text = (nextQuestion || question).trim();
-    const selectedSubject = nextSubject || subject;
-    if (!text) return;
-
-    abortRef.current?.abort();
-    setLoading(true);
-    setStartedAt(Date.now());
-    setFinishedAt(null);
-    setStage('connecting');
-    setErrorText(null);
-    setPreviewError(null);
-    setPreviewStatus('idle');
-    setStreamingText('');
-    setPhysicsAnalysis(null);
-    setBiologyResult(null);
-    setArtifact(null);
-    setPreviewProps(DEFAULT_PREVIEW_PROPS);
-
-    try {
-      if (selectedSubject === 'physics') await handlePhysicsAnalyze(text);
-      else await handleBiologyAnalyze(text);
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') return;
-      const messageText = error instanceof Error ? error.message : '建模失败';
-      setStage('error');
-      setErrorText(messageText);
-      message.error(messageText);
-    } finally {
-      setLoading(false);
-      abortRef.current = null;
-    }
-  }, [question, subject, handlePhysicsAnalyze, handleBiologyAnalyze]);
-
-  const cancelAnalyze = () => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setLoading(false);
-    setStage('aborted');
-  };
-
   const handleFavorite = async () => {
     try {
-      await api.addFavorite({ target_type: subject, target_id: question, title: question });
-      message.success('收藏成功');
+      await api.addFavorite({
+        target_type: pkg?.package_id ? 'model_package' : subject,
+        target_id:   pkg?.package_id || question,
+        title:       pkg?.learning_model.learning_goal || question || 'Snowy 推演任务',
+        metadata_json: pkg ? {
+          package_id:     pkg.package_id,
+          domain:         pkg.domain,
+          question:       pkg.question,
+          learning_goal:  pkg.learning_model.learning_goal,
+          knowledge_tags: pkg.learning_model.knowledge_tags || [],
+          confidence:     pkg.confidence,
+          status:         pkg.status,
+          model_name:     pkg.model_name,
+        } : { subject, question },
+      });
+      message.success('已加入收藏');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '收藏失败');
     }
   };
 
-  const renderPhysicsSidePanel = () => {
-    if (!physicsAnalysis) return null;
-    return (
-      <Space direction="vertical" style={{ width: '100%' }} size="middle">
-        <PlaybackSpeedControl
-          value={previewProps.animation_speed ?? 1}
-          onChange={(value) => setPreviewProps((prev) => ({ ...prev, animation_speed: value }))}
-        />
-        <Card size="small" title="参数" extra={<Tag color="green">{physicsAnalysis.model_type}</Tag>}>
-          {physicsAnalysis.parameters && physicsAnalysis.parameters.length > 0 ? (
-            <Space direction="vertical" style={{ width: '100%' }}>
-              {isPhysics3DArtifact && (
-                <div>
-                  <Text type="secondary">视图模式</Text>
-                  <Segmented
-                    block
-                    value={currentViewDimension}
-                    options={[{ label: '3D', value: '3d' }, { label: '2D', value: '2d' }]}
-                    onChange={(value) => setPreviewProps((prev) => ({ ...prev, view_dimension: value === '3d' ? 3 : 2 }))}
-                    style={{ marginTop: 8 }}
-                  />
-                </div>
-              )}
-              {physicsAnalysis.parameters.map((parameter) => (
-                <div key={parameter.name}>
-                  <Text>{parameter.label} <Text type="secondary">{previewProps[parameter.name] ?? parameter.default} {parameter.unit}</Text></Text>
-                  <Slider
-                    min={parameter.min}
-                    max={parameter.max}
-                    step={parameter.step}
-                    value={previewProps[parameter.name] ?? parameter.default}
-                    onChange={(value) => setPreviewProps((prev) => ({ ...prev, [parameter.name]: value }))}
-                  />
-                </div>
-              ))}
-            </Space>
-          ) : (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无可调参数" />
-          )}
-        </Card>
-
-        <Card size="small" title="摘要">
-          <Paragraph style={{ marginBottom: 8 }}>{physicsAnalysis.scene_spec?.summary || physicsAnalysis.result_summary}</Paragraph>
-          {physicsAnalysis.conditions.length > 0 && (
-            <Table
-              size="small"
-              pagination={false}
-              dataSource={physicsAnalysis.conditions.map((item, index) => ({ ...item, key: index }))}
-              columns={[
-                { title: '量', dataIndex: 'name' },
-                { title: '值', dataIndex: 'value' },
-                { title: '单位', dataIndex: 'unit' },
-              ]}
-            />
-          )}
-        </Card>
-      </Space>
-    );
-  };
-
-  const renderBiologySidePanel = () => {
-    if (!biologyResult) return null;
-    return (
-      <Space direction="vertical" style={{ width: '100%' }} size="middle">
-        <PlaybackSpeedControl
-          value={previewProps.animation_speed ?? 1}
-          disabled={!artifact}
-          hint={artifact ? '倍率会通过 postMessage 同步到生物动态演示。' : '生成动态演示后生效；概念图谱不受播放速率影响。'}
-          onChange={(value) => setPreviewProps((prev) => ({ ...prev, animation_speed: value }))}
-        />
-        <Card size="small" title="摘要" extra={<Tag color="purple">{biologyResult.topic}</Tag>}>
-          <Paragraph>{biologyResult.result_summary}</Paragraph>
-          {biologyResult.concepts.length > 0 && (
-            <Space wrap>
-              {biologyResult.concepts.slice(0, 10).map((concept) => <Tag key={`${concept.type}-${concept.name}`}>{concept.name}</Tag>)}
-            </Space>
-          )}
-        </Card>
-        {biologyResult.process_steps.length > 0 && (
-          <Card size="small" title="过程">
-            <Steps
-              size="small"
-              direction="vertical"
-              current={biologyResult.process_steps.length}
-              items={biologyResult.process_steps.slice(0, 4).map((step) => ({
-                title: step.title,
-                description: <Text type="secondary">{step.content}</Text>,
-              }))}
-            />
-          </Card>
-        )}
-      </Space>
-    );
-  };
-
-  const renderMainResult = () => {
-    if (!hasResult) {
-      return (
-        <Empty
-          description={(
-            <Space direction="vertical" align="center">
-              <Text type="secondary">选择学科并输入问题，建模结果会优先在这里大屏展示。</Text>
-              <Space wrap>
-                {examples.slice(0, 2).map((example) => (
-                  <Button key={example} icon={<PlayCircleOutlined />} onClick={() => { setQuestion(example); void handleAnalyze(example); }}>
-                    试试：{example.slice(0, 16)}...
-                  </Button>
-                ))}
-              </Space>
-            </Space>
-          )}
-          style={{ padding: '80px 0' }}
-        />
-      );
-    }
-
-    if (artifact) {
-      return <RenderPreviewSandbox artifact={artifact} propsData={previewProps} onStatusChange={handlePreviewStatusChange} />;
-    }
-
-    if (biologyResult?.diagram) {
-      return <BiologyDiagram spec={biologyResult.diagram} />;
-    }
-
-    return <Empty description="当前结果没有动态预览，已在右侧展示结构化摘要。" />;
+  const handleRegenerate = async () => {
+    if (!question.trim()) return;
+    await handleCompile(question, subject);
   };
 
   return (
-    <div style={{ maxWidth: 1440, margin: '0 auto' }}>
-      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-        <Card styles={{ body: { padding: 16 } }}>
-          <Row gutter={[16, 12]} align="middle">
-            <Col xs={24} lg={6}>
-              <Title level={3} style={{ marginBottom: 4 }}>
-                {isPhysics ? <ExperimentOutlined /> : <BranchesOutlined />} 统一建模
-              </Title>
-              <Text type="secondary">物理与生物建模已合并，结果区域优先大屏展示。</Text>
-            </Col>
-            <Col xs={24} lg={18}>
-              <Space direction="vertical" style={{ width: '100%' }} size="small">
-                <Space wrap>
-                  <Segmented
-                    value={subject}
-                    options={[
-                      { label: '物理建模', value: 'physics', icon: <ExperimentOutlined /> },
-                      { label: '生物建模', value: 'biology', icon: <BranchesOutlined /> },
-                    ]}
-                    onChange={(value) => {
-                      const next = value as ModelingSubject;
-                      setSubject(next);
-                      resetResult();
-                    }}
-                  />
-                  <Tag color={stage === 'error' ? 'red' : stage === 'done' ? 'green' : loading ? 'blue' : 'default'}>阶段：{stageText[stage]}</Tag>
-                  <Tag color={previewStatus === 'error' ? 'red' : previewStatus === 'ready' || previewStatus === 'updated' ? 'green' : 'default'}>预览：{previewStatus}</Tag>
-                  <Tag>耗时：{elapsedText}</Tag>
-                </Space>
-                <TextArea
-                  placeholder={isPhysics ? '输入物理题目，如：质量2kg的物体受到6N水平力...' : '输入生物问题，如：光照强度对光合作用有机物积累的影响...'}
-                  rows={2}
-                  value={question}
-                  onChange={(event) => setQuestion(event.target.value)}
-                />
-                <TextArea
-                  placeholder="补充上下文（可选，默认收起为较少展示信息）"
-                  rows={1}
-                  value={context}
-                  onChange={(event) => setContext(event.target.value)}
-                />
-                <Space wrap>
-                  <Button type="primary" size="large" loading={loading} onClick={() => void handleAnalyze()}>
-                    开始建模
-                  </Button>
-                  <Button disabled={!loading} icon={<StopOutlined />} onClick={cancelAnalyze}>取消</Button>
-                  <Button disabled={!question.trim()} icon={<StarOutlined />} onClick={handleFavorite}>收藏</Button>
-                  {examples.map((example) => (
-                    <Button
-                      key={example}
-                      size="small"
-                      icon={<PlayCircleOutlined />}
-                      disabled={loading}
-                      onClick={() => { setQuestion(example); void handleAnalyze(example); }}
-                    >
-                      {example.slice(0, 14)}...
-                    </Button>
-                  ))}
-                </Space>
-                {loading && <Progress percent={stagePercent[stage]} showInfo={false} status="active" />}
-              </Space>
-            </Col>
-          </Row>
-        </Card>
+    <div className="snowy-page">
+      <div className="snowy-page-heading">
+        <h1>推演 · 看公式动起来 / 用图理流程</h1>
+        <p>把问题变成一个能调参数、看动画、对照证据的模型。</p>
+      </div>
 
-        {(errorText || previewError) && (
-          <Alert
-            type={errorText ? 'error' : 'warning'}
-            showIcon
-            message={errorText ? '建模失败' : '预览提示'}
-            description={errorText || previewError}
-            action={<Button size="small" icon={<ReloadOutlined />} onClick={() => void handleAnalyze()}>重试</Button>}
-          />
-        )}
+      {/* 工具栏 */}
+      <div className="snowy-modeling-toolbar">
+        <Segmented
+          value={subject}
+          onChange={(value) => {
+            const next = value as ModelingSubject;
+            setSubject(next);
+            setPkg(null);
+            setValues({});
+            setStage('idle');
+          }}
+          options={[
+            { label: <Space size={4}><ExperimentOutlined />物理</Space>, value: 'physics' },
+            { label: <Space size={4}><BranchesOutlined />生物</Space>,   value: 'biology' },
+          ]}
+        />
+        <Input
+          size="large"
+          placeholder={subject === 'physics' ? '输入物理题目，例如：平抛运动怎样命中目标区？' : '输入生物问题，例如：光合作用平台期怎么形成？'}
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          onPressEnter={() => void handleCompile()}
+          allowClear
+        />
+        <Button icon={<StarOutlined />} disabled={!question.trim() && !pkg} onClick={handleFavorite}>收藏</Button>
+        <Button type="primary" icon={<ThunderboltOutlined />} loading={loading} onClick={() => void handleCompile()}>
+          开始推演
+        </Button>
+      </div>
 
-        <Row gutter={[16, 16]} align="top">
-          <Col xs={24} xl={18}>
-            <Card
-              title={isPhysics ? '物理仿真 / 动态预览' : '生物动态演示 / 概念图谱'}
-              extra={artifact && <Tag color="green">{artifact.render_manifest.framework}</Tag>}
-              styles={{ body: { minHeight: 680 } }}
+      {/* 上下文输入（可选） */}
+      <TextArea
+        placeholder="补充上下文（可选）：实验条件、想观察的变量、希望挑战的目标区…"
+        value={context}
+        onChange={(event) => setContext(event.target.value)}
+        autoSize={{ minRows: 1, maxRows: 3 }}
+        style={{ marginBottom: 16 }}
+      />
+
+      {/* 阶段进度条 */}
+      {(loading || pkg) && (
+        <div className="snowy-stage-strip">
+          {stageOrder.map((item) => {
+            const status = stageStatus(stage, item);
+            return (
+              <div key={item} className={`snowy-stage-pill ${status === 'done' ? 'is-done' : status === 'active' ? 'is-active' : ''}`}>
+                <span className="snowy-stage-pill__dot" />
+                {stageText[item]}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 示例 chip（仅在未生成时显示） */}
+      {!pkg && !loading && (
+        <Space wrap size={6} style={{ marginBottom: 16 }}>
+          <Text type="secondary" style={{ fontSize: 13 }}>试试：</Text>
+          {examples.map((example) => (
+            <button
+              key={example}
+              type="button"
+              className="snowy-chip"
+              onClick={() => { setQuestion(example); void handleCompile(example); }}
             >
-              {loading && !artifact && !biologyResult ? (
-                <div style={{ minHeight: 560, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Spin size="large" tip={isPhysics ? '正在解析并初始化 Rapier 3D...' : '正在解析并生成动态演示...'} />
+              {example.length > 22 ? `${example.slice(0, 22)}…` : example}
+            </button>
+          ))}
+        </Space>
+      )}
+
+      {/* 错误 */}
+      {errorText && !loading && (
+        <Alert
+          type="error"
+          showIcon
+          message="推演失败"
+          description={errorText}
+          action={<Button size="small" icon={<ReloadOutlined />} onClick={handleRegenerate}>重试</Button>}
+          style={{ marginBottom: 16, borderRadius: 12 }}
+        />
+      )}
+      {pkg?.warnings && pkg.warnings.length > 0 && (
+        <Alert type="warning" showIcon message="生成提示" description={pkg.warnings.join('；')} style={{ marginBottom: 16, borderRadius: 12 }} />
+      )}
+
+      {/* 证据折叠条 */}
+      {pkg && (
+        <>
+          <div
+            className={`snowy-evidence-bar ${evidenceOpen ? 'is-open' : ''}`}
+            onClick={() => setEvidenceOpen((v) => !v)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(event) => { if (event.key === 'Enter') setEvidenceOpen((v) => !v); }}
+          >
+            <span className="snowy-evidence-bar__icon"><BookOutlined /></span>
+            <div className="snowy-evidence-bar__main">
+              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text)' }}>
+                基于 {pkg.evidence_refs?.length || 0} 条课本/考纲证据 · 置信度 {Math.round(confidence * 100)}%
+                {pkg.learning_model.knowledge_tags && pkg.learning_model.knowledge_tags.length > 0 && (
+                  <span style={{ color: 'var(--color-text-muted)', fontWeight: 400, marginLeft: 8 }}>
+                    · {pkg.learning_model.knowledge_tags.slice(0, 3).join('、')}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+                {evidenceOpen ? '点击收起' : '点击展开查看完整证据列表'}
+              </div>
+            </div>
+            <RightOutlined className="snowy-evidence-bar__caret" />
+          </div>
+          {evidenceOpen && (
+            <div className="snowy-evidence-detail">
+              <Space wrap style={{ marginBottom: 12 }}>
+                {evidenceTags.map((tag) => (
+                  <Tag key={tag} color="default" bordered={false} style={{ background: 'var(--color-primary-soft)', color: 'var(--color-primary)' }}>{tag}</Tag>
+                ))}
+              </Space>
+              <List
+                size="small"
+                dataSource={pkg.evidence_refs || []}
+                renderItem={(item, idx) => (
+                  <List.Item style={{ padding: '8px 0', borderBottom: '1px solid var(--color-divider)' }}>
+                    <Space align="start" size={8} style={{ width: '100%' }}>
+                      <span className="snowy-citation-num">{idx + 1}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <Tag bordered={false} style={{ background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)' }}>{item.source_type}</Tag>
+                        <Text type="secondary" style={{ fontSize: 13 }}>{item.snippet}</Text>
+                      </div>
+                      <Text type="success" style={{ fontSize: 12 }}>{Math.round((item.confidence || 0) * 100)}%</Text>
+                    </Space>
+                  </List.Item>
+                )}
+                locale={{ emptyText: '暂无证据片段' }}
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      {/* 两栏：画布 + 教练 */}
+      <div className="snowy-modeling-grid">
+        {/* 左：画布 */}
+        <div className="snowy-canvas">
+          <div className="snowy-canvas__head">
+            <div>
+              <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>
+                {pkg ? (pkg.learning_model.topic || '当前模型') : '模型画布'}
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>
+                {pkg?.learning_model.learning_goal || (subject === 'physics' ? '物理推演画布' : '生物图谱画布')}
+              </div>
+            </div>
+            <Space wrap size={6}>
+              {pkg && (
+                <>
+                  <Tag color={confidence >= 0.8 ? 'green' : confidence >= 0.55 ? 'orange' : 'red'} bordered={false}>
+                    可信 {Math.round(confidence * 100)}%
+                  </Tag>
+                  <ReactionBar targetType="model_package" targetID={pkg.package_id} size="small" showUsers={false} />
+                </>
+              )}
+            </Space>
+          </div>
+
+          {loading && !pkg && (
+            <div className="snowy-loading-card" style={{ minHeight: 420, border: 0 }}>
+              <span className="snowy-spinner" />
+              <span>正在编译模型包…</span>
+            </div>
+          )}
+
+          {!loading && !pkg && (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={(
+                <Space direction="vertical" align="center" size={12}>
+                  <Text type="secondary">输入问题后，Snowy 会先绑定证据，再生成结构化的可交互模型。</Text>
+                  <Space wrap size={6}>
+                    {examples.slice(0, 2).map((example) => (
+                      <Button key={example} icon={<PlayCircleOutlined />} onClick={() => { setQuestion(example); void handleCompile(example); }}>
+                        试试：{example.slice(0, 16)}…
+                      </Button>
+                    ))}
+                  </Space>
+                </Space>
+              )}
+              style={{ padding: '80px 0' }}
+            />
+          )}
+
+          {pkg && pkg.domain === 'biology'  && <GenerativeBiologyGraph spec={pkg.visualization_graph} />}
+          {pkg && pkg.domain !== 'biology'  && <GenerativePhysicsCanvas spec={pkg.simulation_logic} values={values} />}
+        </div>
+
+        {/* 右：AI 教练 */}
+        <aside className="snowy-coach">
+          {!pkg ? (
+            <div className="snowy-loading-card" style={{ padding: 24 }}>
+              <Text type="secondary" style={{ fontSize: 13 }}>右侧将显示 AI 教练讲解、参数滑块、校验灯与微练习。</Text>
+            </div>
+          ) : (
+            <>
+              <section style={{ padding: 16, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <Title level={4} style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>AI 教练</Title>
+                  <Button size="small" icon={<ReloadOutlined />} onClick={handleRegenerate}>再推</Button>
                 </div>
-              ) : renderMainResult()}
-            </Card>
-          </Col>
-          <Col xs={24} xl={6}>
-            {isPhysics ? renderPhysicsSidePanel() : renderBiologySidePanel()}
-            {streamingText && (
-              <Card size="small" title="讲解" style={{ marginTop: 16 }}>
-                <Paragraph style={{ marginBottom: 0 }}>{streamingText}</Paragraph>
-              </Card>
-            )}
-            {biologyResult?.diagram && artifact && (
-              <Card size="small" title="概念图谱" style={{ marginTop: 16 }}>
-                <BiologyDiagram spec={biologyResult.diagram} />
-              </Card>
-            )}
-            {physicsAnalysis?.steps && physicsAnalysis.steps.length > 0 && (
-              <Card size="small" title="推导步骤" style={{ marginTop: 16 }}>
-                <List
-                  size="small"
-                  dataSource={physicsAnalysis.steps.slice(0, 3)}
-                  renderItem={(step) => <List.Item><Text type="secondary">{step.title}</Text></List.Item>}
-                />
-              </Card>
-            )}
-          </Col>
-        </Row>
-      </Space>
+                <Paragraph style={{ marginBottom: 12, fontSize: 14, lineHeight: 1.7 }}>{pkg.reasoning_trace.summary}</Paragraph>
+                {(pkg.reasoning_trace.key_steps || []).slice(0, 6).map((step, idx) => (
+                  <div className="snowy-reasoning-step" key={idx}>
+                    <span className="snowy-reasoning-step__num">{idx + 1}</span>
+                    <span className="snowy-reasoning-step__text">{step}</span>
+                  </div>
+                ))}
+              </section>
+
+              {validationChecks.length > 0 && (
+                <section style={{ padding: 16, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12 }}>
+                  <Title level={4} style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>模型校验</Title>
+                  <div className="snowy-check-grid">
+                    {validationChecks.map(([label, ok]) => (
+                      <div key={label} className={`snowy-check-item ${ok ? '' : 'snowy-check-item--fail'}`}>
+                        {ok ? <CheckCircleFilled style={{ fontSize: 16 }} /> : <CloseCircleFilled style={{ fontSize: 16 }} />}
+                        <span>{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              <InteractionPlanPanel pkg={pkg} values={values} onChange={(name, value) => setValues((prev) => ({ ...prev, [name]: value }))} />
+
+              <Collapse
+                ghost
+                items={[
+                  {
+                    key: 'validation',
+                    label: '完整校验报告',
+                    children: <ValidationReportPanel report={pkg.validation_report} />,
+                  },
+                  ...(pkg.assessment_tasks && pkg.assessment_tasks.length > 0 ? [{
+                    key: 'practice',
+                    label: `微练习（${pkg.assessment_tasks.length}）`,
+                    children: (
+                      <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                        {pkg.assessment_tasks.slice(0, 3).map((task, idx) => (
+                          <div key={idx} style={{ padding: 10, borderRadius: 8, background: 'var(--color-bg-subtle)' }}>
+                            <Tag color="gold" bordered={false}>{task.task_type}</Tag>
+                            <div style={{ fontSize: 13, marginTop: 6, lineHeight: 1.6 }}>{task.question}</div>
+                            {task.next_action && <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4 }}>下一步：{task.next_action}</div>}
+                          </div>
+                        ))}
+                      </Space>
+                    ),
+                  }] : []),
+                  ...((pkg.regeneration_hints || []).length > 0 ? [{
+                    key: 'hints',
+                    label: '再推理建议',
+                    children: <Text type="secondary" style={{ fontSize: 13 }}>{(pkg.regeneration_hints || []).map((hint) => hint.message).join('；')}</Text>,
+                  }] : []),
+                ]}
+              />
+            </>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }
 
 export default function ModelingPage() {
   return (
-    <Suspense fallback={<Spin />}>
+    <Suspense fallback={<div className="snowy-loading-card" style={{ margin: '40px auto', maxWidth: 360 }}><span className="snowy-spinner" /><span>加载中…</span></div>}>
       <ModelingPageInner />
     </Suspense>
   );

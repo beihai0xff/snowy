@@ -1,3 +1,4 @@
+//revive:disable:var-naming
 package http
 
 import (
@@ -28,6 +29,7 @@ func (h *RenderHandler) Generate(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+
 		return
 	}
 
@@ -41,6 +43,7 @@ func (h *RenderHandler) Generate(c *gin.Context) {
 	if err != nil {
 		reqID := common.RequestIDFromContext(c.Request.Context())
 		c.JSON(http.StatusBadGateway, common.Fail(common.ErrRenderValidationFailed.WithMessage(err.Error()), reqID))
+
 		return
 	}
 

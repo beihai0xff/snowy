@@ -2,7 +2,7 @@ openapi: "3.1.0"
 info:
   title: Snowy API
   description: |
-    Snowy AIGC 学习平台 API — 面向高中生的知识检索、物理 / 3D 场景代码生成渲染、生物建模。
+    Snowy v4 AI 科学任务舱 API — 面向高中生的证据型知识检索、物理仿真与生物可视化统一建模。
     参考技术方案 §17。
   version: "0.1.0"
 
@@ -81,6 +81,50 @@ paths:
       responses:
         '200':
           description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SearchResponse'
+
+
+  /modeling/compile:
+    post:
+      summary: Snowy v4 生成式统一建模编译
+      description: 大模型推理优先生成 GenerativeModelPackage，并持久化模型包。
+      tags: [Modeling]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelingCompileRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+
+  /modeling/packages/{id}:
+    get:
+      summary: 获取生成式模型包
+      tags: [Modeling]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 成功
 
   /modeling/physics/analyze:
     post:
@@ -124,6 +168,34 @@ paths:
         '200':
           description: 成功
 
+  /auth/register:
+    post:
+      summary: 邮箱注册
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailRegisterRequest'
+      responses:
+        '201':
+          description: 注册成功
+
+  /auth/login:
+    post:
+      summary: 邮箱登录
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailLoginRequest'
+      responses:
+        '200':
+          description: 登录成功
+
   /user/profile:
     get:
       summary: 获取用户资料
@@ -136,6 +208,115 @@ paths:
     get:
       summary: 历史记录
       tags: [User]
+      responses:
+        '200':
+          description: 成功
+
+  /answers:
+    get:
+      summary: 搜索答案归档
+      description: 返回当前用户持久化的 answer_records，包括答案摘要、知识标签、引用证据和置信度。
+      tags: [User]
+      responses:
+        '200':
+          description: 成功
+
+  /answers/{id}:
+    get:
+      summary: 获取搜索答案归档详情
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 成功
+
+  /reactions:
+    get:
+      summary: 当前用户反馈列表
+      tags: [User]
+      responses:
+        '200':
+          description: 成功
+    put:
+      summary: 设置点赞/点踩
+      tags: [User]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReactionRequest'
+      responses:
+        '200':
+          description: 成功
+    delete:
+      summary: 撤销反馈
+      tags: [User]
+      parameters:
+        - name: target_type
+          in: query
+          required: true
+          schema: { type: string }
+        - name: target_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: 成功
+
+  /reactions/summary:
+    get:
+      summary: 指定目标反馈聚合
+      tags: [User]
+      parameters:
+        - name: target_type
+          in: query
+          required: true
+          schema: { type: string }
+        - name: target_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: include_users
+          in: query
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: 成功
+
+  /monitoring/llm:
+    get:
+      summary: LLM 调用监控看板
+      tags: [Monitoring]
+      parameters:
+        - name: user_id
+          in: query
+          schema: { type: string }
+        - name: provider
+          in: query
+          schema: { type: string }
+        - name: model
+          in: query
+          schema: { type: string }
+        - name: operation
+          in: query
+          schema: { type: string }
+        - name: since
+          in: query
+          schema: { type: string, format: date-time }
+        - name: until
+          in: query
+          schema: { type: string, format: date-time }
+        - name: limit
+          in: query
+          schema: { type: integer }
       responses:
         '200':
           description: 成功
@@ -183,6 +364,28 @@ components:
         request_id:
           type: string
 
+    EmailRegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        nickname: { type: string }
+
+    EmailLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        user: { type: object }
+
     ChatRequest:
       type: object
       required: [message]
@@ -221,6 +424,394 @@ components:
               type: string
             source:
               type: string
+
+
+    ModelingCompileRequest:
+      type: object
+      required: [message]
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        message:
+          type: string
+        domain:
+          type: string
+          enum: [auto, physics, biology]
+        grade_band:
+          type: string
+          default: high_school
+        target_mode:
+          type: string
+          enum: [interactive_model, review, explain]
+        context:
+          type: object
+          properties:
+            citations:
+              type: array
+              items:
+                $ref: '#/components/schemas/EvidenceRef'
+            knowledge_tags:
+              type: array
+              items:
+                type: string
+            source_page:
+              type: string
+            user_notes:
+              type: string
+
+    EvidenceRef:
+      type: object
+      properties:
+        doc_id:
+          type: string
+        source_type:
+          type: string
+        title:
+          type: string
+        chapter:
+          type: string
+        snippet:
+          type: string
+        knowledge_tags:
+          type: array
+          items:
+            type: string
+        confidence:
+          type: number
+
+    SearchResponse:
+      type: object
+      properties:
+        answer_id:
+          type: string
+          format: uuid
+          description: 已持久化 answer_records ID；持久化不可用时可能为空。
+        answer:
+          type: string
+        knowledge_tags:
+          type: array
+          items:
+            type: string
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchCitation'
+        related_questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedQuestion'
+        misconceptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MisconceptionTip'
+        formula_cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormulaCard'
+        exam_mappings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExamMapping'
+        next_actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/LearningAction'
+        confidence:
+          type: number
+
+    SearchCitation:
+      type: object
+      properties:
+        doc_id:
+          type: string
+        source_type:
+          type: string
+        snippet:
+          type: string
+        score:
+          type: number
+
+    AnswerRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        query:
+          type: string
+        answer_summary:
+          type: string
+        knowledge_tags:
+          type: array
+          items:
+            type: string
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchCitation'
+        confidence:
+          type: number
+        source:
+          type: string
+        model_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    RelatedQuestion:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+
+    MisconceptionTip:
+      type: object
+      properties:
+        type:
+          type: string
+        description:
+          type: string
+        correction:
+          type: string
+
+    FormulaCard:
+      type: object
+      properties:
+        name:
+          type: string
+        expression:
+          type: string
+        variables:
+          type: array
+          items:
+            type: string
+        applies_to:
+          type: array
+          items:
+            type: string
+        limits:
+          type: array
+          items:
+            type: string
+
+    ExamMapping:
+      type: object
+      properties:
+        question_type:
+          type: string
+        focus:
+          type: string
+        practice_hint:
+          type: string
+        knowledge:
+          type: array
+          items:
+            type: string
+
+    LearningAction:
+      type: object
+      properties:
+        type:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        target:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    GenerativeModelPackage:
+      type: object
+      properties:
+        package_id:
+          type: string
+          format: uuid
+        domain:
+          type: string
+          enum: [physics, biology]
+        question:
+          type: string
+        learning_model:
+          $ref: '#/components/schemas/LearningModelSpec'
+        evidence_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceRef'
+        reasoning_trace:
+          $ref: '#/components/schemas/ReasoningTrace'
+        generative_model:
+          type: object
+        simulation_logic:
+          $ref: '#/components/schemas/DynamicSimulationSpec'
+        visualization_graph:
+          $ref: '#/components/schemas/GenerativeVisualizationSpec'
+        interaction_plan:
+          type: object
+        assessment_tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssessmentTask'
+        validation_report:
+          type: object
+        regeneration_hints:
+          type: array
+          items:
+            type: object
+        warnings:
+          type: array
+          items:
+            type: string
+        confidence:
+          type: number
+        status:
+          type: string
+        fallback_reason:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    LearningModelSpec:
+      type: object
+      properties:
+        domain:
+          type: string
+        grade_band:
+          type: string
+        topic:
+          type: string
+        learning_goal:
+          type: string
+        knowledge_tags:
+          type: array
+          items:
+            type: string
+        difficulty:
+          type: string
+
+    ReasoningTrace:
+      type: object
+      properties:
+        summary:
+          type: string
+        evidence_used:
+          type: array
+          items:
+            type: string
+        assumptions:
+          type: array
+          items:
+            type: string
+        key_steps:
+          type: array
+          items:
+            type: string
+        confidence:
+          type: number
+
+    DynamicSimulationSpec:
+      type: object
+      properties:
+        simulation_type:
+          type: string
+        runtime:
+          type: string
+        variables:
+          type: array
+          items:
+            type: object
+        formulas:
+          type: array
+          items:
+            type: object
+        vectors:
+          type: array
+          items:
+            type: object
+        curves:
+          type: array
+          items:
+            type: object
+        outcomes:
+          type: array
+          items:
+            type: object
+        render_instructions:
+          type: object
+        local_recompute_allowed:
+          type: boolean
+        regenerate_when:
+          type: array
+          items:
+            type: string
+
+    GenerativeVisualizationSpec:
+      type: object
+      properties:
+        visualization_type:
+          type: string
+        topic:
+          type: string
+        nodes:
+          type: array
+          items:
+            type: object
+        edges:
+          type: array
+          items:
+            type: object
+        process_steps:
+          type: array
+          items:
+            type: object
+        experiment_variables:
+          type: object
+        curve_explanation:
+          type: string
+        limiting_factors:
+          type: array
+          items:
+            type: string
+        mechanism_stages:
+          type: array
+          items:
+            type: object
+        variable_effects:
+          type: array
+          items:
+            type: object
+
+    AssessmentTask:
+      type: object
+      properties:
+        task_type:
+          type: string
+        question:
+          type: string
+        expected_key_points:
+          type: array
+          items:
+            type: string
+        feedback_rule:
+          type: string
+        misconception_type:
+          type: string
+        next_action:
+          type: string
 
     PhysicsAnalyzeRequest:
       type: object
@@ -261,9 +852,37 @@ components:
       properties:
         target_type:
           type: string
-          enum: [search, physics, biology]
+          enum: [search, answer, evidence, physics, biology, model_package, render_code, model_config]
         target_id:
           type: string
         title:
           type: string
+        metadata_json:
+          type: object
+          additionalProperties: true
+          description: 收藏时保存的脱敏快照，例如答案摘要、引用证据、模型包配置摘要。服务端会过滤 token/password/secret/api_key 等敏感键。
 
+    ReactionRequest:
+      type: object
+      required: [target_type, target_id, reaction_type]
+      properties:
+        target_type:
+          type: string
+          enum: [search, answer, evidence, physics, biology, model_package, render_code]
+        target_id:
+          type: string
+        reaction_type:
+          type: string
+          enum: [like, dislike]
+        visibility:
+          type: string
+          enum: [public, private]
+
+    ReactionSummary:
+      type: object
+      properties:
+        target_type: { type: string }
+        target_id: { type: string }
+        like_count: { type: integer }
+        dislike_count: { type: integer }
+        current_reaction: { type: string }

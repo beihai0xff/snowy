@@ -1,15 +1,17 @@
 // Package app 提供应用装配与启动，是 DDD 的组合根（Composition Root）。
-// 手动依赖注入：config → store clients → repositories → providers → domain services → handlers → router。
-// 参考技术方案 §7.3。
+// 手动依赖注入：config → store clients → repositories → providers → domain services → handlers → runtime surfaces。
 package app
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/hibiken/asynq"
 	goredis "github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
@@ -24,33 +26,57 @@ import (
 	biologyexperiment "github.com/beihai0xff/snowy/internal/modeling/biology/experiment"
 	biologygraph "github.com/beihai0xff/snowy/internal/modeling/biology/graph"
 	biologyservice "github.com/beihai0xff/snowy/internal/modeling/biology/service"
+	generativeservice "github.com/beihai0xff/snowy/internal/modeling/generative"
 	physicscalculator "github.com/beihai0xff/snowy/internal/modeling/physics/calculator"
 	physicsservice "github.com/beihai0xff/snowy/internal/modeling/physics/service"
 	"github.com/beihai0xff/snowy/internal/monitoring"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
+	"github.com/beihai0xff/snowy/internal/pkg/llmroute"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 	mysqlrepo "github.com/beihai0xff/snowy/internal/repo/mysql"
 	redisrepo "github.com/beihai0xff/snowy/internal/repo/redis"
 	searchservice "github.com/beihai0xff/snowy/internal/repo/search"
 	searchquery "github.com/beihai0xff/snowy/internal/repo/search/query"
 	searchranking "github.com/beihai0xff/snowy/internal/repo/search/ranking"
-	"github.com/beihai0xff/snowy/internal/repo/storage"
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
-// App 应用实例，持有所有依赖。
+// App 应用实例，持有共享依赖与可选运行面。
 type App struct {
 	cfg    *config.Config
 	db     *gorm.DB
 	rdb    *goredis.Client
+	api    *apiSurface
+	worker *workerSurface
+}
+
+type apiSurface struct {
 	router *gin.Engine
 }
 
-// New 创建应用实例，完成全部依赖装配。
+type workerSurface struct {
+	server *asynq.Server
+	mux    *asynq.ServeMux
+}
+
+type sharedDeps struct {
+	cfg *config.Config
+	db  *gorm.DB
+	rdb *goredis.Client
+}
+
+// New 创建应用实例，按运行模式装配共享依赖与运行面。
 func New(cfg *config.Config) (*App, error) {
+	if cfg == nil {
+		return nil, errors.New("config is nil")
+	}
+
+	if err := cfg.Server.ValidateRunMode(); err != nil {
+		return nil, err
+	}
+
 	app := &App{cfg: cfg}
 
-	// ── 1. 基础设施客户端 ──────────────────────────────
 	db, err := mysqlrepo.NewDB(cfg.Database)
 	if err != nil {
 		return nil, fmt.Errorf("init mysql: %w", err)
@@ -62,6 +88,8 @@ func New(cfg *config.Config) (*App, error) {
 
 	rdb, err := redisrepo.NewClient(cfg.Redis)
 	if err != nil {
+		app.Close()
+
 		return nil, fmt.Errorf("init redis: %w", err)
 	}
 
@@ -69,36 +97,68 @@ func New(cfg *config.Config) (*App, error) {
 
 	slog.Info("redis connected", "addr", cfg.Redis.Addr)
 
-	// ── 2. Repository 实例化 ───────────────────────────
-	userRepo := mysqlrepo.NewUserRepository(db)
-	favoriteRepo := mysqlrepo.NewFavoriteRepository(db)
-	historyRepo := mysqlrepo.NewHistoryRepository(db)
-	sessionRepo := mysqlrepo.NewAgentSessionRepository(db)
-	messageRepo := mysqlrepo.NewAgentMessageRepository(db)
-	runRepo := mysqlrepo.NewAgentRunRepository(db)
-	toolCallRepo := mysqlrepo.NewAgentToolCallRepository(db)
-	transactor := mysqlrepo.NewTransactor(db)
+	if err := mysqlrepo.RunMigrations(context.Background(), db); err != nil {
+		app.Close()
 
-	// ── 3. Redis 组件 ──────────────────────────────────
-	rateLimiter := redisrepo.NewRateLimiter(rdb)
-	_ = redisrepo.NewCacheStore(rdb)
-	_ = redisrepo.NewSessionStore(rdb)
+		return nil, fmt.Errorf("run mysql migrations: %w", err)
+	}
 
-	// ── 4. Provider 实例化 ─────────────────────────────
+	slog.Info("mysql schema migrated", "db", cfg.Database.Name, "host", cfg.Database.Host)
+
+	shared := &sharedDeps{cfg: cfg, db: db, rdb: rdb}
+
+	if cfg.Server.APIEnabled() {
+		app.api = newAPISurface(shared)
+	}
+
+	if cfg.Server.WorkerEnabled() {
+		app.worker = newWorkerSurface(shared)
+	}
+
+	slog.Info(
+		"app initialized",
+		"mode", cfg.Server.Mode,
+		"run_mode", cfg.Server.EffectiveRunMode(),
+		"api_enabled", cfg.Server.APIEnabled(),
+		"worker_enabled", cfg.Server.WorkerEnabled(),
+	)
+
+	return app, nil
+}
+
+func newAPISurface(shared *sharedDeps) *apiSurface {
+	userRepo := mysqlrepo.NewUserRepository(shared.db)
+	favoriteRepo := mysqlrepo.NewFavoriteRepository(shared.db)
+	historyRepo := mysqlrepo.NewHistoryRepository(shared.db)
+	sessionRepo := mysqlrepo.NewAgentSessionRepository(shared.db)
+	messageRepo := mysqlrepo.NewAgentMessageRepository(shared.db)
+	runRepo := mysqlrepo.NewAgentRunRepository(shared.db)
+	toolCallRepo := mysqlrepo.NewAgentToolCallRepository(shared.db)
+	generativeRepo := mysqlrepo.NewGenerativeModelPackageRepository(shared.db)
+	answerRecordRepo := mysqlrepo.NewAnswerRecordRepository(shared.db)
+	transactor := mysqlrepo.NewTransactor(shared.db)
+
+	rateLimiter := redisrepo.NewRateLimiter(shared.rdb)
+	_ = redisrepo.NewCacheStore(shared.rdb)
+	_ = redisrepo.NewSessionStore(shared.rdb)
+
+	modelConfigs := shared.cfg.LLM.EffectiveModels()
+
+	providerConfigs := make([]monitoring.LLMProviderConfig, 0, len(modelConfigs))
+	for i, modelCfg := range modelConfigs {
+		role := modelRole(i)
+		providerConfigs = append(providerConfigs, monitoring.ProviderConfigFromConfig(role, modelCfg))
+	}
+
 	llmRecorder := monitoring.NewLLMRecorder(
-		monitoring.WithProviderConfigs(
-			monitoring.ProviderConfigFromConfig("primary", cfg.LLM.Primary),
-			monitoring.ProviderConfigFromConfig("fallback", cfg.LLM.Fallback),
-		),
+		monitoring.WithStore(mysqlrepo.NewLLMCallRecordRepository(shared.db)),
+		monitoring.WithProviderConfigs(providerConfigs...),
 		monitoring.WithPromptProfiles(monitoring.DefaultPromptProfiles(time.Now())...),
 	)
-	primaryLLM := monitoring.WrapProvider(newLLMProvider(cfg.LLM.Primary), llmRecorder, "primary")
-	fallbackLLM := monitoring.WrapProvider(newLLMProvider(cfg.LLM.Fallback), llmRecorder, "fallback")
-	objectStorage := storage.NewMinIOStorage(cfg.MinIO)
-	_ = objectStorage
+	llmChain := buildOrderedLLMChain(modelConfigs, llmRecorder)
 
-	// ── 5. Domain Service 实例化 ───────────────────────
-	userSvc := user.NewService(userRepo, favoriteRepo, historyRepo, transactor, cfg.Auth)
+	reactionRepo := mysqlrepo.NewReactionRepository(shared.db)
+	userSvc := user.NewService(userRepo, favoriteRepo, historyRepo, transactor, shared.cfg.Auth, reactionRepo)
 	agentWriteSvc := agent.NewWriteService(transactor, sessionRepo, messageRepo, runRepo, toolCallRepo)
 	searchSvc := searchservice.NewService(
 		nil,
@@ -106,18 +166,27 @@ func New(cfg *config.Config) (*App, error) {
 		searchranking.NewScoreRanker(),
 		nil,
 		nil,
-		searchservice.WithLLMProviders(primaryLLM, fallbackLLM),
+		searchservice.WithLLMProvider(llmChain),
+		searchservice.WithAnswerRecordRepository(answerRecordRepo),
+		searchservice.WithFeedbackRepository(reactionRepo),
 	)
 	physicsSvc := physicsservice.NewService(
 		physicscalculator.NewSimpleCalculator(),
-		physicsservice.WithLLMProviders(primaryLLM, fallbackLLM),
+		physicsservice.WithLLMProvider(llmChain),
 	)
 	biologySvc := biologyservice.NewService(
 		biologyexperiment.NewSimpleAnalyzer(),
 		biologygraph.NewSimpleDiagramBuilder(),
 	)
+	generativeSvc := generativeservice.NewCompilerService(
+		searchSvc,
+		physicsSvc,
+		biologySvc,
+		generativeRepo,
+		generativeservice.WithLLMProvider(llmChain),
+	)
 
-	modelRouter := agentrouter.NewStaticRouter(cfg.LLM)
+	modelRouter := agentrouter.NewStaticRouter(shared.cfg.LLM)
 	policyEngine := agentpolicy.NewDefaultEngine()
 	responseAssembler := agentassembler.NewDefaultAssembler()
 	callbacks := []agentcallback.NodeCallback{
@@ -137,49 +206,107 @@ func New(cfg *config.Config) (*App, error) {
 		agentgraph.WithBiologyAnalyzeTool(agenttool.NewBiologyAnalyzeTool(biologySvc)),
 		agentgraph.WithCitationTool(agenttool.NewCitationTool()),
 		agentgraph.WithCallbacks(callbacks...),
-		agentgraph.WithLLMProviders(primaryLLM, fallbackLLM),
 	)
 
 	var agentSvc agent.Service = graphBuilder
 
-	// ── 6. Handler 实例化 ──────────────────────────────
 	handlers := &handler.Handlers{
 		Agent:      handler.NewAgentHandler(agentSvc, agentWriteSvc, sessionRepo, messageRepo, userSvc),
 		Search:     handler.NewSearchHandler(searchSvc, userSvc),
 		Physics:    handler.NewPhysicsHandler(physicsSvc, userSvc),
 		Render:     handler.NewRenderHandler(physicsSvc),
 		Biology:    handler.NewBiologyHandler(biologySvc, userSvc),
-		User:       handler.NewUserHandler(userSvc),
+		Generative: handler.NewGenerativeHandler(generativeSvc, userSvc),
+		User:       handler.NewUserHandler(userSvc, answerRecordRepo),
 		Monitoring: handler.NewMonitoringHandler(llmRecorder),
 	}
 
-	// ── 7. Router 装配 ────────────────────────────────
-	app.router = handler.NewRouter(cfg, handlers, rateLimiter)
-
-	slog.Info("app initialized", "mode", cfg.Server.Mode)
-
-	return app, nil
+	return &apiSurface{router: handler.NewRouter(shared.cfg, handlers, rateLimiter)}
 }
 
-func newLLMProvider(cfg config.ModelProviderConfig) llm.Provider {
-	switch strings.ToLower(strings.TrimSpace(cfg.Provider)) {
-	case "mimo", "xiaomi", "xiaomi-mimo":
-		return llm.NewMiMoProvider(cfg)
-	case "openai":
-		return llm.NewOpenAIProvider(cfg)
-	case "google", "gemini":
-		return llm.NewGeminiProvider(cfg)
-	default:
-		return llm.NewUnsupportedProvider(cfg.Provider)
+func newWorkerSurface(shared *sharedDeps) *workerSurface {
+	return &workerSurface{
+		server: newWorkerServer(shared.cfg),
+		mux:    newWorkerMux(),
 	}
 }
 
-// Router 返回 Gin Engine（供 Server 使用）。
-func (a *App) Router() *gin.Engine {
-	return a.router
+// Run 按配置启动 API、Worker，支持单运行面或同进程联合运行。
+func (a *App) Run(ctx context.Context) error {
+	switch a.cfg.Server.EffectiveRunMode() {
+	case config.RunModeAPI:
+		return a.RunAPI(ctx)
+	case config.RunModeWorker:
+		return a.RunWorker(ctx)
+	case config.RunModeAll:
+		var (
+			wg             sync.WaitGroup
+			results        = make(chan runResult, 2)
+			runCtx, cancel = context.WithCancel(ctx)
+		)
+		defer cancel()
+
+		start := func(name string, fn func(context.Context) error) {
+			wg.Go(func() {
+				results <- runResult{name: name, err: fn(runCtx)}
+			})
+		}
+
+		start(config.RunModeAPI, a.RunAPI)
+		start(config.RunModeWorker, a.RunWorker)
+
+		var firstErr error
+
+		for remaining := 2; remaining > 0; remaining-- {
+			result := <-results
+			if result.err != nil && firstErr == nil {
+				firstErr = fmt.Errorf("%s surface: %w", result.name, result.err)
+
+				cancel()
+			}
+		}
+
+		wg.Wait()
+
+		return firstErr
+	default:
+		return fmt.Errorf("unsupported run mode %q", a.cfg.Server.EffectiveRunMode())
+	}
 }
 
-// Close 释放资源。
+type runResult struct {
+	name string
+	err  error
+}
+
+// Router 返回 API 路由；当 API 运行面关闭时返回 nil。
+func (a *App) Router() *gin.Engine {
+	if a.api == nil {
+		return nil
+	}
+
+	return a.api.router
+}
+
+func modelRole(index int) string {
+	return fmt.Sprintf("model_%d", index+1)
+}
+
+func buildOrderedLLMChain(modelConfigs []config.ModelProviderConfig, recorder *monitoring.LLMRecorder) llm.Provider {
+	providers := make([]llm.Provider, 0, len(modelConfigs))
+	for i, modelCfg := range modelConfigs {
+		provider := llmroute.NewRetryingProvider(
+			llm.NewOpenAIProvider(modelCfg),
+			modelCfg.MaxRetries,
+			modelCfg.RetryInterval,
+		)
+		providers = append(providers, monitoring.WrapProvider(provider, recorder, modelRole(i)))
+	}
+
+	return llmroute.NewChain("ordered-model-chain", providers...)
+}
+
+// Close 释放共享资源。
 func (a *App) Close() {
 	if a.db != nil {
 		if sqlDB, err := a.db.DB(); err == nil {

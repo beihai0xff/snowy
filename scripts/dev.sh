@@ -5,6 +5,5 @@ set -euo pipefail
 echo "▸ Starting infrastructure..."
 make bootstrap
 
-echo "▸ Starting API server..."
-exec make run-api
-
+echo "▸ Starting Snowy server..."
+exec make run

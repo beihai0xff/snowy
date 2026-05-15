@@ -1,7 +1,7 @@
 /**
  * Snowy API 客户端 — 封装所有后端接口调用。
  * 统一处理响应解包、错误映射。
- * 当前已禁用登录，无需 token 注入。
+ * v5 支持邮箱登录，浏览器端自动注入 access token。
  */
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '/api/v1';
@@ -50,13 +50,64 @@ export interface Favorite {
   target_type: string;
   target_id: string;
   title: string;
+  metadata_json?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AnswerRecord {
+  id: string;
+  user_id: string;
+  session_id?: string;
+  query: string;
+  answer_summary: string;
+  knowledge_tags: string[];
+  citations: Citation[];
+  confidence: number;
+  source: string;
+  model_name?: string;
+  metadata?: Record<string, unknown>;
   created_at: string;
 }
 
 export interface FavoriteReq {
-  target_type: 'search' | 'physics' | 'biology';
+  target_type: 'search' | 'answer' | 'evidence' | 'physics' | 'biology' | 'model_package' | 'render_code' | 'model_config';
   target_id: string;
   title: string;
+  metadata_json?: Record<string, unknown>;
+}
+
+export interface AuthResp {
+  access_token: string;
+  refresh_token: string;
+  user: User;
+}
+
+export interface Reaction {
+  id: string;
+  user_id: string;
+  target_type: string;
+  target_id: string;
+  reaction_type: 'like' | 'dislike';
+  visibility: 'public' | 'private';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReactionSummary {
+  target_type: string;
+  target_id: string;
+  like_count: number;
+  dislike_count: number;
+  current_reaction?: 'like' | 'dislike';
+  like_users?: { id: string; nickname: string; role: string }[];
+  dislike_users?: { id: string; nickname: string; role: string }[];
+}
+
+export interface ReactionReq {
+  target_type: 'search' | 'answer' | 'evidence' | 'physics' | 'biology' | 'model_package' | 'render_code';
+  target_id: string;
+  reaction_type: 'like' | 'dislike';
+  visibility?: 'public' | 'private';
 }
 
 // ── Recommendations ──────────────────────────────────────
@@ -102,11 +153,45 @@ export interface RelatedQuestion {
   title: string;
 }
 
+export interface MisconceptionTip {
+  type: string;
+  description: string;
+  correction?: string;
+}
+
+export interface FormulaCard {
+  name: string;
+  expression: string;
+  variables?: string[];
+  applies_to?: string[];
+  limits?: string[];
+}
+
+export interface ExamMapping {
+  question_type: string;
+  focus: string;
+  practice_hint?: string;
+  knowledge?: string[];
+}
+
+export interface LearningAction {
+  type: string;
+  label: string;
+  description?: string;
+  target?: string;
+  tags?: string[];
+}
+
 export interface SearchResponse {
+  answer_id?: string;
   answer: string;
   knowledge_tags: string[];
   citations: Citation[];
   related_questions: RelatedQuestion[];
+  misconceptions?: MisconceptionTip[];
+  formula_cards?: FormulaCard[];
+  exam_mappings?: ExamMapping[];
+  next_actions?: LearningAction[];
   confidence: number;
 }
 
@@ -245,6 +330,189 @@ export interface BiologyModel {
   result_summary: string;
 }
 
+
+// ── Generative Modeling v5 ───────────────────────────────
+
+export interface EvidenceRef {
+  doc_id: string;
+  source_type: string;
+  title?: string;
+  chapter?: string;
+  snippet: string;
+  knowledge_tags?: string[];
+  confidence: number;
+}
+
+export interface VariableSpec {
+  name: string;
+  label: string;
+  unit?: string;
+  default: number;
+  min: number;
+  max: number;
+  step?: number;
+}
+
+export interface FormulaSpec {
+  id: string;
+  expr: string;
+  meaning: string;
+}
+
+export interface VectorSpec {
+  id: string;
+  label: string;
+  origin?: string;
+  x_expr?: string;
+  y_expr?: string;
+  meaning?: string;
+}
+
+export interface CurveSpec {
+  id: string;
+  title: string;
+  x_label?: string;
+  y_label?: string;
+  y_expr?: string;
+  meaning?: string;
+}
+
+export interface OutcomeSpec {
+  id: string;
+  label: string;
+  expr?: string;
+  unit?: string;
+  description?: string;
+}
+
+export interface ReasoningTrace {
+  summary: string;
+  evidence_used?: string[];
+  assumptions?: string[];
+  key_steps?: string[];
+  confidence: number;
+}
+
+export interface GenerativeModelSpec {
+  id?: string;
+  domain: string;
+  grade_band: string;
+  topic: string;
+  learning_goal: string;
+  knowledge_tags?: string[];
+  entities?: { id: string; name: string; type: string }[];
+  variables?: VariableSpec[];
+  relations?: { source: string; target: string; type: string; description?: string; condition?: string }[];
+}
+
+export interface DynamicSimulationSpec {
+  simulation_type: string;
+  runtime: string;
+  assumptions?: string[];
+  state_variables?: string[];
+  variables?: VariableSpec[];
+  formulas?: FormulaSpec[];
+  vectors?: VectorSpec[];
+  curves?: CurveSpec[];
+  outcomes?: OutcomeSpec[];
+  render_instructions?: { coordinate_system?: string; layers?: string[]; annotations?: string[] };
+  local_recompute_allowed: boolean;
+  regenerate_when?: string[];
+}
+
+export interface MechanismStage {
+  id: string;
+  title: string;
+  description?: string;
+  inputs?: string[];
+  outputs?: string[];
+}
+
+export interface VariableEffect {
+  variable: string;
+  effect: string;
+  condition?: string;
+  evidence?: string;
+}
+
+export interface GenerativeVisualizationSpec {
+  visualization_type: string;
+  topic: string;
+  nodes?: { id: string; label: string; type: string }[];
+  edges?: { source: string; target: string; relation: string; condition?: string; evidence_ref?: string }[];
+  process_steps?: { index: number; title: string; input?: string[]; output?: string[]; detail?: string }[];
+  experiment_variables?: ExperimentVariables;
+  curve_explanation?: string;
+  limiting_factors?: string[];
+  mechanism_stages?: MechanismStage[];
+  variable_effects?: VariableEffect[];
+}
+
+export interface InteractionPlan {
+  controls?: { variable: string; control: string; label: string }[];
+  challenge?: { goal: string; success_condition?: string; feedback_generated_by_llm: boolean };
+  feedback_rules?: { when: string; message?: string; action?: string }[];
+  regeneration_policy?: { local_recompute?: string[]; llm_regenerate?: string[] };
+}
+
+export interface ModelValidationReport {
+  schema_valid: boolean;
+  evidence_valid: boolean;
+  domain_valid: boolean;
+  safety_valid: boolean;
+  checks?: { name: string; status: string; message?: string }[];
+  confidence: number;
+  fallback_required: boolean;
+  fallback_reason?: string;
+  retry_count?: number;
+}
+
+export interface AssessmentTask {
+  task_type: string;
+  question: string;
+  expected_key_points?: string[];
+  feedback_rule?: string;
+  misconception_type?: string;
+  next_action?: string;
+}
+
+export interface GenerativeModelPackage {
+  package_id: string;
+  session_id?: string;
+  domain: 'physics' | 'biology' | string;
+  question: string;
+  learning_model: { domain: string; grade_band: string; topic: string; learning_goal: string; knowledge_tags?: string[]; difficulty?: string };
+  evidence_refs: EvidenceRef[];
+  reasoning_trace: ReasoningTrace;
+  generative_model: GenerativeModelSpec;
+  simulation_logic?: DynamicSimulationSpec;
+  visualization_graph?: GenerativeVisualizationSpec;
+  interaction_plan: InteractionPlan;
+  assessment_tasks: AssessmentTask[];
+  validation_report: ModelValidationReport;
+  regeneration_hints?: { reason: string; message: string }[];
+  warnings?: string[];
+  confidence: number;
+  model_name?: string;
+  status: string;
+  fallback_reason?: string;
+  created_at: string;
+}
+
+export interface ModelingCompileReq {
+  session_id?: string;
+  message: string;
+  domain?: 'auto' | 'physics' | 'biology';
+  grade_band?: string;
+  target_mode?: 'interactive_model' | 'review' | 'explain';
+  context?: {
+    citations?: EvidenceRef[];
+    knowledge_tags?: string[];
+    source_page?: string;
+    user_notes?: string;
+  };
+}
+
 // ── Agent / Chat ─────────────────────────────────────────
 
 export interface ChatReq {
@@ -354,6 +622,7 @@ export interface LLMCallRecord {
   system_pe?: string;
   user_prompt?: string;
   prompt_preview?: string;
+  user_id?: string;
   finish_reason?: string;
   error?: string;
   started_at: string;
@@ -393,6 +662,10 @@ async function request<T>(
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
+  const token = getAccessToken();
+  if (token && !headers.Authorization) {
+    headers.Authorization = `Bearer ${token}`;
+  }
 
   let res: Response;
   try {
@@ -429,16 +702,61 @@ async function request<T>(
 
 // ── API functions ────────────────────────────────────────
 
+function emitAuthChange() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event('snowy-auth-change'));
+}
+
+export function setAuthTokens(accessToken: string, refreshToken?: string) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem('snowy_access_token', accessToken);
+  if (refreshToken) window.localStorage.setItem('snowy_refresh_token', refreshToken);
+  emitAuthChange();
+}
+
+export function clearAuthTokens() {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem('snowy_access_token');
+  window.localStorage.removeItem('snowy_refresh_token');
+  emitAuthChange();
+}
+
+function getAccessToken(): string {
+  if (typeof window === 'undefined') return '';
+  return window.localStorage.getItem('snowy_access_token') || '';
+}
+
 export const api = {
-  // User
+  // Auth / User
+  register: (data: { email: string; password: string; nickname?: string }) =>
+    request<AuthResp>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+
+  login: (data: { email: string; password: string }) =>
+    request<AuthResp>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+
   getProfile: () => request<User>('/user/profile'),
 
   getHistory: () => request<PageResponse<HistoryItem>>('/history'),
+
+  listAnswers: () => request<PageResponse<AnswerRecord>>('/answers'),
+
+  getAnswer: (id: string) => request<AnswerRecord>(`/answers/${encodeURIComponent(id)}`),
 
   listFavorites: () => request<PageResponse<Favorite>>('/favorites'),
 
   addFavorite: (data: FavoriteReq) =>
     request<Favorite>('/favorites', { method: 'POST', body: JSON.stringify(data) }),
+
+  setReaction: (data: ReactionReq) =>
+    request<ReactionSummary>('/reactions', { method: 'PUT', body: JSON.stringify(data) }),
+
+  deleteReaction: (targetType: string, targetID: string) =>
+    request<{ deleted: boolean }>(`/reactions?target_type=${encodeURIComponent(targetType)}&target_id=${encodeURIComponent(targetID)}`, { method: 'DELETE' }),
+
+  listReactions: () => request<PageResponse<Reaction>>('/reactions'),
+
+  getReactionSummary: (targetType: string, targetID: string, includeUsers = false) =>
+    request<ReactionSummary>(`/reactions/summary?target_type=${encodeURIComponent(targetType)}&target_id=${encodeURIComponent(targetID)}&include_users=${includeUsers}`),
 
   // Recommendations
   getRecommendations: () => request<RecommendationsResp>('/recommendations'),
@@ -458,6 +776,14 @@ export const api = {
   biologyAnalyze: (data: BiologyAnalyzeReq) =>
     request<BiologyModel>('/modeling/biology/analyze', { method: 'POST', body: JSON.stringify(data) }),
 
+  modelingCompile: (data: ModelingCompileReq) =>
+    request<GenerativeModelPackage>('/modeling/compile', { method: 'POST', body: JSON.stringify(data) }),
+
+  listModelingPackages: () => request<PageResponse<GenerativeModelPackage>>('/modeling/packages'),
+
+  getModelingPackage: (id: string) =>
+    request<GenerativeModelPackage>(`/modeling/packages/${encodeURIComponent(id)}`),
+
   // Agent Chat
   agentChat: (data: ChatReq) =>
     request<ChatResponse>('/agent/chat', { method: 'POST', body: JSON.stringify(data) }),
@@ -466,7 +792,13 @@ export const api = {
     request<SessionResp>('/agent/sessions', { method: 'POST', body: JSON.stringify({ mode }) }),
 
   // Monitoring
-  getLLMMonitoring: () => request<LLMDashboard>('/monitoring/llm'),
+  getLLMMonitoring: (params?: { user_id?: string; provider?: string; model?: string; operation?: string; since?: string; until?: string; limit?: number }) => {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') query.set(key, String(value));
+    });
+    return request<LLMDashboard>(`/monitoring/llm${query.toString() ? `?${query.toString()}` : ''}`);
+  },
 };
 
 export async function agentChatStream(
@@ -480,6 +812,7 @@ export async function agentChatStream(
       headers: {
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',
+        ...(getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : {}),
       },
       body: JSON.stringify(data),
       signal: options.signal,

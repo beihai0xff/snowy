@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Snowy · 推演</title>
+  <link rel="stylesheet" href="../tokens.css" />
+  <link rel="stylesheet" href="../components.css" />
+  <script defer src="./shell.js"></script>
+  <style>
+    /* —— 推演页专属 —— */
+
+    /* 顶部输入条 */
+    .modeling-toolbar {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
+      gap: var(--space-3);
+      align-items: center;
+      padding: var(--space-4);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      margin-bottom: var(--space-4);
+    }
+    .modeling-toolbar .input { height: 44px; }
+
+    .subject-toggle {
+      display: flex;
+      padding: 3px;
+      background: var(--color-bg-subtle);
+      border-radius: var(--radius-md);
+    }
+    .subject-toggle button {
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-sm);
+      font-weight: var(--weight-medium);
+      color: var(--color-text-muted);
+      transition: all var(--transition-fast);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .subject-toggle button.is-active {
+      background: var(--color-bg-card);
+      color: var(--color-text);
+      box-shadow: var(--shadow-xs);
+    }
+
+    /* 证据折叠条 */
+    .evidence-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      margin-bottom: var(--space-4);
+      cursor: pointer;
+      transition: border-color var(--transition-fast);
+    }
+    .evidence-bar:hover { border-color: var(--color-border-strong); }
+    .evidence-bar__icon {
+      display: grid; place-items: center;
+      width: 32px; height: 32px;
+      border-radius: var(--radius-md);
+      background: var(--color-evidence-bg);
+      color: var(--color-evidence-text);
+      font-size: 16px;
+    }
+    .evidence-bar__main { flex: 1; min-width: 0; }
+    .evidence-bar__title { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text); margin-bottom: 2px; }
+    .evidence-bar__meta { font-size: var(--text-xs); color: var(--color-text-muted); }
+    .evidence-bar__caret { color: var(--color-text-subtle); font-size: 20px; transition: transform var(--transition-fast); }
+    .evidence-bar.is-open .evidence-bar__caret { transform: rotate(90deg); }
+
+    .evidence-detail {
+      display: none;
+      padding: var(--space-4);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-top: 0;
+      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+      margin-top: calc(-1 * var(--space-4));
+      margin-bottom: var(--space-4);
+    }
+    .evidence-bar.is-open + .evidence-detail { display: block; }
+
+    /* 主体两栏 */
+    .modeling-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: var(--space-4);
+      align-items: start;
+    }
+    @media (max-width: 1080px) {
+      .modeling-grid { grid-template-columns: 1fr; }
+    }
+    .app--mobile-preview .modeling-grid { grid-template-columns: 1fr; }
+
+    /* 画布 */
+    .canvas {
+      position: relative;
+      min-height: 540px;
+      padding: var(--space-6);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .canvas__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      margin-bottom: var(--space-4);
+    }
+    .canvas__title { font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+    .canvas__body {
+      position: relative;
+      width: 100%;
+      min-height: 420px;
+      background: linear-gradient(var(--color-bg-subtle) 1px, transparent 1px),
+                  linear-gradient(90deg, var(--color-bg-subtle) 1px, transparent 1px);
+      background-size: 24px 24px;
+      background-position: 12px 12px;
+      border-radius: var(--radius-md);
+    }
+
+    /* 物理仿真：抛体轨迹 SVG 占位 */
+    .physics-canvas svg { width: 100%; height: 460px; }
+    .physics-result {
+      position: absolute;
+      bottom: var(--space-4);
+      left: var(--space-4);
+      right: var(--space-4);
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+    }
+    .physics-result__item { display: flex; flex-direction: column; gap: 2px; }
+    .physics-result__label { font-size: var(--text-xs); color: var(--color-text-subtle); }
+    .physics-result__value { font-size: var(--text-base); font-weight: var(--weight-semibold); color: var(--color-text); font-family: var(--font-mono); }
+
+    /* 生物图：节点 + 连线 */
+    .biology-graph { padding: var(--space-4); height: 460px; position: relative; }
+    .bio-node {
+      position: absolute;
+      padding: var(--space-3) var(--space-4);
+      background: var(--color-bg-card);
+      border: 1.5px solid var(--color-border-strong);
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+      font-weight: var(--weight-medium);
+      color: var(--color-text);
+      box-shadow: var(--shadow-sm);
+      text-align: center;
+      min-width: 100px;
+    }
+    .bio-node--input  { border-color: var(--color-physics); background: var(--color-physics-soft); color: var(--color-physics); }
+    .bio-node--process{ border-color: var(--color-biology); background: var(--color-biology-soft); color: var(--color-biology); }
+    .bio-node--output { border-color: var(--color-chemistry); background: var(--color-chemistry-soft); color: var(--color-chemistry); }
+
+    /* AI 教练右栏 */
+    .coach { display: flex; flex-direction: column; gap: var(--space-3); }
+    .coach .card { padding: var(--space-4); }
+
+    .reasoning-step {
+      display: flex;
+      gap: var(--space-3);
+      align-items: flex-start;
+      padding: var(--space-2) 0;
+    }
+    .reasoning-step__num {
+      flex-shrink: 0;
+      width: 22px; height: 22px;
+      display: grid; place-items: center;
+      border-radius: var(--radius-full);
+      background: var(--color-primary-soft);
+      color: var(--color-primary);
+      font-size: 11px;
+      font-weight: var(--weight-semibold);
+    }
+    .reasoning-step__text { font-size: var(--text-sm); line-height: var(--leading-relaxed); color: var(--color-text); }
+
+    /* 参数滑杆 */
+    .param { display: flex; flex-direction: column; gap: 6px; padding: var(--space-2) 0; }
+    .param__head { display: flex; justify-content: space-between; align-items: center; }
+    .param__name { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text); }
+    .param__value { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-primary); font-weight: var(--weight-semibold); }
+    .param__slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: var(--color-bg-subtle); border-radius: var(--radius-full); }
+    .param__slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: var(--radius-full); background: var(--color-primary); cursor: pointer; box-shadow: var(--shadow-sm); }
+    .param__slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: var(--radius-full); background: var(--color-primary); cursor: pointer; border: 0; }
+    .param__meta { display: flex; justify-content: space-between; font-size: var(--text-xs); color: var(--color-text-subtle); }
+
+    /* 校验灯 */
+    .check-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); }
+    .check-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: var(--space-2);
+      border-radius: var(--radius-md);
+      background: var(--color-success-soft);
+      color: var(--color-success);
+    }
+    .check-item--fail { background: var(--color-danger-soft); color: var(--color-danger); }
+    .check-item__icon { font-size: 16px; }
+    .check-item__label { font-size: var(--text-xs); }
+
+    /* 微练习 */
+    .practice-item { padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); cursor: pointer; }
+    .practice-item + .practice-item { margin-top: var(--space-2); }
+    .practice-item:hover { border-color: var(--color-primary); }
+    .practice-item__head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .practice-item__q { font-size: var(--text-sm); color: var(--color-text); line-height: var(--leading-relaxed); }
+
+    /* 阶段进度条 */
+    .stage-strip {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 4px;
+      margin-bottom: var(--space-4);
+    }
+    .stage-pill {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: var(--space-2);
+      border-radius: var(--radius-md);
+      background: var(--color-bg-subtle);
+      color: var(--color-text-muted);
+      font-size: var(--text-xs);
+      transition: all var(--transition-fast);
+    }
+    .stage-pill__dot {
+      width: 8px; height: 8px; border-radius: var(--radius-full);
+      background: var(--color-text-subtle);
+    }
+    .stage-pill.is-done { background: var(--color-success-soft); color: var(--color-success); }
+    .stage-pill.is-done .stage-pill__dot { background: var(--color-success); }
+    .stage-pill.is-active {
+      background: var(--color-primary-soft);
+      color: var(--color-primary);
+      font-weight: var(--weight-medium);
+    }
+    .stage-pill.is-active .stage-pill__dot {
+      background: var(--color-primary);
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.55; transform: scale(1.4); }
+    }
+
+    /* 子物体（生物图）切换 demo */
+    [data-state-tab] { display: none; }
+    [data-state-tab].is-active { display: block; }
+
+    /* 移动端 */
+    @media (max-width: 720px) {
+      .modeling-toolbar { grid-template-columns: 1fr; }
+      .physics-result { grid-template-columns: repeat(2, 1fr); }
+    }
+    .app--mobile-preview .modeling-toolbar { grid-template-columns: 1fr; }
+    .app--mobile-preview .physics-result { grid-template-columns: repeat(2, 1fr); }
+    .app--mobile-preview .check-grid { grid-template-columns: repeat(2, 1fr); }
+  </style>
+</head>
+<body data-page="modeling">
+  <div class="app">
+
+    <header class="app-header">
+      <a href="./home.html" class="brand"><span class="brand__mark">❄</span><span>Snowy</span></a>
+      <nav class="nav">
+        <a class="nav__link" data-page="home"     href="./home.html">首页</a>
+        <a class="nav__link" data-page="ask"      href="./ask.html">提问</a>
+        <a class="nav__link" data-page="modeling" href="./modeling.html">推演</a>
+        <a class="nav__link" data-page="learning" href="./learning.html">我的学习</a>
+      </nav>
+      <div class="row row--sm middle">
+        <button class="btn btn--ghost btn--sm" data-theme-toggle>☾ 深色</button>
+        <button class="btn btn--outline btn--sm">登录</button>
+      </div>
+      <button class="nav-toggle" aria-label="菜单">☰</button>
+    </header>
+
+    <main class="app-main app-main--wide">
+
+      <div class="row between wrap mb-3">
+        <div>
+          <span class="kicker">推演 · Visual Modeling</span>
+          <h1 class="page-title" style="margin-top:6px;">把变量调到看见关系</h1>
+        </div>
+        <div class="row row--sm middle">
+          <button class="btn btn--ghost btn--sm">↻ 再推理</button>
+          <button class="btn btn--outline btn--sm">☆ 收藏模型包</button>
+          <button class="btn btn--outline btn--sm">↗ 分享</button>
+        </div>
+      </div>
+
+      <!-- ─── 顶部工具栏 ─── -->
+      <div class="modeling-toolbar">
+        <div class="subject-toggle">
+          <button type="button" class="is-active" onclick="switchSubject('physics')">⚗︎ 物理</button>
+          <button type="button" onclick="switchSubject('biology')">🧬 生物</button>
+        </div>
+        <input class="input" value="平抛运动如何命中目标窗口？v0 = 20 m/s, h = 20 m" />
+        <button class="btn btn--ghost btn--icon" aria-label="补充上下文">＋</button>
+        <button class="btn btn--primary"><span>⚡</span><span>生成模型</span></button>
+      </div>
+
+      <!-- ─── 阶段进度（已完成态） ─── -->
+      <div class="stage-strip">
+        <div class="stage-pill is-done"><span class="stage-pill__dot"></span><span>找证据</span></div>
+        <div class="stage-pill is-done"><span class="stage-pill__dot"></span><span>AI 推理</span></div>
+        <div class="stage-pill is-done"><span class="stage-pill__dot"></span><span>领域校验</span></div>
+        <div class="stage-pill is-done"><span class="stage-pill__dot"></span><span>编译渲染</span></div>
+        <div class="stage-pill is-active"><span class="stage-pill__dot"></span><span>就绪 · 可调参</span></div>
+      </div>
+
+      <!-- ─── 证据折叠条 ─── -->
+      <div class="evidence-bar" onclick="toggleEvidence(this)">
+        <span class="evidence-bar__icon">📑</span>
+        <div class="evidence-bar__main">
+          <div class="evidence-bar__title">证据已就绪 · 3 条课本引用 + 1 条同类题</div>
+          <div class="evidence-bar__meta">
+            <span class="tag tag--success">可信度 89%</span>&nbsp;&nbsp;
+            <span>主要章节：高一物理 · §5.2 平抛运动</span>
+          </div>
+        </div>
+        <span class="evidence-bar__caret">›</span>
+      </div>
+      <div class="evidence-detail">
+        <div class="citations-list" style="display:flex;flex-direction:column;gap:var(--space-2);">
+          <div style="display:grid;grid-template-columns:24px 1fr auto;gap:var(--space-3);align-items:start;">
+            <span class="citation__num" style="width:22px;height:22px;font-size:10px;">1</span>
+            <div>
+              <div class="text-sm">"平抛运动是匀变速曲线运动，可分解为水平方向的匀速运动和竖直方向的自由落体运动。"</div>
+              <div class="text-xs text-subtle"><span class="tag">课本</span>&nbsp;人教版必修第一册 · §5.2</div>
+            </div>
+            <span class="text-xs text-success" style="white-space:nowrap;">94%</span>
+          </div>
+          <div style="display:grid;grid-template-columns:24px 1fr auto;gap:var(--space-3);align-items:start;">
+            <span class="citation__num" style="width:22px;height:22px;font-size:10px;">2</span>
+            <div>
+              <div class="text-sm">"水平位移 x = v₀ t；竖直位移 y = ½g t²；落地时间 t = √(2h/g)。"</div>
+              <div class="text-xs text-subtle"><span class="tag">讲义</span>&nbsp;高一物理 · 抛体专题</div>
+            </div>
+            <span class="text-xs text-success">88%</span>
+          </div>
+          <div style="display:grid;grid-template-columns:24px 1fr auto;gap:var(--space-3);align-items:start;">
+            <span class="citation__num" style="width:22px;height:22px;font-size:10px;">3</span>
+            <div>
+              <div class="text-sm">"分速度 vx = v₀（恒定），vy = g t（随时间增大）。"</div>
+              <div class="text-xs text-subtle"><span class="tag">课本</span>&nbsp;人教版必修第一册 · §5.2 例题</div>
+            </div>
+            <span class="text-xs text-success">85%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── 主体两栏 ─── -->
+      <div class="modeling-grid">
+
+        <!-- ─── 画布 ─── -->
+        <section class="canvas">
+          <header class="canvas__head">
+            <div>
+              <div class="canvas__title" id="canvas-title">平抛运动 · 轨迹推演</div>
+              <div class="text-xs text-subtle">学习目标：调节 v₀ 与 h，让轨迹穿过目标窗口</div>
+            </div>
+            <div class="row row--sm">
+              <button class="btn btn--ghost btn--sm">⤢ 放大</button>
+              <button class="btn btn--ghost btn--sm">⟲ 重置</button>
+            </div>
+          </header>
+
+          <!-- 物理状态 -->
+          <div class="canvas__body physics-canvas" data-state-tab="physics" data-active>
+            <svg viewBox="0 0 800 460" preserveAspectRatio="xMidYMid meet">
+              <!-- 坐标轴 -->
+              <line x1="60" y1="40" x2="60" y2="420" stroke="currentColor" stroke-opacity="0.3" />
+              <line x1="60" y1="420" x2="760" y2="420" stroke="currentColor" stroke-opacity="0.3" />
+              <text x="40" y="50" font-size="12" fill="currentColor" opacity="0.6">y</text>
+              <text x="760" y="440" font-size="12" fill="currentColor" opacity="0.6">x</text>
+
+              <!-- 起点 -->
+              <circle cx="60" cy="60" r="6" fill="#2563EB" />
+              <text x="70" y="55" font-size="12" fill="#2563EB">v₀ = 20 m/s, h = 20 m</text>
+
+              <!-- 抛物线轨迹 -->
+              <path d="M 60 60 Q 250 60 500 250 T 740 420" stroke="#2563EB" stroke-width="2.5" fill="none" />
+
+              <!-- 当前位置点 -->
+              <circle cx="500" cy="250" r="6" fill="#2563EB" />
+              <text x="510" y="245" font-size="12" fill="#1C1917">t = 1.43 s</text>
+
+              <!-- 目标窗口 -->
+              <rect x="640" y="360" width="80" height="60" stroke="#16A34A" stroke-width="2" stroke-dasharray="6 4" fill="#16A34A" fill-opacity="0.08" />
+              <text x="680" y="450" font-size="12" fill="#16A34A" text-anchor="middle">目标</text>
+
+              <!-- 分速度向量在当前点 -->
+              <line x1="500" y1="250" x2="560" y2="250" stroke="#0891B2" stroke-width="2" marker-end="url(#arrow-cyan)" />
+              <text x="565" y="245" font-size="11" fill="#0891B2">vx</text>
+              <line x1="500" y1="250" x2="500" y2="320" stroke="#D97706" stroke-width="2" marker-end="url(#arrow-amber)" />
+              <text x="505" y="335" font-size="11" fill="#D97706">vy</text>
+
+              <defs>
+                <marker id="arrow-cyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                  <path d="M0,0 L10,5 L0,10 Z" fill="#0891B2" />
+                </marker>
+                <marker id="arrow-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                  <path d="M0,0 L10,5 L0,10 Z" fill="#D97706" />
+                </marker>
+              </defs>
+            </svg>
+            <div class="physics-result">
+              <div class="physics-result__item">
+                <span class="physics-result__label">落地时间 t</span>
+                <span class="physics-result__value">2.02 s</span>
+              </div>
+              <div class="physics-result__item">
+                <span class="physics-result__label">水平位移 x</span>
+                <span class="physics-result__value">40.4 m</span>
+              </div>
+              <div class="physics-result__item">
+                <span class="physics-result__label">末速度 v</span>
+                <span class="physics-result__value">28.3 m/s</span>
+              </div>
+              <div class="physics-result__item">
+                <span class="physics-result__label">命中目标</span>
+                <span class="physics-result__value" style="color:var(--color-success);">✓ 是</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 生物状态 -->
+          <div class="canvas__body biology-graph" data-state-tab="biology">
+            <div class="bio-node bio-node--input"  style="top: 40px; left: 40px;">光照强度</div>
+            <div class="bio-node bio-node--input"  style="top: 160px; left: 40px;">CO₂ 浓度</div>
+            <div class="bio-node bio-node--input"  style="top: 280px; left: 40px;">温度</div>
+
+            <div class="bio-node bio-node--process" style="top: 100px; left: 50%; transform: translateX(-50%);">光反应<br><span style="font-size:11px;opacity:0.8;">生成 ATP, NADPH</span></div>
+            <div class="bio-node bio-node--process" style="top: 250px; left: 50%; transform: translateX(-50%);">暗反应（C3 循环）<br><span style="font-size:11px;opacity:0.8;">固定 CO₂ → 还原 C3</span></div>
+
+            <div class="bio-node bio-node--output" style="top: 100px; right: 40px;">O₂ 释放</div>
+            <div class="bio-node bio-node--output" style="top: 250px; right: 40px;">(CH₂O) 有机物积累</div>
+
+            <!-- SVG 连线 -->
+            <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;" viewBox="0 0 800 460" preserveAspectRatio="none">
+              <defs>
+                <marker id="arrow-line" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                  <path d="M0,0 L10,5 L0,10 Z" fill="#A8A29E" />
+                </marker>
+              </defs>
+              <path d="M 150 60 Q 280 60 360 110" stroke="#A8A29E" stroke-width="1.5" fill="none" marker-end="url(#arrow-line)" />
+              <path d="M 150 180 Q 280 180 360 260" stroke="#A8A29E" stroke-width="1.5" fill="none" marker-end="url(#arrow-line)" />
+              <path d="M 150 300 Q 280 300 360 280" stroke="#A8A29E" stroke-width="1.5" fill="none" marker-end="url(#arrow-line)" />
+              <path d="M 440 130 Q 540 130 620 130" stroke="#A8A29E" stroke-width="1.5" fill="none" marker-end="url(#arrow-line)" />
+              <path d="M 440 280 Q 540 280 620 280" stroke="#A8A29E" stroke-width="1.5" fill="none" marker-end="url(#arrow-line)" />
+              <path d="M 400 160 Q 400 220 400 250" stroke="#2563EB" stroke-width="1.5" stroke-dasharray="4 4" fill="none" marker-end="url(#arrow-line)" />
+              <text x="410" y="210" font-size="11" fill="#2563EB">提供 ATP/NADPH</text>
+            </svg>
+          </div>
+        </section>
+
+        <!-- ─── AI 教练右栏 ─── -->
+        <aside class="coach">
+          <div class="card">
+            <div class="row between middle mb-3">
+              <span class="text-sm text-strong">AI 推理摘要</span>
+              <span class="tag tag--success">校验通过</span>
+            </div>
+            <p class="text-sm text-muted mb-3">
+              本题为典型平抛运动。水平方向匀速 v₀，竖直方向自由落体；
+              落地时间仅由高度 h 决定，与 v₀ 无关。
+            </p>
+            <div class="reasoning-step">
+              <span class="reasoning-step__num">1</span>
+              <span class="reasoning-step__text">识别场景：水平抛出 + 重力作用，无空气阻力假设</span>
+            </div>
+            <div class="reasoning-step">
+              <span class="reasoning-step__num">2</span>
+              <span class="reasoning-step__text">分解：x 方向 vx = v₀ 恒定；y 方向自由落体 vy = g t</span>
+            </div>
+            <div class="reasoning-step">
+              <span class="reasoning-step__num">3</span>
+              <span class="reasoning-step__text">落地条件 y = h ⇒ t = √(2h/g)</span>
+            </div>
+            <div class="reasoning-step">
+              <span class="reasoning-step__num">4</span>
+              <span class="reasoning-step__text">代入 v₀=20, h=20, g=10 ⇒ t ≈ 2.0s, x ≈ 40m</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="row between middle mb-3">
+              <span class="text-sm text-strong">参数 · 本地实时刷新</span>
+              <span class="text-xs text-subtle">改动后画布同步</span>
+            </div>
+            <div class="param">
+              <div class="param__head">
+                <span class="param__name">初速度 v₀</span>
+                <span class="param__value">20 m/s</span>
+              </div>
+              <input class="param__slider" type="range" min="5" max="50" value="20" />
+              <div class="param__meta"><span>5</span><span>50 m/s</span></div>
+            </div>
+            <div class="param">
+              <div class="param__head">
+                <span class="param__name">抛出高度 h</span>
+                <span class="param__value">20 m</span>
+              </div>
+              <input class="param__slider" type="range" min="5" max="80" value="20" />
+              <div class="param__meta"><span>5</span><span>80 m</span></div>
+            </div>
+            <div class="param">
+              <div class="param__head">
+                <span class="param__name">重力加速度 g</span>
+                <span class="param__value">10.0</span>
+              </div>
+              <input class="param__slider" type="range" min="1" max="20" step="0.1" value="10" />
+              <div class="param__meta"><span>1</span><span>20 m/s²</span></div>
+            </div>
+            <div class="param">
+              <div class="param__head">
+                <span class="param__name">目标距离 d</span>
+                <span class="param__value">40 m</span>
+              </div>
+              <input class="param__slider" type="range" min="10" max="80" value="40" />
+              <div class="param__meta"><span>10</span><span>80 m</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="text-sm text-strong mb-3">校验灯</div>
+            <div class="check-grid">
+              <div class="check-item"><span class="check-item__icon">✓</span><span class="check-item__label">Schema</span></div>
+              <div class="check-item"><span class="check-item__icon">✓</span><span class="check-item__label">证据</span></div>
+              <div class="check-item"><span class="check-item__icon">✓</span><span class="check-item__label">领域</span></div>
+              <div class="check-item"><span class="check-item__icon">✓</span><span class="check-item__label">安全</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="row between middle mb-3">
+              <span class="text-sm text-strong">微练习</span>
+              <span class="text-xs text-subtle">3 题 / 已答 0</span>
+            </div>
+            <div class="practice-item">
+              <div class="practice-item__head">
+                <span class="tag tag--physics">选择</span>
+                <span class="text-xs text-subtle">推理</span>
+              </div>
+              <p class="practice-item__q">若把 v₀ 加倍而 h 不变，落地时间会怎么变？</p>
+            </div>
+            <div class="practice-item">
+              <div class="practice-item__head">
+                <span class="tag tag--physics">填空</span>
+                <span class="text-xs text-subtle">应用</span>
+              </div>
+              <p class="practice-item__q">若 h = 45 m，落地用时 t = ___ s（g 取 10）</p>
+            </div>
+            <div class="practice-item">
+              <div class="practice-item__head">
+                <span class="tag tag--physics">挑战</span>
+                <span class="text-xs text-subtle">迁移</span>
+              </div>
+              <p class="practice-item__q">如何让轨迹刚好穿过 (50, 20) 的目标？</p>
+            </div>
+          </div>
+
+          <div class="alert alert--info">
+            <span class="alert__icon">💡</span>
+            <div class="alert__body">
+              <div class="alert__title">再推理建议</div>
+              <div class="alert__desc">需要考虑空气阻力？切换到「带阻力抛体」模型重新生成。</div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+    </main>
+
+    <footer class="app-footer">
+      <div class="app-footer__inner">
+        <span>Snowy · 推演 · v6 设计原型</span>
+        <span class="text-subtle">2026</span>
+      </div>
+    </footer>
+
+    <button class="preview-toggle" data-preview-toggle>📱 移动预览</button>
+  </div>
+
+  <script>
+    function switchSubject(kind) {
+      document.querySelectorAll('.subject-toggle button').forEach((b) => {
+        b.classList.toggle('is-active', b.textContent.includes(kind === 'physics' ? '物理' : '生物'));
+      });
+      document.querySelectorAll('[data-state-tab]').forEach((el) => {
+        el.classList.toggle('is-active', el.dataset.stateTab === kind);
+        el.style.display = el.dataset.stateTab === kind ? '' : 'none';
+      });
+      const title = document.getElementById('canvas-title');
+      title.textContent = kind === 'physics' ? '平抛运动 · 轨迹推演' : '光合作用 · 过程关系图';
+      // 简化处理：右栏内容不改，仅切画布
+    }
+    // initial
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('[data-state-tab]').forEach((el) => {
+        el.style.display = el.dataset.stateTab === 'physics' ? '' : 'none';
+      });
+    });
+    function toggleEvidence(el) {
+      el.classList.toggle('is-open');
+    }
+  </script>
+
+  <!--
+    Mock data sample:
+    POST /api/v1/modeling/compile
+    Body: { "message": "...", "domain": "physics", "grade_band": "high_school", "target_mode": "interactive_model" }
+    Resp: { "package_id": "pkg-xxx", "domain": "physics", "evidence_refs": [...],
+            "learning_model": { "learning_goal": "..." },
+            "simulation_logic": { "variables": [
+              { "name": "v0", "default": 20, "min": 5, "max": 50, "unit": "m/s" }
+            ]},
+            "reasoning_trace": { "summary": "...", "key_steps": [...] },
+            "validation_report": { "schema_valid": true, "evidence_valid": true, "domain_valid": true, "safety_valid": true, "confidence": 0.89 },
+            "assessment_tasks": [...]
+          }
+  -->
+</body>
+</html>

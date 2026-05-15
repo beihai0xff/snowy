@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -17,8 +18,14 @@ type RateLimiter interface {
 	Allow(ctx context.Context, key string, limit int, window time.Duration) (bool, error)
 }
 
+const (
+	defaultAuthenticatedRPM = 300
+	defaultAnonymousRPM     = 120
+)
+
 // RateLimit 限流中间件。
-// 参考技术方案 §18A.4 — 已认证 60/min，匿名 10/min。
+// v5 前端会并发拉取 profile/history/favorites/reactions/model packages/monitoring 等多条数据；
+// 默认限额必须覆盖正常学习链路的突发请求，同时保留防滥用保护。
 func RateLimit(limiter RateLimiter, cfg config.RateLimitConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var (
@@ -26,14 +33,20 @@ func RateLimit(limiter RateLimiter, cfg config.RateLimitConfig) gin.HandlerFunc 
 			limit int
 		)
 
+		if isRateLimitExempt(c) {
+			c.Next()
+
+			return
+		}
+
 		anonymous, _ := c.Get("anonymous")
 		if anonymous == true {
 			key = fmt.Sprintf("rate:%s:1m", c.ClientIP())
-			limit = cfg.AnonymousRPM
+			limit = effectiveLimit(cfg.AnonymousRPM, defaultAnonymousRPM)
 		} else {
 			userID, _ := c.Get("user_id")
 			key = fmt.Sprintf("rate:%s:1m", userID)
-			limit = cfg.AuthenticatedRPM
+			limit = effectiveLimit(cfg.AuthenticatedRPM, defaultAuthenticatedRPM)
 		}
 
 		allowed, err := limiter.Allow(c.Request.Context(), key, limit, time.Minute)
@@ -53,5 +66,39 @@ func RateLimit(limiter RateLimiter, cfg config.RateLimitConfig) gin.HandlerFunc 
 		}
 
 		c.Next()
+	}
+}
+
+func effectiveLimit(configured int, fallback int) int {
+	if configured > 0 {
+		return configured
+	}
+
+	return fallback
+}
+
+func isRateLimitExempt(c *gin.Context) bool {
+	if c == nil || c.Request == nil {
+		return false
+	}
+
+	path := strings.TrimSpace(c.FullPath())
+	if path == "" {
+		path = c.Request.URL.Path
+	}
+
+	switch path {
+	case "/api/v1/user/profile",
+		"/api/v1/history",
+		"/api/v1/favorites",
+		"/api/v1/reactions",
+		"/api/v1/reactions/summary",
+		"/api/v1/modeling/packages",
+		"/api/v1/answers",
+		"/api/v1/monitoring/llm",
+		"/api/v1/recommendations":
+		return c.Request.Method == http.MethodGet
+	default:
+		return false
 	}
 }

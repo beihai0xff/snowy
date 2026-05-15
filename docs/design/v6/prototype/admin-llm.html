@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Snowy · AI 调用监控（管理后台）</title>
+  <link rel="stylesheet" href="../tokens.css" />
+  <link rel="stylesheet" href="../components.css" />
+  <script defer src="./shell.js"></script>
+  <style>
+    /* —— 监控页专属 —— */
+
+    /* 顶部 4 张统计卡 */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-6);
+    }
+    .kpi {
+      padding: var(--space-5);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+    }
+    .kpi__label {
+      color: var(--color-text-muted);
+      font-size: var(--text-sm);
+      margin-bottom: var(--space-2);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .kpi__value {
+      font-size: 32px;
+      font-weight: var(--weight-bold);
+      font-family: var(--font-display);
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .kpi__sub {
+      color: var(--color-text-subtle);
+      font-size: var(--text-xs);
+      margin-top: var(--space-2);
+    }
+
+    /* 迷你条形图 */
+    .spark {
+      display: flex; align-items: flex-end; gap: 2px;
+      height: 32px; margin-top: var(--space-2);
+    }
+    .spark__bar {
+      flex: 1; background: var(--color-primary-soft); border-radius: 1px;
+    }
+
+    /* 筛选器卡 */
+    .filter-card {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: var(--space-3);
+      align-items: end;
+      padding: var(--space-4) var(--space-5);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      margin-bottom: var(--space-4);
+    }
+
+    /* 供应商卡 */
+    .provider-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-4);
+    }
+    .provider {
+      padding: var(--space-4) var(--space-5);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+    }
+    .provider__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
+    .provider__name { font-size: var(--text-base); font-weight: var(--weight-semibold); }
+    .provider__row { display: flex; justify-content: space-between; padding: 6px 0; font-size: var(--text-sm); }
+    .provider__row + .provider__row { border-top: 1px solid var(--color-divider); }
+    .provider__key { color: var(--color-text-muted); }
+    .provider__val { color: var(--color-text); font-family: var(--font-mono); }
+
+    /* 聚合指标 */
+    .metric-row {
+      padding: var(--space-3) 0;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: var(--space-3);
+      border-bottom: 1px solid var(--color-divider);
+    }
+    .metric-row:last-child { border-bottom: 0; }
+    .metric-bar {
+      height: 6px; background: var(--color-bg-subtle);
+      border-radius: var(--radius-full); overflow: hidden;
+      margin-top: var(--space-1);
+    }
+    .metric-bar__fill { height: 100%; background: var(--color-primary); border-radius: var(--radius-full); }
+
+    /* PE 卡 */
+    .pe-card {
+      padding: var(--space-4);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      height: 100%;
+    }
+    .pe-card__head { display: flex; justify-content: space-between; margin-bottom: var(--space-3); }
+    .pe-card__title { font-size: var(--text-base); font-weight: var(--weight-semibold); }
+    .pe-snippet {
+      padding: var(--space-3);
+      background: var(--color-bg-subtle);
+      border-radius: var(--radius-md);
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      line-height: var(--leading-relaxed);
+      color: var(--color-text-muted);
+      max-height: 120px;
+      overflow: hidden;
+      position: relative;
+    }
+    .pe-snippet::after {
+      content: ''; position: absolute; inset: auto 0 0 0; height: 30px;
+      background: linear-gradient(transparent, var(--color-bg-subtle));
+    }
+
+    @media (max-width: 960px) {
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+      .filter-card { grid-template-columns: repeat(2, 1fr); }
+      .provider-grid { grid-template-columns: 1fr; }
+    }
+    .app--mobile-preview .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .app--mobile-preview .filter-card { grid-template-columns: 1fr; }
+    .app--mobile-preview .provider-grid { grid-template-columns: 1fr; }
+
+    /* 警告色边框 - admin */
+    .admin-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 4px 10px;
+      border: 1px solid var(--color-warning);
+      background: var(--color-warning-soft);
+      color: var(--color-warning);
+      border-radius: var(--radius-full);
+      font-size: var(--text-xs);
+      font-weight: var(--weight-medium);
+    }
+  </style>
+</head>
+<body data-page="admin">
+  <div class="app">
+
+    <header class="app-header">
+      <a href="./home.html" class="brand"><span class="brand__mark">❄</span><span>Snowy</span></a>
+      <div class="nav">
+        <a class="nav__link" href="./home.html">返回前台</a>
+        <a class="nav__link nav__link--active" href="./admin-llm.html">AI 调用监控</a>
+        <span class="text-xs text-subtle" style="margin-left:var(--space-2);">/admin</span>
+      </div>
+      <div class="row row--sm middle">
+        <span class="admin-badge">⚠ 管理后台</span>
+        <button class="btn btn--ghost btn--sm" data-theme-toggle>☾ 深色</button>
+      </div>
+      <button class="nav-toggle" aria-label="菜单">☰</button>
+    </header>
+
+    <main class="app-main app-main--wide">
+
+      <div class="row between wrap mb-6">
+        <div>
+          <span class="kicker">/admin/llm · LLM Telemetry</span>
+          <h1 class="page-title" style="margin-top:6px;">AI 调用监控</h1>
+          <p class="page-subtitle" style="margin-bottom:0;">用于诊断模型可用性、追踪 Token 成本与 Prompt 演化。API Key 仅检测是否注入，永不展示明文。</p>
+        </div>
+        <div class="row row--sm middle">
+          <span class="text-xs text-subtle">最近刷新 14:32:09</span>
+          <button class="btn btn--outline btn--sm">↻ 刷新</button>
+          <button class="btn btn--primary btn--sm">⤓ 导出</button>
+        </div>
+      </div>
+
+      <!-- ─── 4 张统计卡 ─── -->
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="kpi__label"><span>⚡</span><span>调用总数</span></div>
+          <div class="kpi__value">12,486</div>
+          <div class="kpi__sub">最近 24 小时 · ↑ 8.4%</div>
+          <div class="spark">
+            <div class="spark__bar" style="height:40%;"></div>
+            <div class="spark__bar" style="height:55%;"></div>
+            <div class="spark__bar" style="height:48%;"></div>
+            <div class="spark__bar" style="height:62%;"></div>
+            <div class="spark__bar" style="height:70%;"></div>
+            <div class="spark__bar" style="height:58%;"></div>
+            <div class="spark__bar" style="height:85%;"></div>
+            <div class="spark__bar" style="height:78%;"></div>
+            <div class="spark__bar" style="height:90%;"></div>
+            <div class="spark__bar" style="height:100%; background: var(--color-primary);"></div>
+          </div>
+        </div>
+        <div class="kpi">
+          <div class="kpi__label"><span>⏱</span><span>平均耗时</span></div>
+          <div class="kpi__value">1,247 <span style="font-size:18px;color:var(--color-text-muted);">ms</span></div>
+          <div class="kpi__sub">P50 920 · P95 3,180 · Max 12,460</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi__label"><span>✓</span><span>成功率</span></div>
+          <div class="kpi__value" style="color:var(--color-success);">98.2<span style="font-size:18px;">%</span></div>
+          <div class="kpi__sub">失败 224 次 · 主要原因：超时 / 429 限流</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi__label"><span>🧮</span><span>Token 总量</span></div>
+          <div class="kpi__value">3.84M</div>
+          <div class="kpi__sub">输入 1.92M · 输出 1.92M · ¥ 估算 24.8</div>
+        </div>
+      </div>
+
+      <!-- ─── 筛选器 ─── -->
+      <div class="filter-card">
+        <div class="field">
+          <span class="field__label">用户 ID</span>
+          <input class="input" placeholder="user-xxx 或留空" />
+        </div>
+        <div class="field">
+          <span class="field__label">厂商</span>
+          <select class="input">
+            <option>全部</option>
+            <option>openai</option>
+            <option>deepseek</option>
+            <option>zhipu</option>
+          </select>
+        </div>
+        <div class="field">
+          <span class="field__label">模型</span>
+          <input class="input" placeholder="gpt-4o-mini" />
+        </div>
+        <div class="field">
+          <span class="field__label">链路</span>
+          <select class="input">
+            <option>全部</option>
+            <option>knowledge_answer_pe</option>
+            <option>render_generation_pe</option>
+            <option>scene_spec_render</option>
+          </select>
+        </div>
+        <div class="field">
+          <span class="field__label">时间</span>
+          <select class="input">
+            <option>最近 24 小时</option>
+            <option>最近 7 天</option>
+            <option>最近 30 天</option>
+          </select>
+        </div>
+        <button class="btn btn--primary">应用筛选</button>
+      </div>
+
+      <!-- ─── Tab：调用记录 / Prompt Profile / 配置 ─── -->
+      <div class="tabs">
+        <button class="tabs__tab tabs__tab--active" data-tab="calls" onclick="switchTab('calls')">
+          <span>调用记录</span>
+          <span class="tabs__count">200</span>
+        </button>
+        <button class="tabs__tab" data-tab="prompts" onclick="switchTab('prompts')">
+          <span>Prompt Profile</span>
+          <span class="tabs__count">6</span>
+        </button>
+        <button class="tabs__tab" data-tab="config" onclick="switchTab('config')">
+          <span>模型配置</span>
+          <span class="tabs__count">4</span>
+        </button>
+      </div>
+
+      <!-- 调用记录 -->
+      <div data-pane="calls" style="display:block;">
+        <div class="grid-2" style="grid-template-columns: 2fr 1fr; gap: var(--space-4); margin-bottom: var(--space-6);">
+          <div class="card">
+            <div class="card__header">
+              <span class="card__title">按链路聚合（平均耗时 / 成功率）</span>
+              <span class="text-xs text-subtle">最近 24h</span>
+            </div>
+            <div class="metric-row">
+              <div>
+                <div class="text-sm text-strong">知识点直答 PE</div>
+                <div class="text-xs text-subtle">4,820 次 · P95 2,140 ms</div>
+                <div class="metric-bar"><div class="metric-bar__fill" style="width:48%;"></div></div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm text-mono">980 ms</div>
+                <span class="tag tag--success">99.1%</span>
+              </div>
+            </div>
+            <div class="metric-row">
+              <div>
+                <div class="text-sm text-strong">可视化渲染 PE</div>
+                <div class="text-xs text-subtle">2,168 次 · P95 5,640 ms</div>
+                <div class="metric-bar"><div class="metric-bar__fill" style="width:78%;"></div></div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm text-mono">2,340 ms</div>
+                <span class="tag tag--success">96.5%</span>
+              </div>
+            </div>
+            <div class="metric-row">
+              <div>
+                <div class="text-sm text-strong">场景渲染</div>
+                <div class="text-xs text-subtle">1,432 次 · P95 8,420 ms</div>
+                <div class="metric-bar"><div class="metric-bar__fill" style="width:100%;"></div></div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm text-mono">3,180 ms</div>
+                <span class="tag tag--warning">92.3%</span>
+              </div>
+            </div>
+            <div class="metric-row">
+              <div>
+                <div class="text-sm text-strong">通用 LLM 调用</div>
+                <div class="text-xs text-subtle">4,066 次 · P95 1,240 ms</div>
+                <div class="metric-bar"><div class="metric-bar__fill" style="width:25%;"></div></div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm text-mono">540 ms</div>
+                <span class="tag tag--success">99.4%</span>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card__header">
+              <span class="card__title">按厂商聚合</span>
+            </div>
+            <div class="metric-row">
+              <div>
+                <div class="text-sm text-strong">openai / gpt-4o-mini</div>
+                <div class="text-xs text-subtle">9,820 次</div>
+              </div>
+              <span class="tag tag--success">99.0%</span>
+            </div>
+            <div class="metric-row">
+              <div>
+                <div class="text-sm text-strong">deepseek / deepseek-chat</div>
+                <div class="text-xs text-subtle">1,842 次</div>
+              </div>
+              <span class="tag tag--success">97.4%</span>
+            </div>
+            <div class="metric-row">
+              <div>
+                <div class="text-sm text-strong">zhipu / glm-4</div>
+                <div class="text-xs text-subtle">824 次</div>
+              </div>
+              <span class="tag tag--warning">93.1%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:0;">
+          <div style="padding: var(--space-4) var(--space-5); display:flex; justify-content:space-between; align-items:center;">
+            <span class="text-strong">最近 LLM 调用</span>
+            <span class="text-xs text-subtle">MySQL 持久化 + 内存热数据</span>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>链路</th>
+                <th>模型</th>
+                <th style="text-align:right;">耗时</th>
+                <th style="text-align:right;">Tokens</th>
+                <th>状态</th>
+                <th>诊断</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="text-mono text-xs">14:32:09</td>
+                <td><span class="tag tag--primary">知识点直答 PE</span></td>
+                <td><span class="text-mono text-sm">openai/gpt-4o-mini</span></td>
+                <td style="text-align:right;" class="text-mono text-sm">980 ms</td>
+                <td style="text-align:right;" class="text-mono text-sm">1,240 / 320</td>
+                <td><span class="dot dot--success"></span> 成功</td>
+                <td class="text-xs text-muted">stop</td>
+              </tr>
+              <tr>
+                <td class="text-mono text-xs">14:31:58</td>
+                <td><span class="tag tag--biology">可视化渲染 PE</span></td>
+                <td><span class="text-mono text-sm">openai/gpt-4o-mini</span></td>
+                <td style="text-align:right;" class="text-mono text-sm">2,340 ms</td>
+                <td style="text-align:right;" class="text-mono text-sm">2,180 / 1,820</td>
+                <td><span class="dot dot--success"></span> 成功</td>
+                <td class="text-xs text-muted">stop</td>
+              </tr>
+              <tr>
+                <td class="text-mono text-xs">14:31:42</td>
+                <td><span class="tag tag--physics">场景渲染</span></td>
+                <td><span class="text-mono text-sm">deepseek/chat</span></td>
+                <td style="text-align:right;" class="text-mono text-sm">8,420 ms</td>
+                <td style="text-align:right;" class="text-mono text-sm">3,420 / 2,640</td>
+                <td><span class="dot dot--warning"></span> 超时降级</td>
+                <td class="text-xs text-danger">timeout · fallback to openai</td>
+              </tr>
+              <tr>
+                <td class="text-mono text-xs">14:31:18</td>
+                <td><span class="tag tag--primary">知识点直答 PE</span></td>
+                <td><span class="text-mono text-sm">openai/gpt-4o-mini</span></td>
+                <td style="text-align:right;" class="text-mono text-sm">1,120 ms</td>
+                <td style="text-align:right;" class="text-mono text-sm">980 / 280</td>
+                <td><span class="dot dot--success"></span> 成功</td>
+                <td class="text-xs text-muted">stop</td>
+              </tr>
+              <tr>
+                <td class="text-mono text-xs">14:30:55</td>
+                <td><span class="tag tag--biology">可视化渲染 PE</span></td>
+                <td><span class="text-mono text-sm">zhipu/glm-4</span></td>
+                <td style="text-align:right;" class="text-mono text-sm">5,860 ms</td>
+                <td style="text-align:right;" class="text-mono text-sm">2,640 / 1,420</td>
+                <td><span class="dot dot--danger"></span> 失败</td>
+                <td class="text-xs text-danger">429 rate_limit_exceeded</td>
+              </tr>
+              <tr>
+                <td class="text-mono text-xs">14:30:21</td>
+                <td><span class="tag">通用</span></td>
+                <td><span class="text-mono text-sm">openai/gpt-4o-mini</span></td>
+                <td style="text-align:right;" class="text-mono text-sm">540 ms</td>
+                <td style="text-align:right;" class="text-mono text-sm">420 / 120</td>
+                <td><span class="dot dot--success"></span> 成功</td>
+                <td class="text-xs text-muted">stop</td>
+              </tr>
+              <tr>
+                <td class="text-mono text-xs">14:29:48</td>
+                <td><span class="tag tag--primary">知识点直答 PE</span></td>
+                <td><span class="text-mono text-sm">openai/gpt-4o-mini</span></td>
+                <td style="text-align:right;" class="text-mono text-sm">870 ms</td>
+                <td style="text-align:right;" class="text-mono text-sm">1,420 / 380</td>
+                <td><span class="dot dot--success"></span> 成功</td>
+                <td class="text-xs text-muted">stop</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="padding: var(--space-3) var(--space-5); display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--color-divider);">
+            <span class="text-xs text-subtle">显示 1-7 / 共 12,486 条</span>
+            <div class="row row--sm">
+              <button class="btn btn--ghost btn--sm">← 上一页</button>
+              <button class="btn btn--ghost btn--sm">下一页 →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prompt Profile -->
+      <div data-pane="prompts" style="display:none;">
+        <div class="grid-3">
+          <div class="pe-card">
+            <div class="pe-card__head">
+              <div>
+                <div class="pe-card__title">知识点直答 PE</div>
+                <span class="text-xs text-subtle">knowledge_answer_pe · v1.4.2</span>
+              </div>
+              <span class="tag tag--primary">production</span>
+            </div>
+            <div class="pe-snippet">You are Snowy, an AI tutor for Chinese high school students. Given a question, retrieve evidence first, then synthesize an answer with explicit citation [1][2]. Each conclusion must be traceable. Avoid hallucination — if evidence is weak, say so and reduce confidence ...</div>
+            <div class="row row--sm wrap mt-3">
+              <span class="tag">temperature: 0.3</span>
+              <span class="tag">max_tokens: 1024</span>
+            </div>
+            <div class="row row--sm mt-3">
+              <button class="btn btn--outline btn--sm btn--block">查看完整 PE / 版本历史</button>
+            </div>
+          </div>
+          <div class="pe-card">
+            <div class="pe-card__head">
+              <div>
+                <div class="pe-card__title">可视化渲染 PE</div>
+                <span class="text-xs text-subtle">render_generation_pe · v2.1.0</span>
+              </div>
+              <span class="tag tag--primary">production</span>
+            </div>
+            <div class="pe-snippet">Generate a structured GenerativeModelPackage in strict JSON. Include learning_model, simulation_logic, visualization_graph, reasoning_trace, validation_report, assessment_tasks. All variables must have min/max/default/unit. Do not output free-form text outside the JSON ...</div>
+            <div class="row row--sm wrap mt-3">
+              <span class="tag">temperature: 0.2</span>
+              <span class="tag">max_tokens: 4096</span>
+            </div>
+            <div class="row row--sm mt-3">
+              <button class="btn btn--outline btn--sm btn--block">查看完整 PE / 版本历史</button>
+            </div>
+          </div>
+          <div class="pe-card">
+            <div class="pe-card__head">
+              <div>
+                <div class="pe-card__title">场景渲染（实验性）</div>
+                <span class="text-xs text-subtle">scene_spec_render · v0.9.3</span>
+              </div>
+              <span class="tag tag--warning">canary</span>
+            </div>
+            <div class="pe-snippet">Translate a scene specification into safe HTML/CSS/JS bundle. Use only whitelisted imports. Wrap entry component as default export. Provide initial_props matching variables list ...</div>
+            <div class="row row--sm wrap mt-3">
+              <span class="tag">temperature: 0.1</span>
+              <span class="tag">max_tokens: 6000</span>
+            </div>
+            <div class="row row--sm mt-3">
+              <button class="btn btn--outline btn--sm btn--block">查看完整 PE / 版本历史</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 模型配置 -->
+      <div data-pane="config" style="display:none;">
+        <div class="provider-grid">
+          <div class="provider">
+            <div class="provider__head">
+              <div class="row middle"><span class="dot dot--success"></span><div class="provider__name">PRIMARY · openai</div></div>
+              <span class="tag tag--success">API Key 已注入</span>
+            </div>
+            <div class="provider__row"><span class="provider__key">model</span><span class="provider__val">gpt-4o-mini</span></div>
+            <div class="provider__row"><span class="provider__key">model_provider</span><span class="provider__val">openai</span></div>
+            <div class="provider__row"><span class="provider__key">base_url</span><span class="provider__val">https://api.openai.com</span></div>
+            <div class="provider__row"><span class="provider__key">timeout / retries</span><span class="provider__val">10m / 2</span></div>
+            <div class="provider__row"><span class="provider__key">temperature / max_tokens</span><span class="provider__val">0.3 / 1024</span></div>
+          </div>
+          <div class="provider">
+            <div class="provider__head">
+              <div class="row middle"><span class="dot dot--success"></span><div class="provider__name">FALLBACK_1 · deepseek</div></div>
+              <span class="tag tag--success">API Key 已注入</span>
+            </div>
+            <div class="provider__row"><span class="provider__key">model</span><span class="provider__val">deepseek-chat</span></div>
+            <div class="provider__row"><span class="provider__key">model_provider</span><span class="provider__val">deepseek</span></div>
+            <div class="provider__row"><span class="provider__key">base_url</span><span class="provider__val">https://api.deepseek.com</span></div>
+            <div class="provider__row"><span class="provider__key">timeout / retries</span><span class="provider__val">10m / 2</span></div>
+            <div class="provider__row"><span class="provider__key">temperature / max_tokens</span><span class="provider__val">0.3 / 1024</span></div>
+          </div>
+          <div class="provider">
+            <div class="provider__head">
+              <div class="row middle"><span class="dot dot--warning"></span><div class="provider__name">FALLBACK_2 · zhipu</div></div>
+              <span class="tag tag--warning">最近 429 失败</span>
+            </div>
+            <div class="provider__row"><span class="provider__key">model</span><span class="provider__val">glm-4</span></div>
+            <div class="provider__row"><span class="provider__key">model_provider</span><span class="provider__val">zhipu</span></div>
+            <div class="provider__row"><span class="provider__key">base_url</span><span class="provider__val">https://open.bigmodel.cn/api/paas/v4</span></div>
+            <div class="provider__row"><span class="provider__key">timeout / retries</span><span class="provider__val">10m / 1</span></div>
+            <div class="provider__row"><span class="provider__key">temperature / max_tokens</span><span class="provider__val">0.3 / 1024</span></div>
+          </div>
+          <div class="provider">
+            <div class="provider__head">
+              <div class="row middle"><span class="dot"></span><div class="provider__name">EMBED · openai</div></div>
+              <span class="tag tag--success">API Key 已注入</span>
+            </div>
+            <div class="provider__row"><span class="provider__key">model</span><span class="provider__val">text-embedding-3-small</span></div>
+            <div class="provider__row"><span class="provider__key">base_url</span><span class="provider__val">https://api.openai.com</span></div>
+            <div class="provider__row"><span class="provider__key">timeout / retries</span><span class="provider__val">60s / 1</span></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="app-footer">
+      <div class="app-footer__inner">
+        <span>Snowy · 管理后台 · v6 设计原型</span>
+        <span class="text-subtle">2026</span>
+      </div>
+    </footer>
+
+    <button class="preview-toggle" data-preview-toggle>📱 移动预览</button>
+  </div>
+
+  <script>
+    function switchTab(name) {
+      document.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('tabs__tab--active', b.dataset.tab === name));
+      document.querySelectorAll('[data-pane]').forEach((p) => p.style.display = p.dataset.pane === name ? 'block' : 'none');
+    }
+  </script>
+
+  <!--
+    Mock data sample:
+    GET /api/v1/monitoring/llm?limit=200
+    Resp: {
+      "summary": { "total_calls": 12486, "avg_latency_ms": 1247, "success_rate": 0.982, "total_input_tokens": 1920000, "total_output_tokens": 1920000 },
+      "by_provider": [...], "by_operation": [...], "providers": [...],
+      "prompt_profiles": [...], "recent_calls": [...]
+    }
+  -->
+</body>
+</html>

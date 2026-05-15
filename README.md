@@ -14,7 +14,7 @@
 | 📐 **物理 / 3D 场景建模** | 条件抽取 → 推导说明 → 前端代码生成 → 浏览器沙箱渲染 → 参数调节 |
 | 🧬 **生物建模** | 概念识别 → 关系抽取 → 过程拆解 → 实验变量分析 → 结构图/流程图 |
 | 🤖 **Agent 编排** | 基于 Eino Graph 的意图识别、工具调用、多模型路由与结构化输出 |
-| 🔄 **多模型路由** | `gpt5` 主推理、`gemini3` 备选，自动回退与成本管控 |
+| 🔄 **多模型路由** | v5 使用 `llm.models[]` 声明顺序作为调用顺序，支持自动重试、失败切换与成本管控 |
 
 ---
 
@@ -27,10 +27,9 @@
 | **Agent 编排** | [Eino](https://github.com/cloudwego/eino) (CloudWeGo) |
 | **数据库** | MySQL 8.0+ (GORM + go-sql-driver/mysql) |
 | **缓存 & 队列** | Redis 7 + Asynq |
-| **搜索引擎** | OpenSearch（全文 + 向量 + 混合检索） |
-| **对象存储** | MinIO (S3 兼容，开发环境) |
+| **搜索引擎** | OpenSearch 适配器（可选，默认运行未接入） |
 | **前端** | React / Next.js + TypeScript |
-| **可观测** | OpenTelemetry + Prometheus + Grafana |
+| **可观测** | OpenTelemetry + Prometheus + Grafana（Prometheus/Grafana 可选启动） |
 
 ---
 
@@ -39,8 +38,7 @@
 ```text
 snowy/
   cmd/
-    api/                  # HTTP API 服务入口
-    worker/               # Asynq 异步任务 Worker 入口
+    snowy/                # 默认单体服务入口（API + Embedded Worker）
   internal/
     agent/                # Agent 编排域（Eino Graph）
     user/                 # 用户服务
@@ -49,7 +47,7 @@ snowy/
       physics/            # 物理 / 场景代码生成域
       biology/            # 生物建模域
     handler/http/         # HTTP Handler 层
-    repo/                 # 基础设施层（MySQL / Redis / LLM / Embedding / OpenSearch / Storage）
+    repo/                 # 基础设施层（MySQL / Redis / LLM / Embedding / OpenSearch）
     pkg/                  # 公共基础包（common / config / middleware）
   api/openapi/            # OpenAPI 契约
   web/snowy-web/          # 前端项目
@@ -80,8 +78,8 @@ make bootstrap
 该命令会自动完成以下步骤：
 
 - 下载 Go 依赖
-- 启动基础设施容器
-- 等待 `MySQL` / `Redis` / `OpenSearch` / `MinIO` 健康检查通过
+- 启动必需基础设施容器（MySQL / Redis）
+- 等待 `MySQL` / `Redis` 健康检查通过
 - 自动执行 `GORM migration`
 
 其中 `make bootstrap` 本质上等价于依次执行：`make deps` → `make docker-up`。
@@ -94,11 +92,11 @@ make docker-up
 
 该命令现在会自动完成以下步骤：
 
-- 启动基础设施容器
-- 等待 `MySQL` / `Redis` / `OpenSearch` / `MinIO` 健康检查通过
+- 启动必需基础设施容器（MySQL / Redis）
+- 等待 `MySQL` / `Redis` 健康检查通过
 - 自动执行 `GORM migration`
 
-注意：`make docker-up` 只会启动基础设施相关容器，不会自动启动 `snowy-api` / `snowy-worker` / `snowy-web` 应用容器。
+注意：`make docker-up` 只会启动必需基础设施相关容器，不会自动启动 `snowy` / `snowy-web` 应用容器；Prometheus、Grafana 为可选观测组件，需要时显式启动。
 
 将启动以下服务：
 
@@ -106,10 +104,16 @@ make docker-up
 |---|---|
 | MySQL | `localhost:3306` |
 | Redis | `localhost:6379` |
-| OpenSearch | `localhost:9200` |
-| OpenSearch Dashboards | `localhost:5601` |
-| MinIO API | `localhost:9000` |
-| MinIO Console | `localhost:9001` |
+
+可选观测组件按需启动：
+
+```bash
+# 观测组件（仅在需要 Prometheus/Grafana 看板时）
+make docker-observability-up
+```
+
+| 可选服务 | 地址 |
+|---|---|
 | Prometheus | `localhost:9090` |
 | Grafana | `localhost:3000` |
 
@@ -119,30 +123,32 @@ make docker-up
 # 编译全部
 make build
 
-# 一键开发（启动基础设施 + 本地运行 API）
+# 一键开发（启动基础设施 + 本地运行 Snowy 单体服务）
 make dev
 ```
 
 说明：
 
-- `make dev` 会先执行 `make bootstrap`（下载依赖 + 启动基础设施 + 迁移），再本地运行 API 服务
+- `make dev` 会先执行 `make bootstrap`（下载依赖 + 启动基础设施 + 迁移），再本地运行 `snowy` 服务
+- 如需仅运行单个 surface，可使用 `SNOWY_SERVER_RUN_MODE=api go run ./cmd/snowy` 或 `SNOWY_SERVER_RUN_MODE=worker go run ./cmd/snowy`
 
 ### 4. 构建 Docker 镜像
 
 ```bash
-# 构建 api + worker + web 镜像
+# 构建 snowy + web 镜像
 make docker-build
 
-# 通过 docker compose 一键启动 API / Worker / Web
-MIMO_API_KEY='<runtime only>' make docker-run
+# 通过 docker compose 一键启动 Snowy / Web
+OPENAI_API_KEY='<runtime only>' make docker-run
 ```
 
 说明：
 
-- `make docker-run` 会一次启动 `snowy-api` / `snowy-worker` / `snowy-web`
-- 该目标会先确保基础设施已启动、健康检查通过，并完成 MySQL migration
-- 大模型运行参数从 `configs/config*.yaml` 的 `llm.primary/fallback` 读取，也可用环境变量覆盖：`SNOWY_LLM_PRIMARY_BASE_URL` / `SNOWY_LLM_PRIMARY_BASEURL`、`SNOWY_LLM_PRIMARY_MODEL` / `SNOWY_LLM_PRIMARY_MODEL_NAME`、`SNOWY_LLM_PRIMARY_MODEL_PROVIDER`、`SNOWY_LLM_FALLBACK_BASE_URL`、`SNOWY_LLM_FALLBACK_MODEL` 等；密钥仅运行时注入（如 `MIMO_API_KEY` 或 `SNOWY_LLM_PRIMARY_API_KEY`），不要写入仓库
-- 应用容器通过 Docker Compose 网络以服务名（`mysql` / `redis` / `minio`）访问基础设施
+- `make docker-run` 会一次启动 `snowy` / `snowy-web`
+- 该目标会先确保必需基础设施（MySQL / Redis）已启动、健康检查通过，并完成 MySQL migration
+- 大模型运行参数从 `configs/config*.yaml` 的 `llm.models[]` 读取，调用顺序严格等于 YAML 声明顺序；所有 LLM 供应商统一走 OpenAI-compatible `/chat/completions` 协议链路；密钥仅运行时通过 `OPENAI_API_KEY` 注入，不要写入仓库
+- 应用容器通过 Docker Compose 网络以服务名（`mysql` / `redis`）访问必需基础设施
+- 默认运行模式为 `server.run_mode=all`，同一进程内同时启动 HTTP API 与 embedded Asynq worker；如需临时拆分，可通过配置或环境变量 `SNOWY_SERVER_RUN_MODE=api|worker` 切换
 
 ### 5. 查看全部 Make 目标
 
@@ -155,14 +161,14 @@ make help
 推荐按分层执行测试：
 
 - `make test` / `make test-unit`：纯单元测试，默认使用 mock，速度快、适合日常开发
-- `make test-integration`：自动启动 Docker 中的 `MySQL` / `Redis` / `OpenSearch` / `MinIO`，执行带 `integration` tag 的真实依赖测试
+- `make test-integration`：自动启动 Docker 中的 `MySQL` / `Redis`，执行带 `integration` tag 的真实依赖测试；OpenSearch/RAG 集成测试需额外以 `rag` tag 按需运行
 - `make test-e2e`：执行带 `e2e` tag 的端到端测试
 
 ```bash
 # 仅运行单元测试
 make test
 
-# 启动 MySQL / Redis / OpenSearch / MinIO Docker 依赖并运行集成测试
+# 启动 MySQL / Redis Docker 依赖并运行集成测试
 make test-integration
 
 # 如需保留测试依赖容器，便于手动排查
@@ -173,8 +179,6 @@ make test-integration
 
 - MySQL：`127.0.0.1:3306`
 - Redis：`127.0.0.1:6379`
-- OpenSearch：`http://127.0.0.1:9200`
-- MinIO：`127.0.0.1:9000`
 
 可覆盖的环境变量示例：
 
@@ -187,28 +191,18 @@ SNOWY_DATABASE_NAME=snowy
 SNOWY_REDIS_ADDR=127.0.0.1:6379
 SNOWY_REDIS_PASSWORD=
 SNOWY_REDIS_DB=0
-SNOWY_OPENSEARCH_ADDR=http://127.0.0.1:9200
-SNOWY_OPENSEARCH_USERNAME=admin
-SNOWY_OPENSEARCH_PASSWORD=admin
-SNOWY_OPENSEARCH_INDEX=snowy-content-integration
-SNOWY_MINIO_ENDPOINT=127.0.0.1:9000
-SNOWY_MINIO_ACCESS_KEY=snowy_admin
-SNOWY_MINIO_SECRET_KEY=snowy_minio_secret
-SNOWY_MINIO_BUCKET=snowy
 ```
 
 当前集成测试会在执行前自动：
 
-- 等待 MySQL / Redis / OpenSearch / MinIO 健康检查通过
+- 等待 MySQL / Redis 健康检查通过
 - 通过 `internal/repo/mysql` 的 GORM migration runner 初始化 MySQL 表结构
-- 重建 OpenSearch 集成测试索引
-- 清理 MinIO 测试 bucket 中的对象
 - 清理 MySQL 表数据与 Redis DB，避免脏数据影响结果
 
 仓库中的 GitHub Actions 工作流会自动执行：
 
 - 单元测试 + `go vet` + `go build`
-- 基于 Docker Compose 的基础设施集成测试矩阵（MySQL / Redis / OpenSearch / MinIO）
+- 基于 Docker Compose 的基础设施集成测试矩阵（MySQL / Redis）
 
 ---
 
@@ -218,6 +212,8 @@ SNOWY_MINIO_BUCKET=snowy
 |---|---|
 | [产品需求文档 (PRD)](./docs/prd.md) | 产品目标、MVP 范围、核心功能、页面流程、接口边界、指标体系与里程碑 |
 | [技术方案](./docs/tech-solution.md) | 系统架构、Agent 编排、RAG 检索、多模型路由、物理 / 3D 代码生成渲染、生物建模、数据库设计、可观测性 |
+| [Snowy v4 重构蓝图](./docs/snowy-v4-redesign-blueprint.md) | 面向高中生的 AI 科学任务舱产品定位、游戏化学习链路、生成式模型包与前端科技感重构方案 |
+| [Snowy v5 重构蓝图](./docs/snowy-v5-redesign-blueprint.md) | 多模型接入、邮箱登录、学习档案、社区反馈、AI 监控持久化与可靠性设计 |
 
 ---
 

@@ -64,6 +64,7 @@ func (t *SearchTool) Name() string { return "SearchTool" }
 func (t *SearchTool) Description() string {
 	return "直接调用大模型回答知识点问题，返回兼容 SearchResponse 的结构化结果"
 }
+
 func (t *SearchTool) Run(ctx context.Context, input any) (any, error) {
 	request, ok := input.(SearchInput)
 	if !ok {
@@ -91,6 +92,7 @@ func (t *PhysicsAnalyzeTool) Name() string { return "PhysicsAnalyzeTool" }
 func (t *PhysicsAnalyzeTool) Description() string {
 	return "抽取物理条件、识别场景并生成 scene_spec"
 }
+
 func (t *PhysicsAnalyzeTool) Run(ctx context.Context, input any) (any, error) {
 	request, ok := input.(PhysicsAnalyzeInput)
 	if !ok {
@@ -118,6 +120,7 @@ func (t *RenderCodeTool) Name() string { return "RenderCodeTool" }
 func (t *RenderCodeTool) Description() string {
 	return "根据 scene_spec 生成浏览器可渲染的预览产物；物理场景返回 Rapier 原生引擎配置"
 }
+
 func (t *RenderCodeTool) Run(ctx context.Context, input any) (any, error) {
 	request, ok := input.(RenderCodeInput)
 	if !ok {
@@ -127,6 +130,7 @@ func (t *RenderCodeTool) Run(ctx context.Context, input any) (any, error) {
 	if t.physicsService == nil {
 		return nil, fmt.Errorf("%s: physics service is nil", t.Name())
 	}
+
 	if request.SceneSpec == nil {
 		return nil, fmt.Errorf("%s: scene spec is nil", t.Name())
 	}
