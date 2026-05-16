@@ -290,9 +290,11 @@ func Load(configPath string) (*Config, error) {
 	if err := v.ReadInConfig(); err != nil {
 		if isConfigMissing(err) {
 			return nil, fmt.Errorf(
-				"read config %q: %w; create local runtime config with `cp configs/config.example.yaml configs/config.yaml`, then set llm.models[].base_url, model, and api_key",
+				"read config %q: %w; create local runtime config by copying `configs/config.example.yaml` to %q (for example: `cp configs/config.example.yaml %q`), then set llm.models[].base_url, model, and api_key",
 				configPath,
 				err,
+				configPath,
+				configPath,
 			)
 		}
 
