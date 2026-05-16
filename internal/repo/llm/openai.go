@@ -73,7 +73,7 @@ func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response,
 	apiKey := p.apiKey()
 	if apiKey == "" {
 		return nil, errors.New(
-			"openai-compatible provider: api key is empty; set llm.models[].api_key in configs/config.yaml",
+			"openai-compatible provider: api key is empty; set llm.models[].api_key",
 		)
 	}
 
