@@ -1514,6 +1514,10 @@ func normalizeOutcomeList(value any) any {
 }
 
 func normalizeVisualizationGraph(graph map[string]any) {
+	if explanation, ok := graph["curve_explanation"]; ok {
+		graph["curve_explanation"] = normalizeExplanationText(explanation)
+	}
+
 	if stages, ok := graph["mechanism_stages"]; ok {
 		graph["mechanism_stages"] = normalizeMechanismStages(stages)
 	}
@@ -1524,6 +1528,41 @@ func normalizeVisualizationGraph(graph map[string]any) {
 
 	if factors, ok := graph["limiting_factors"]; ok {
 		graph["limiting_factors"] = normalizeStringList(factors)
+	}
+}
+
+func normalizeExplanationText(value any) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(v)
+	case []any:
+		return strings.Join(anyToStrings(v), "；")
+	case []string:
+		return strings.Join(anyToStrings(v), "；")
+	case map[string]any:
+		for _, key := range []string{"summary", "description", "text", "explanation", "content"} {
+			if text := firstNonEmptyString(v[key], ""); text != "" {
+				return text
+			}
+		}
+
+		parts := make([]string, 0, len(v))
+		for key, item := range v {
+			if text := strings.TrimSpace(fmt.Sprint(item)); text != "" && text != "<nil>" {
+				parts = append(parts, fmt.Sprintf("%s: %s", key, text))
+			}
+		}
+
+		return strings.Join(parts, "；")
+	default:
+		text := strings.TrimSpace(fmt.Sprint(v))
+		if text == "<nil>" {
+			return ""
+		}
+
+		return text
 	}
 }
 

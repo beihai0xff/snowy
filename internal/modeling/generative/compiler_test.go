@@ -94,7 +94,7 @@ func TestCompileFallsBackToSecondProvider(t *testing.T) {
 }
 
 func TestCompileRepairsBiologyGraphValidationInputs(t *testing.T) {
-	content := `{"domain":"biology","question":"光合作用","learning_model":{"domain":"biology","grade_band":"high_school","topic":"光合作用","learning_goal":"理解光合作用"},"evidence_refs":[{"doc_id":"d1","source_type":"textbook","snippet":"光合作用","confidence":0.9}],"reasoning_trace":{"summary":"分析变量","confidence":0.9},"generative_model":{"domain":"biology","grade_band":"high_school","topic":"光合作用","learning_goal":"理解光合作用"},"visualization_graph":{"visualization_type":"generated_biology_process_graph","topic":"光合作用","nodes":[{"id":"n1","label":"光照强度","type":"factor"},{"id":"n2","label":"有机物积累","type":"result"}],"edges":[{"source":"missing_node","target":"n2","relation":"influences"},{"source":"光照强度","target":"有机物积累","relation":"promotes"}]},"interaction_plan":{"regeneration_policy":{}},"assessment_tasks":[],"validation_report":{},"confidence":0.88}`
+	content := `{"domain":"biology","question":"光合作用","learning_model":{"domain":"biology","grade_band":"high_school","topic":"光合作用","learning_goal":"理解光合作用"},"evidence_refs":[{"doc_id":"d1","source_type":"textbook","snippet":"光合作用","confidence":0.9}],"reasoning_trace":{"summary":"分析变量","confidence":0.9},"generative_model":{"domain":"biology","grade_band":"high_school","topic":"光合作用","learning_goal":"理解光合作用"},"visualization_graph":{"visualization_type":"generated_biology_process_graph","topic":"光合作用","nodes":[{"id":"n1","label":"光照强度","type":"factor"},{"id":"n2","label":"有机物积累","type":"result"}],"edges":[{"source":"missing_node","target":"n2","relation":"influences"},{"source":"光照强度","target":"有机物积累","relation":"promotes"}],"curve_explanation":{"summary":"光照增强时有机物积累先升高后趋于平台"}},"interaction_plan":{"regeneration_policy":{}},"assessment_tasks":[],"validation_report":{},"confidence":0.88}`
 	svc := NewCompilerService(nil, fakePhysicsAnalyzer{}, fakeBiologyAnalyzer{}, nil, WithLLMProvider(fakeLLM{name: "model_1", model: "mimo-v2.5-pro", generateFn: func(context.Context, *llm.Request) (*llm.Response, error) {
 		return &llm.Response{Content: content, Model: "mimo-v2.5-pro"}, nil
 	}}))
@@ -107,6 +107,7 @@ func TestCompileRepairsBiologyGraphValidationInputs(t *testing.T) {
 	assert.NotEmpty(t, pkg.VisualizationGraph.ExperimentVariables.Dependent)
 	assert.NotEmpty(t, pkg.VisualizationGraph.ExperimentVariables.Controlled)
 	assert.NotEmpty(t, pkg.VisualizationGraph.Edges)
+	assert.Equal(t, "光照增强时有机物积累先升高后趋于平台", pkg.VisualizationGraph.CurveExplanation)
 	assert.False(t, pkg.ValidationReport.FallbackRequired)
 	assert.Equal(t, "photosynthesis", pkg.VisualizationGraph.Topic)
 	assert.NotEqual(t, "<nil>", pkg.LearningModel.Topic)
