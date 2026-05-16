@@ -150,7 +150,7 @@ func TestLoad_MissingLocalConfigHint(t *testing.T) {
 	require.Error(t, err)
 
 	assert.Contains(t, err.Error(), "configs/config.example.yaml")
-	assert.Contains(t, err.Error(), "configs/config.yaml")
+	assert.Contains(t, err.Error(), configPath)
 	assert.Contains(t, err.Error(), "llm.models[].base_url")
 	assert.Contains(t, err.Error(), "api_key")
 }

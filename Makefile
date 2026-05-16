@@ -209,7 +209,7 @@ bootstrap: deps docker-up
 #  Docker — 应用镜像构建 & 运行
 # ============================================================
 
-.PHONY: docker-build docker-build-server docker-build-web docker-run docker-smoke docker-push
+.PHONY: docker-build docker-build-server docker-build-web docker-run docker-smoke docker-push ensure-runtime-config
 
 ## docker-build: 构建默认单体服务与前端镜像
 docker-build: docker-build-server docker-build-web
@@ -234,8 +234,16 @@ docker-build-web:
 		$(ROOT_DIR)
 	@echo "$(CYAN)✓ $(PROJECT_NAME)-web:latest$(RESET)"
 
+## ensure-runtime-config: 确保本地运行时配置存在
+ensure-runtime-config:
+	@if [ ! -f $(CONFIG_DIR)/config.yaml ]; then \
+		echo "$(YELLOW)✗ Missing required runtime config: $(CONFIG_DIR)/config.yaml$(RESET)"; \
+		echo "  Run: cp configs/config.example.yaml configs/config.yaml"; \
+		exit 1; \
+	fi
+
 ## docker-run: 通过 docker compose 一键启动统一服务与 Web（会先确保基础设施与迁移完成）
-docker-run: docker-up
+docker-run: ensure-runtime-config docker-up
 	@echo "$(GREEN)▸ Starting Snowy and Web services...$(RESET)"
 	$(DOCKER_COMPOSE) up -d snowy snowy-web
 	@echo "$(GREEN)✓ Services are running$(RESET)"
