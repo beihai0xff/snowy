@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Alert, Card, Col, Empty, List, Row, Space, Steps, Tag, Timeline, Typography } from 'antd';
+import { Alert, Card, Empty, List, Space, Steps, Tabs, Tag, Timeline, Typography } from 'antd';
 import { Background, Controls, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { GenerativeVisualizationSpec } from '@/lib/api';
+import SemanticBiologyRenderer, { hasSemanticBiologyIllustration } from '@/components/biology/SemanticBiologyRenderer';
 
 const { Paragraph, Text } = Typography;
 
@@ -16,7 +17,12 @@ const colorMap: Record<string, string> = {
   substance: '#13c2c2',
 };
 
-export default function GenerativeBiologyGraph({ spec }: { spec?: GenerativeVisualizationSpec }) {
+interface Props {
+  spec?: GenerativeVisualizationSpec;
+  values?: Record<string, number>;
+}
+
+export default function GenerativeBiologyGraph({ spec, values }: Props) {
   const flow = useMemo(() => {
     const nodes: Node[] = (spec?.nodes || []).map((node, index) => ({
       id: node.id,
@@ -36,47 +42,31 @@ export default function GenerativeBiologyGraph({ spec }: { spec?: GenerativeVisu
 
   if (!spec) return <Empty description="暂无生物可视化结构" />;
 
-  return (
+  const semanticAvailable = hasSemanticBiologyIllustration(spec.topic, spec.visualization_type);
+  const hasProcessSteps = (spec.process_steps || []).length > 0;
+  const hasExperiment = spec.experiment_variables || (spec.variable_effects || []).length > 0;
+  const hasMechanism = (spec.mechanism_stages || []).length > 0;
+  const hasGraph = flow.nodes.length > 0;
+
+  const mechanismPane = (
     <Space direction="vertical" style={{ width: '100%' }} size="middle">
-      <Space wrap>
-        <Tag color="purple">{spec.visualization_type}</Tag>
-        <Tag color="green">{spec.topic}</Tag>
-        {(spec.limiting_factors || []).map((item) => <Tag key={item}>{item}</Tag>)}
-      </Space>
-      <div style={{ height: 420, border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
-        {flow.nodes.length > 0 ? (
+      {semanticAvailable ? (
+        <SemanticBiologyRenderer
+          topic={spec.topic}
+          visualizationType={spec.visualization_type}
+          values={values}
+        />
+      ) : hasGraph ? (
+        <div style={{ height: 420, border: '1px solid var(--color-border, #e5e7eb)', borderRadius: 12, overflow: 'hidden' }}>
           <ReactFlow nodes={flow.nodes} edges={flow.edges} fitView proOptions={{ hideAttribution: true }}>
             <Background />
             <Controls />
           </ReactFlow>
-        ) : <Empty description="暂无概念节点" style={{ paddingTop: 120 }} />}
-      </div>
-      {spec.curve_explanation && <Alert type="info" showIcon message="曲线/限制因素解释" description={spec.curve_explanation} />}
-      <Row gutter={[12, 12]}>
-        {spec.experiment_variables && (
-          <Col xs={24} md={10}>
-            <Card size="small" title="实验变量">
-              <Paragraph><Text strong>自变量：</Text>{spec.experiment_variables.independent?.join('、') || '-'}</Paragraph>
-              <Paragraph><Text strong>因变量：</Text>{spec.experiment_variables.dependent?.join('、') || '-'}</Paragraph>
-              <Paragraph style={{ marginBottom: 0 }}><Text strong>控制变量：</Text>{spec.experiment_variables.controlled?.join('、') || '-'}</Paragraph>
-            </Card>
-          </Col>
-        )}
-        {(spec.process_steps || []).length > 0 && (
-          <Col xs={24} md={14}>
-            <Card size="small" title="过程阶段">
-              <Steps
-                size="small"
-                direction="vertical"
-                current={(spec.process_steps || []).length}
-                items={(spec.process_steps || []).slice(0, 5).map((step) => ({ title: step.title, description: step.detail || [...(step.input || []), ...(step.output || [])].join(' → ') }))}
-              />
-            </Card>
-          </Col>
-        )}
-      </Row>
-
-      {(spec.mechanism_stages || []).length > 0 && (
+        </div>
+      ) : (
+        <Empty description="暂无可视化结构" />
+      )}
+      {hasMechanism && (
         <Card size="small" title="动态机制阶段">
           <Timeline
             items={(spec.mechanism_stages || []).map((stage) => ({
@@ -93,7 +83,37 @@ export default function GenerativeBiologyGraph({ spec }: { spec?: GenerativeVisu
           />
         </Card>
       )}
+      {spec.curve_explanation && <Alert type="info" showIcon message="曲线 / 限制因素解释" description={spec.curve_explanation} />}
+    </Space>
+  );
 
+  const processPane = hasProcessSteps ? (
+    <Card size="small" title="过程阶段">
+      <Steps
+        size="small"
+        direction="vertical"
+        current={(spec.process_steps || []).length}
+        items={(spec.process_steps || []).map((step) => ({
+          title: step.title,
+          description: step.detail || [...(step.input || []), ...(step.output || [])].join(' → '),
+        }))}
+      />
+    </Card>
+  ) : (
+    <Empty description="暂无过程拆解" />
+  );
+
+  const experimentPane = (
+    <Space direction="vertical" style={{ width: '100%' }} size="middle">
+      {spec.experiment_variables ? (
+        <Card size="small" title="实验变量">
+          <Paragraph><Text strong>自变量：</Text>{spec.experiment_variables.independent?.join('、') || '-'}</Paragraph>
+          <Paragraph><Text strong>因变量：</Text>{spec.experiment_variables.dependent?.join('、') || '-'}</Paragraph>
+          <Paragraph style={{ marginBottom: 0 }}><Text strong>控制变量：</Text>{spec.experiment_variables.controlled?.join('、') || '-'}</Paragraph>
+        </Card>
+      ) : (
+        <Empty description="暂无实验变量设计" />
+      )}
       {(spec.variable_effects || []).length > 0 && (
         <Card size="small" title="变量影响与限制因素">
           <List
@@ -110,6 +130,43 @@ export default function GenerativeBiologyGraph({ spec }: { spec?: GenerativeVisu
           />
         </Card>
       )}
+      {(spec.limiting_factors || []).length > 0 && (
+        <Space wrap>
+          <Text type="secondary">限制因素：</Text>
+          {(spec.limiting_factors || []).map((item) => <Tag key={item}>{item}</Tag>)}
+        </Space>
+      )}
+    </Space>
+  );
+
+  const graphPane = hasGraph ? (
+    <div style={{ height: 420, border: '1px solid var(--color-border, #e5e7eb)', borderRadius: 12, overflow: 'hidden' }}>
+      <ReactFlow nodes={flow.nodes} edges={flow.edges} fitView proOptions={{ hideAttribution: true }}>
+        <Background />
+        <Controls />
+      </ReactFlow>
+    </div>
+  ) : (
+    <Empty description="暂无概念节点" />
+  );
+
+  const items = [
+    { key: 'mechanism', label: '机制图', children: mechanismPane },
+    { key: 'process', label: '流程拆解', children: processPane, disabled: !hasProcessSteps && !hasMechanism },
+    { key: 'experiment', label: '实验设计', children: experimentPane, disabled: !hasExperiment },
+  ];
+  if (semanticAvailable && hasGraph) {
+    items.push({ key: 'graph', label: '概念关系图', children: graphPane, disabled: false });
+  }
+
+  return (
+    <Space direction="vertical" style={{ width: '100%' }} size="middle">
+      <Space wrap>
+        <Tag color="purple">{spec.visualization_type}</Tag>
+        <Tag color="green">{spec.topic}</Tag>
+        {semanticAvailable && <Tag color="cyan">语义化插画</Tag>}
+      </Space>
+      <Tabs defaultActiveKey="mechanism" items={items} />
     </Space>
   );
 }

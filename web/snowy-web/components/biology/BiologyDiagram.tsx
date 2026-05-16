@@ -10,6 +10,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { DiagramSpec } from '@/lib/api';
+import SemanticBiologyRenderer, { hasSemanticBiologyIllustration } from '@/components/biology/SemanticBiologyRenderer';
 
 interface BiologyDiagramProps {
   spec: DiagramSpec;
@@ -55,6 +56,10 @@ export default function BiologyDiagram({ spec }: BiologyDiagramProps) {
 
     return { nodes: flowNodes, edges: flowEdges };
   }, [spec]);
+
+  if (hasSemanticBiologyIllustration(spec.title, spec.diagram_type)) {
+    return <SemanticBiologyRenderer topic={spec.title} visualizationType={spec.diagram_type} />;
+  }
 
   return (
     <div style={{ height: 400 }}>

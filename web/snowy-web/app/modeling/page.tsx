@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Alert,
   Button,
@@ -25,11 +25,13 @@ import {
   ReloadOutlined,
   RightOutlined,
   StarOutlined,
+  StopOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { api, type EvidenceRef, type GenerativeModelPackage, type VariableSpec } from '@/lib/api';
-import GenerativePhysicsCanvas from '@/components/generative/GenerativePhysicsCanvas';
+import GenerativePhysics3DCanvas from '@/components/generative/GenerativePhysics3DCanvas';
 import GenerativeBiologyGraph from '@/components/generative/GenerativeBiologyGraph';
+import SkeletonPreview from '@/components/common/SkeletonPreview';
 import InteractionPlanPanel from '@/components/generative/InteractionPlanPanel';
 import ValidationReportPanel from '@/components/generative/ValidationReportPanel';
 import ReactionBar from '@/components/common/ReactionBar';
@@ -88,6 +90,7 @@ function stageStatus(current: Stage, target: Stage): 'pending' | 'active' | 'don
 }
 
 function ModelingPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [subject, setSubject] = useState<ModelingSubject>(normalizeSubject(searchParams.get('type') || searchParams.get('subject')));
   const [question, setQuestion] = useState(searchParams.get('q') || '');
@@ -99,6 +102,7 @@ function ModelingPageInner() {
   const [errorText, setErrorText] = useState<string | null>(null);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const loadedPackageRef = useRef<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const examples = subjectExamples[subject];
   const confidence = pkg?.validation_report?.confidence ?? pkg?.confidence ?? 0;
@@ -125,16 +129,18 @@ function ModelingPageInner() {
     const text = (nextQuestion || question).trim();
     const selectedSubject = nextSubject || subject;
     if (!text) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     setErrorText(null);
     setPkg(null);
     setValues({});
     setStage('grounding');
     try {
-      window.setTimeout(() => setStage((prev) => (prev === 'grounding' ? 'reasoning' : prev)), 200);
       let compileGrounding: { citations: EvidenceRef[]; knowledge_tags: string[] } = { citations: [], knowledge_tags: [] };
       try {
-        const searchRes = await api.searchQuery({ query: text, filters: { subject: selectedSubject, grade: 'high_school' } });
+        const searchRes = await api.searchQuery({ query: text, filters: { subject: selectedSubject, grade: 'high_school' } }, { signal: controller.signal });
         compileGrounding = {
           citations: (searchRes.data?.citations || []).map((citation) => ({
             doc_id:         citation.doc_id,
@@ -145,9 +151,12 @@ function ModelingPageInner() {
           })),
           knowledge_tags: searchRes.data?.knowledge_tags || [],
         };
-      } catch {
+      } catch (err) {
+        if ((err as { name?: string })?.name === 'AbortError') throw err;
         compileGrounding = { citations: [], knowledge_tags: [] };
       }
+      if (controller.signal.aborted) return;
+      setStage('reasoning');
       const res = await api.modelingCompile({
         message: text,
         domain: selectedSubject,
@@ -159,22 +168,41 @@ function ModelingPageInner() {
           citations: compileGrounding.citations,
           knowledge_tags: compileGrounding.knowledge_tags,
         },
-      });
+      }, { signal: controller.signal });
+      if (controller.signal.aborted) return;
       setStage('validating');
       const data = res.data ?? null;
       setPkg(data);
       setValues(initialValues(data));
       setStage('rendering');
-      window.setTimeout(() => setStage('done'), 150);
+      if (data?.package_id) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('package_id', data.package_id);
+        router.replace(`/modeling?${params.toString()}`);
+      }
+      window.setTimeout(() => {
+        if (!controller.signal.aborted) setStage('done');
+      }, 150);
     } catch (error) {
+      if ((error as { name?: string })?.name === 'AbortError') {
+        setStage('idle');
+        return;
+      }
       const msg = error instanceof Error ? error.message : '推演失败';
       setErrorText(msg);
       setStage('error');
       message.error(msg);
     } finally {
+      if (abortRef.current === controller) abortRef.current = null;
       setLoading(false);
     }
-  }, [context, question, subject]);
+  }, [context, question, subject, router, searchParams]);
+
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   useEffect(() => {
     const packageID = searchParams.get('package_id');
@@ -273,9 +301,13 @@ function ModelingPageInner() {
           allowClear
         />
         <Button icon={<StarOutlined />} disabled={!question.trim() && !pkg} onClick={handleFavorite}>收藏</Button>
-        <Button type="primary" icon={<ThunderboltOutlined />} loading={loading} onClick={() => void handleCompile()}>
-          开始推演
-        </Button>
+        {loading ? (
+          <Button danger icon={<StopOutlined />} onClick={handleCancel}>取消</Button>
+        ) : (
+          <Button type="primary" icon={<ThunderboltOutlined />} onClick={() => void handleCompile()}>
+            开始推演
+          </Button>
+        )}
       </div>
 
       {/* 上下文输入（可选） */}
@@ -415,10 +447,7 @@ function ModelingPageInner() {
           </div>
 
           {loading && !pkg && (
-            <div className="snowy-loading-card" style={{ minHeight: 420, border: 0 }}>
-              <span className="snowy-spinner" />
-              <span>正在编译模型包…</span>
-            </div>
+            <SkeletonPreview height={420} label="正在编译模型包…绑定证据、生成结构化交互模型" />
           )}
 
           {!loading && !pkg && (
@@ -440,8 +469,8 @@ function ModelingPageInner() {
             />
           )}
 
-          {pkg && pkg.domain === 'biology'  && <GenerativeBiologyGraph spec={pkg.visualization_graph} />}
-          {pkg && pkg.domain !== 'biology'  && <GenerativePhysicsCanvas spec={pkg.simulation_logic} values={values} />}
+          {pkg && pkg.domain === 'biology'  && <GenerativeBiologyGraph spec={pkg.visualization_graph} values={values} />}
+          {pkg && pkg.domain !== 'biology'  && <GenerativePhysics3DCanvas spec={pkg.simulation_logic} values={values} />}
         </div>
 
         {/* 右：AI 教练 */}
@@ -480,7 +509,7 @@ function ModelingPageInner() {
                 </section>
               )}
 
-              <InteractionPlanPanel pkg={pkg} values={values} onChange={(name, value) => setValues((prev) => ({ ...prev, [name]: value }))} />
+              <InteractionPlanPanel pkg={pkg} values={values} subject={subject} onChange={(name, value) => setValues((prev) => ({ ...prev, [name]: value }))} onRegenerate={() => void handleCompile()} />
 
               <Collapse
                 ghost
