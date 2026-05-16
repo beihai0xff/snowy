@@ -450,10 +450,11 @@ graph TB
 - 生物关系抽取
 
 ### 6.3.2 模型链路
-- 通过 `llm.models[]` 按声明顺序配置一个或多个 OpenAI-compatible 模型。
+- 通过本地私密 `configs/config.yaml` 中的 `llm.models[]` 按声明顺序配置一个或多个 OpenAI-compatible 模型；仓库只提交 `configs/config.example.yaml` 模板。
 
 用途：
 - 统一通过 `/chat/completions` 协议调用模型网关；
+- `base_url`、`model`、`api_key` 均从 `llm.models[]` 读取；
 - 单模型内部按 `max_retries` 做同模型重试；
 - 多模型场景按 `models[]` 声明顺序串行尝试，配置语义单一且只由列表顺序决定。
 
@@ -580,9 +581,8 @@ snowy/
     snowy-web/               # 前端项目
 
   configs/
-    config.yaml
-    config.local.yaml
-    config.prod.yaml
+    config.example.yaml       # 提交到仓库的安全模板
+    config.yaml               # 本地私密运行配置，gitignored
 
   deployments/
     docker/

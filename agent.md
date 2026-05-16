@@ -40,9 +40,10 @@ Snowy 是面向高中生的 Web 端 AIGC 科学学习平台，核心能力包括
 必须保持单一、统一、OpenAI-compatible 的 LLM 链路：
 
 - 模型清单只从 `llm.models[]` 读取。
+- 运行时配置文件只使用本地 `configs/config.yaml`；仓库只提交 `configs/config.example.yaml`。
 - 调用顺序严格等于 YAML 中 `llm.models[]` 的声明顺序。
 - 每个模型通过统一 OpenAI-compatible `/chat/completions` 协议调用。
-- `model_provider` 只能作为可选请求字段 / 监控元数据透传，不允许触发 provider 分支。
+- `model_provider` 只能作为可选请求字段 / 监控元数据透传，不允许触发 provider 分支；可以填写 `openai`、`xiaomi`、`custom` 等展示/透传值。
 - 单模型内部只通过 `max_retries` / `retry_interval` 做同模型重试。
 - 多模型只通过 `llm.models[]` 声明顺序继续尝试下一模型。
 - LLM 请求超时时间默认 / 目标值为 `10m`；不得改回短超时或无限等待。
@@ -67,7 +68,9 @@ Snowy 是面向高中生的 Web 端 AIGC 科学学习平台，核心能力包括
 
 - 不得把真实 API Key、JWT secret、数据库密码、OAuth secret 等敏感值写入仓库。
 - 示例配置只能保留空值、占位值或本地默认开发密码。
-- 真实 LLM 密钥运行时通过 `OPENAI_API_KEY` 或配置注入；不要新增历史 provider 专用密钥变量。
+- 真实 LLM 密钥只写入本地 gitignored `configs/config.yaml` 的 `llm.models[].api_key`；不要把真实值提交到 Git。
+- 用户后续提供的小米 `base_url` 和 `api_key` 只能写入本地 `configs/config.yaml`。
+- 不要把 `OPENAI_API_KEY`、`MIMO_API_KEY`、`XIAOMI_MIMO_API_KEY` 作为主路径或文档推荐路径。
 - 输出日志、错误、监控数据时不得泄漏 API Key 或带密钥的 URL。
 
 ### 3. 前端产品口径
@@ -95,7 +98,7 @@ Snowy 是面向高中生的 Web 端 AIGC 科学学习平台，核心能力包括
 - 默认服务入口是 `cmd/snowy`，默认运行模式为 `server.run_mode=all`。
 - `SNOWY_SERVER_RUN_MODE=api|worker` 只用于临时拆分 API / worker surface。
 - Docker Compose 项目文件：`deployments/docker/docker-compose.yml`。
-- 应用容器通过 Compose 服务名访问基础设施：`mysql`、`redis`。
+- Docker 与本地 binary 都读取 `configs/config.yaml`；应用容器通过 `snowy-host.internal` 访问宿主机暴露的 MySQL / Redis 端口。
 - 不要把临时调试用代理、私有镜像源、个人路径或本机绝对路径提交到 Dockerfile / Compose / 配置文件。
 
 ## 代码风格与实现准则

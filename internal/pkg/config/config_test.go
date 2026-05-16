@@ -114,6 +114,7 @@ func TestLoad_LLMModels(t *testing.T) {
     - provider: "openai"
       model_provider: "gateway"
       model: "gateway-test-model"
+      api_key: "local-test-key"
       base_url: "https://gateway.example.test/v1"
       timeout: 10m
       temperature: 0.2
@@ -132,6 +133,7 @@ func TestLoad_LLMModels(t *testing.T) {
 	assert.Equal(t, "openai", cfg.LLM.Models[0].Provider)
 	assert.Equal(t, "gateway", cfg.LLM.Models[0].ModelProvider)
 	assert.Equal(t, "gateway-test-model", cfg.LLM.Models[0].EffectiveModel())
+	assert.Equal(t, "local-test-key", cfg.LLM.Models[0].APIKey)
 	assert.Equal(t, "https://gateway.example.test/v1", cfg.LLM.Models[0].EffectiveBaseURL())
 	assert.Equal(t, 600, int(cfg.LLM.Models[0].Timeout.Seconds()))
 	assert.Equal(t, 0.2, cfg.LLM.Models[0].Temperature)
@@ -139,6 +141,18 @@ func TestLoad_LLMModels(t *testing.T) {
 	assert.Equal(t, 2, cfg.LLM.Models[0].MaxRetries)
 	assert.Equal(t, "gpt-test", cfg.LLM.Models[1].EffectiveModel())
 	assert.Equal(t, "https://openai.example.test/v1", cfg.LLM.Models[1].EffectiveBaseURL())
+}
+
+func TestLoad_MissingLocalConfigHint(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+
+	_, err := Load(configPath)
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "configs/config.example.yaml")
+	assert.Contains(t, err.Error(), "configs/config.yaml")
+	assert.Contains(t, err.Error(), "llm.models[].base_url")
+	assert.Contains(t, err.Error(), "api_key")
 }
 
 func TestModelProviderConfig_EffectiveAliases(t *testing.T) {

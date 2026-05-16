@@ -1,4 +1,7 @@
-# Snowy 默认配置 — 参考技术方案 §6 & §18
+# Snowy 本地运行配置模板。
+#
+# 复制为 configs/config.yaml 后填写本地私密值。configs/config.yaml 已被
+# .gitignore 忽略，不要提交真实 API Key。
 server:
   host: "0.0.0.0"
   port: 8080
@@ -9,7 +12,11 @@ server:
   shutdown_timeout: 10s
 
 database:
-  host: "127.0.0.1"
+  # binary 与 Docker 统一使用该主机名访问宿主机暴露的 MySQL 端口。
+  # 宿主机运行 binary 前请确保 hosts 中存在：
+  #   127.0.0.1 snowy-host.internal
+  # Docker Compose 会通过 extra_hosts 把该主机名映射到宿主机网关。
+  host: "snowy-host.internal"
   port: 3306
   user: "snowy"
   password: "snowy_secret"
@@ -22,18 +29,19 @@ database:
   conn_max_lifetime: 30m
 
 redis:
-  addr: "127.0.0.1:6379"
+  addr: "snowy-host.internal:6379"
   password: ""
   db: 0
   pool_size: 20
 
 llm:
-  # v5 使用 models[] 声明顺序作为调用顺序；所有供应商统一走 OpenAI-compatible 协议。
+  # 使用 models[] 声明顺序作为调用顺序；所有供应商统一走 OpenAI-compatible 协议。
+  # 将 base_url/model/api_key 替换为 OpenAI、小米或其他兼容网关的真实值。
   models:
     - provider: "openai"
-      model_provider: "openai"
-      model: "gateway-test-model"
-      api_key: ""
+      model_provider: "custom"
+      model: "your-model-name"
+      api_key: "replace-with-local-api-key"
       base_url: "https://api.openai.com/v1"
       timeout: 10m
       temperature: 0.2

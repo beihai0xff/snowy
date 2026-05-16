@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"net/url"
-	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -623,24 +622,8 @@ func ProviderConfigFromConfig(role string, cfg config.ModelProviderConfig) LLMPr
 		Timeout:          cfg.Timeout.String(),
 		MaxRetries:       cfg.MaxRetries,
 		Configured:       provider != "" && model != "" && baseURL != "",
-		APIKeyConfigured: providerAPIKeyConfigured(role, provider, cfg.APIKey),
+		APIKeyConfigured: strings.TrimSpace(cfg.APIKey) != "",
 	}
-}
-
-func providerAPIKeyConfigured(_ string, _ string, cfgKey string) bool {
-	if strings.TrimSpace(cfgKey) != "" {
-		return true
-	}
-
-	keys := []string{"OPENAI_API_KEY"}
-
-	for _, key := range keys {
-		if strings.TrimSpace(os.Getenv(key)) != "" {
-			return true
-		}
-	}
-
-	return false
 }
 
 // DefaultPromptProfiles returns safe prompt engineering profiles for the dashboard.

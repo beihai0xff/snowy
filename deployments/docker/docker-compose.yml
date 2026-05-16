@@ -100,16 +100,19 @@ services:
     container_name: snowy
     restart: unless-stopped
     environment:
-      - OPENAI_API_KEY
       - SNOWY_SERVER_RUN_MODE
+    extra_hosts:
+      - "snowy-host.internal:host-gateway"
     ports:
       - "8080:8080"
+    volumes:
+      - ../../configs/config.yaml:/app/configs/config.yaml:ro
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["--config", "configs/config.docker.yaml"]
+    command: ["--config", "configs/config.yaml"]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz || exit 1"]
       interval: 10s

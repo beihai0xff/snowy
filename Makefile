@@ -30,8 +30,7 @@ INFRA_SERVICES := mysql redis
 # ── Docker 参数 ─────────────────────────────────────────────
 DOCKER_COMPOSE := docker compose -f $(DEPLOY_DIR)/docker-compose.yml -p $(PROJECT_NAME)
 
-# Load local, git-ignored runtime secrets when present (e.g. OPENAI_API_KEY).
-# This keeps `make docker-run` / `make run` usable without re-exporting env vars.
+# Load optional local env overrides for non-secret runtime switches.
 ifneq (,$(wildcard $(ROOT_DIR)/.env))
 include $(ROOT_DIR)/.env
 export
@@ -237,11 +236,6 @@ docker-build-web:
 
 ## docker-run: 通过 docker compose 一键启动统一服务与 Web（会先确保基础设施与迁移完成）
 docker-run: docker-up
-	@if [ -z "$${OPENAI_API_KEY:-}" ]; then \
-		echo "$(YELLOW)✗ OPENAI_API_KEY is required for real LLM calls.$(RESET)"; \
-		echo "  Usage: OPENAI_API_KEY='<runtime only>' make docker-run"; \
-		exit 1; \
-	fi
 	@echo "$(GREEN)▸ Starting Snowy and Web services...$(RESET)"
 	$(DOCKER_COMPOSE) up -d snowy snowy-web
 	@echo "$(GREEN)✓ Services are running$(RESET)"

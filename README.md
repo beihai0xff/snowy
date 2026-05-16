@@ -120,6 +120,12 @@ make docker-observability-up
 ### 3. 编译 & 运行
 
 ```bash
+# 生成本地私密配置；填写 llm.models[].base_url/model/api_key
+cp configs/config.example.yaml configs/config.yaml
+
+# 让宿主机 binary 也能解析统一依赖地址
+sudo sh -c 'grep -q "snowy-host.internal" /etc/hosts || echo "127.0.0.1 snowy-host.internal" >> /etc/hosts'
+
 # 编译全部
 make build
 
@@ -139,16 +145,18 @@ make dev
 make docker-build
 
 # 通过 docker compose 一键启动 Snowy / Web
-OPENAI_API_KEY='<runtime only>' make docker-run
+make docker-run
 ```
 
 说明：
 
 - `make docker-run` 会一次启动 `snowy` / `snowy-web`
 - 该目标会先确保必需基础设施（MySQL / Redis）已启动、健康检查通过，并完成 MySQL migration
-- 大模型运行参数从 `configs/config*.yaml` 的 `llm.models[]` 读取，调用顺序严格等于 YAML 声明顺序；所有 LLM 供应商统一走 OpenAI-compatible `/chat/completions` 协议链路；密钥仅运行时通过 `OPENAI_API_KEY` 注入，不要写入仓库
-- 应用容器通过 Docker Compose 网络以服务名（`mysql` / `redis`）访问必需基础设施
+- Docker 和本地 binary 都读取同一个本地私密配置文件 `configs/config.yaml`
+- 大模型运行参数从 `configs/config.yaml` 的 `llm.models[]` 读取，调用顺序严格等于 YAML 声明顺序；所有 LLM 供应商统一走 OpenAI-compatible `/chat/completions` 协议链路；密钥写入本地 `configs/config.yaml`，不要提交到仓库
+- 应用容器通过 `snowy-host.internal` 访问宿主机暴露的 MySQL / Redis 端口，Compose 会为容器注入该主机名映射
 - 默认运行模式为 `server.run_mode=all`，同一进程内同时启动 HTTP API 与 embedded Asynq worker；如需临时拆分，可通过配置或环境变量 `SNOWY_SERVER_RUN_MODE=api|worker` 切换
+- 模型接入详细说明见 `docs/model-provider-config.md`
 
 ### 5. 查看全部 Make 目标
 

@@ -1,8 +1,0 @@
-# Snowy 生产配置 — 敏感值应通过环境变量注入
-server:
-  run_mode: "all"
-  mode: "release"
-
-observability:
-  log_level: "info"
-  log_format: "json"

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -17,7 +16,7 @@ import (
 
 // openaiProvider 基于 OpenAI-compatible Chat Completions 协议调用模型网关。
 // 厂商差异通过配置的 base_url、model 与可选 model_provider 表达；
-// 密钥统一从配置 api_key 或运行时 OPENAI_API_KEY 注入。
+// 密钥统一从本地运行时配置 llm.models[].api_key 注入。
 type openaiProvider struct {
 	unsupportedProvider
 
@@ -71,11 +70,10 @@ func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response,
 		req = &Request{}
 	}
 
-	apiKey, envKeys := p.apiKey()
+	apiKey := p.apiKey()
 	if apiKey == "" {
-		return nil, fmt.Errorf(
-			"openai-compatible provider: api key is empty; set api_key or one of %s",
-			strings.Join(envKeys, ", "),
+		return nil, errors.New(
+			"openai-compatible provider: api key is empty; set llm.models[].api_key in configs/config.yaml",
 		)
 	}
 
@@ -173,14 +171,6 @@ func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response,
 	}, nil
 }
 
-func (p *openaiProvider) apiKey() (string, []string) {
-	envKeys := []string{"OPENAI_API_KEY"}
-	values := make([]string, 0, len(envKeys)+1)
-
-	values = append(values, p.cfg.APIKey)
-	for _, key := range envKeys {
-		values = append(values, os.Getenv(key))
-	}
-
-	return firstNonEmpty(values...), envKeys
+func (p *openaiProvider) apiKey() string {
+	return strings.TrimSpace(p.cfg.APIKey)
 }

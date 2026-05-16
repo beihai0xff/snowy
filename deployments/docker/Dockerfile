@@ -53,7 +53,7 @@ WORKDIR /app
 # 复制二进制
 COPY --from=builder /out/snowy-${TARGET} ./snowy-server
 
-# 复制默认配置（运行时可通过 volume 或 env 覆盖）
+# 复制配置模板；运行时通过 volume 挂载本地 configs/config.yaml
 COPY configs/ ./configs/
 
 # 默认 API 端口 8080
