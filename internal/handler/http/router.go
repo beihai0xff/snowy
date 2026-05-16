@@ -74,6 +74,7 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 		agent.POST("/sessions", h.Agent.CreateSession)
 		agent.GET("/sessions/:id", h.Agent.GetSession)
 		agent.GET("/sessions/:id/messages", h.Agent.ListMessages)
+		agent.GET("/messages/:id/replay", h.Agent.Replay)
 	}
 
 	// ── 搜索接口 ───────────────────────────────────────
@@ -89,6 +90,8 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 			modeling.POST("/compile", h.Generative.Compile)
 			modeling.GET("/packages", h.Generative.ListPackages)
 			modeling.GET("/packages/:id", h.Generative.GetPackage)
+			modeling.POST("/packages/:id/recompute", h.Generative.Recompute)
+			modeling.POST("/packages/:id/regenerate", h.Generative.Regenerate)
 		}
 
 		physics := modeling.Group("/physics")

@@ -23,6 +23,7 @@ type AgentHandler struct {
 	writeSvc    agent.WriteService
 	sessionRepo agent.SessionRepository
 	messageRepo agent.MessageRepository
+	eventRepo   agent.MessageEventRepository
 	userSvc     user.Service
 }
 
@@ -48,6 +49,13 @@ func NewAgentHandler(
 	}
 }
 
+// WithEventRepository v7 §3：注入消息事件仓储以启用 SSE replay。
+func (h *AgentHandler) WithEventRepository(repo agent.MessageEventRepository) *AgentHandler {
+	h.eventRepo = repo
+
+	return h
+}
+
 // Chat POST /api/v1/agent/chat — 统一会话入口（支持 SSE）。
 func (h *AgentHandler) Chat(c *gin.Context) {
 	var req dto.ChatReq
@@ -65,15 +73,7 @@ func (h *AgentHandler) Chat(c *gin.Context) {
 		return
 	}
 
-	chatReq := &agent.ChatRequest{
-		SessionID: parseOptionalUUID(req.SessionID),
-		Message:   req.Message,
-		Mode:      agent.Mode(req.Mode),
-		Filters: agent.Filters{
-			Subject: req.Filters.Subject,
-			Grade:   req.Filters.Grade,
-		},
-	}
+	chatReq := buildChatRequest(&req)
 
 	resp, err := h.agentSvc.Chat(c.Request.Context(), chatReq)
 	if err != nil {
@@ -210,6 +210,49 @@ func (h *AgentHandler) ListMessages(c *gin.Context) {
 	}))
 }
 
+// Replay GET /api/v1/agent/messages/:id/replay — v7 §3：按 seq 回放消息 SSE。
+func (h *AgentHandler) Replay(c *gin.Context) {
+	reqID := common.RequestIDFromContext(c.Request.Context())
+
+	if h.eventRepo == nil {
+		c.JSON(http.StatusServiceUnavailable, common.Fail(common.ErrInternal.WithMessage("replay disabled"), reqID))
+
+		return
+	}
+
+	messageID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage("invalid message id"), reqID))
+
+		return
+	}
+
+	events, err := h.eventRepo.ListByMessage(c.Request.Context(), messageID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+
+	idx := 0
+	c.Stream(func(_ io.Writer) bool {
+		if idx >= len(events) {
+			return false
+		}
+
+		ev := events[idx]
+		idx++
+
+		c.SSEvent(string(ev.Event), ev.Data)
+
+		return true
+	})
+}
+
 // chatStream 流式输出 SSE。
 func (h *AgentHandler) chatStream(c *gin.Context, req *dto.ChatReq) {
 	c.Header("Content-Type", "text/event-stream")
@@ -260,6 +303,8 @@ func (h *AgentHandler) chatStream(c *gin.Context, req *dto.ChatReq) {
 		Message:   chatReq.Message,
 		Filters:   chatReq.Filters,
 		Response:  aggregator.Response(),
+		Events:    aggregator.Events(),
+		PackageID: aggregator.PackageID(),
 	})
 	if err != nil {
 		slog.WarnContext(c.Request.Context(), "persist streamed conversation failed", "error", err)
@@ -290,7 +335,7 @@ func parseOptionalUUID(raw string) uuid.UUID {
 }
 
 func buildChatRequest(req *dto.ChatReq) *agent.ChatRequest {
-	return &agent.ChatRequest{
+	chatReq := &agent.ChatRequest{
 		SessionID: parseOptionalUUID(req.SessionID),
 		Message:   req.Message,
 		Mode:      agent.Mode(req.Mode),
@@ -298,7 +343,24 @@ func buildChatRequest(req *dto.ChatReq) *agent.ChatRequest {
 			Subject: req.Filters.Subject,
 			Grade:   req.Filters.Grade,
 		},
+		RegenerateReason: req.RegenerateReason,
 	}
+
+	if req.ParentPackageID != "" {
+		if pid, err := uuid.Parse(req.ParentPackageID); err == nil {
+			chatReq.ParentPackageID = &pid
+		}
+	}
+
+	if req.InteractiveDemo != nil {
+		chatReq.InteractiveDemo = &agent.DemoRequestHint{
+			Domain:     req.InteractiveDemo.Domain,
+			TargetMode: req.InteractiveDemo.TargetMode,
+			Overrides:  req.InteractiveDemo.Overrides,
+		}
+	}
+
+	return chatReq
 }
 
 func shouldSkipStreamPersistence(

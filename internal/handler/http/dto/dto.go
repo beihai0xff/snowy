@@ -6,14 +6,25 @@ import "github.com/google/uuid"
 // ── Agent ────────────────────────────────────────────────
 
 // ChatReq Agent 会话请求 DTO，参考技术方案 §17.1。
+// v7 §3：新增 parent_package_id / regenerate_reason / interactive_demo。
 type ChatReq struct {
 	SessionID string `json:"session_id,omitempty"`
 	Message   string `json:"message"              binding:"required"`
-	Mode      string `json:"mode"                 binding:"omitempty,oneof=search physics biology auto"`
+	Mode      string `json:"mode"                 binding:"omitempty,oneof=search physics biology chemistry auto"`
 	Filters   struct {
 		Subject string `json:"subject,omitempty"`
 		Grade   string `json:"grade,omitempty"`
 	} `json:"filters,omitempty"`
+	ParentPackageID  string              `json:"parent_package_id,omitempty"`
+	RegenerateReason string              `json:"regenerate_reason,omitempty"`
+	InteractiveDemo  *DemoRequestHintDTO `json:"interactive_demo,omitempty"`
+}
+
+// DemoRequestHintDTO 前端透传给 demo_planner 的可选提示。
+type DemoRequestHintDTO struct {
+	Domain     string         `json:"domain,omitempty"`
+	TargetMode string         `json:"target_mode,omitempty"`
+	Overrides  map[string]any `json:"overrides,omitempty"`
 }
 
 // ChatResp Agent 会话响应 DTO。
@@ -169,4 +180,15 @@ type ModelingCompileReq struct {
 	GradeBand  string                    `json:"grade_band,omitempty"`
 	TargetMode string                    `json:"target_mode,omitempty" binding:"omitempty,oneof=interactive_model review explain"`
 	Context    ModelingCompileContextReq `json:"context,omitempty"`
+}
+
+// ModelingRecomputeReq v7 §3：基于父 package 与 overrides 生成新快照。
+type ModelingRecomputeReq struct {
+	Overrides map[string]float64 `json:"overrides"`
+}
+
+// ModelingRegenerateReq v7 §3：以父 package 为上下文重新调用 LLM。
+type ModelingRegenerateReq struct {
+	Reason  string                    `json:"reason"`
+	Context ModelingCompileContextReq `json:"context,omitempty"`
 }

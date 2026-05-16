@@ -111,14 +111,27 @@ type agentSessionSchema struct {
 func (agentSessionSchema) TableName() string { return "agent_sessions" }
 
 type agentMessageSchema struct {
-	ID        uuid.UUID `gorm:"column:id;type:char(36);primaryKey"`
-	SessionID uuid.UUID `gorm:"column:session_id;type:char(36);not null;index:idx_agent_messages_session,priority:1"`
-	Role      string    `gorm:"column:role;type:varchar(16);not null"`
-	Content   string    `gorm:"column:content;type:text;not null"`
-	CreatedAt time.Time `gorm:"column:created_at;type:datetime(3);not null;index:idx_agent_messages_session,priority:2,sort:asc"`
+	ID        uuid.UUID  `gorm:"column:id;type:char(36);primaryKey"`
+	SessionID uuid.UUID  `gorm:"column:session_id;type:char(36);not null;index:idx_agent_messages_session,priority:1"`
+	Role      string     `gorm:"column:role;type:varchar(16);not null"`
+	Content   string     `gorm:"column:content;type:text;not null"`
+	PackageID *uuid.UUID `gorm:"column:package_id;type:char(36);index:idx_agent_messages_package"`
+	CreatedAt time.Time  `gorm:"column:created_at;type:datetime(3);not null;index:idx_agent_messages_session,priority:2,sort:asc"`
 }
 
 func (agentMessageSchema) TableName() string { return "agent_messages" }
+
+// agentMessageEventSchema v7 §3：SSE 事件按 seq 落库以支持 messages/:id/replay。
+type agentMessageEventSchema struct {
+	ID        uuid.UUID `gorm:"column:id;type:char(36);primaryKey"`
+	MessageID uuid.UUID `gorm:"column:message_id;type:char(36);not null;index:idx_agent_message_events_message,priority:1"`
+	Seq       int       `gorm:"column:seq;not null;default:0;index:idx_agent_message_events_message,priority:2,sort:asc"`
+	Event     string    `gorm:"column:event;type:varchar(32);not null"`
+	Data      jsonValue `gorm:"column:data;type:json"`
+	CreatedAt time.Time `gorm:"column:created_at;type:datetime(3);not null"`
+}
+
+func (agentMessageEventSchema) TableName() string { return "agent_message_events" }
 
 type agentRunSchema struct {
 	ID             uuid.UUID `gorm:"column:id;type:char(36);primaryKey"`
@@ -285,6 +298,7 @@ func schemaModels() []any {
 		&reactionSchema{},
 		&agentSessionSchema{},
 		&agentMessageSchema{},
+		&agentMessageEventSchema{},
 		&agentRunSchema{},
 		&agentToolCallSchema{},
 		&generativeModelPackageSchema{},

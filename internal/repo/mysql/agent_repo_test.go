@@ -125,7 +125,7 @@ func TestAgentMessageRepo_Save(t *testing.T) {
 	}
 
 	mock.ExpectExec("INSERT INTO `agent_messages`").
-		WithArgs(msg.ID, msg.SessionID, msg.Role, msg.Content, msg.CreatedAt).
+		WithArgs(msg.ID, msg.SessionID, msg.Role, msg.Content, nil, msg.CreatedAt).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err := repo.Save(context.Background(), msg)

@@ -39,3 +39,9 @@ type ToolCallRepository interface {
 	Save(ctx context.Context, tc *RunToolCall) error
 	ListByRun(ctx context.Context, runID uuid.UUID) ([]*RunToolCall, error)
 }
+
+// MessageEventRepository SSE 事件持久化端口（v7 §3）。
+type MessageEventRepository interface {
+	InsertEvents(ctx context.Context, events []*MessageEvent) error
+	ListByMessage(ctx context.Context, messageID uuid.UUID) ([]*MessageEvent, error)
+}

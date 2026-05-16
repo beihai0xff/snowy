@@ -25,6 +25,7 @@ type CreateSessionInput struct {
 }
 
 // PersistConversationInput 一次对话写入所需参数。
+// v7 §3：可选 Events + PackageID 支持 SSE replay 与 demo 嵌入。
 type PersistConversationInput struct {
 	UserID    uuid.UUID
 	SessionID uuid.UUID
@@ -32,6 +33,8 @@ type PersistConversationInput struct {
 	Message   string
 	Filters   Filters
 	Response  *ChatResponse
+	Events    []SSEEvent
+	PackageID *uuid.UUID
 }
 
 // PersistConversationResult 返回事务内生成的记录。
@@ -44,27 +47,36 @@ type PersistConversationResult struct {
 }
 
 type writeService struct {
-	transactor   irepo.Transactor
-	sessionRepo  SessionRepository
-	messageRepo  MessageRepository
-	runRepo      RunRepository
-	toolCallRepo ToolCallRepository
+	transactor       irepo.Transactor
+	sessionRepo      SessionRepository
+	messageRepo      MessageRepository
+	runRepo          RunRepository
+	toolCallRepo     ToolCallRepository
+	messageEventRepo MessageEventRepository
 }
 
 // NewWriteService 创建 Agent 写路径服务。
+// messageEventRepo 可选；为 nil 时事件不落库（兼容 v6 行为）。
 func NewWriteService(
 	transactor irepo.Transactor,
 	sessionRepo SessionRepository,
 	messageRepo MessageRepository,
 	runRepo RunRepository,
 	toolCallRepo ToolCallRepository,
+	messageEventRepo ...MessageEventRepository,
 ) WriteService {
+	var eventRepo MessageEventRepository
+	if len(messageEventRepo) > 0 {
+		eventRepo = messageEventRepo[0]
+	}
+
 	return &writeService{
-		transactor:   transactor,
-		sessionRepo:  sessionRepo,
-		messageRepo:  messageRepo,
-		runRepo:      runRepo,
-		toolCallRepo: toolCallRepo,
+		transactor:       transactor,
+		sessionRepo:      sessionRepo,
+		messageRepo:      messageRepo,
+		runRepo:          runRepo,
+		toolCallRepo:     toolCallRepo,
+		messageEventRepo: eventRepo,
 	}
 }
 
@@ -143,10 +155,29 @@ func (s *writeService) PersistConversation(
 			SessionID: result.Session.ID,
 			Role:      "assistant",
 			Content:   input.Response.Answer,
+			PackageID: input.PackageID,
 			CreatedAt: now,
 		}
 		if err := s.messageRepo.Save(txCtx, result.AssistantMessage); err != nil {
 			return fmt.Errorf("save assistant message: %w", err)
+		}
+
+		if s.messageEventRepo != nil && len(input.Events) > 0 {
+			events := make([]*MessageEvent, 0, len(input.Events))
+			for i, evt := range input.Events {
+				events = append(events, &MessageEvent{
+					ID:        uuid.New(),
+					MessageID: result.AssistantMessage.ID,
+					Seq:       i,
+					Event:     evt.Event,
+					Data:      evt.Data,
+					CreatedAt: now,
+				})
+			}
+
+			if err := s.messageEventRepo.InsertEvents(txCtx, events); err != nil {
+				return fmt.Errorf("save agent message events: %w", err)
+			}
 		}
 
 		result.Run = &Run{
