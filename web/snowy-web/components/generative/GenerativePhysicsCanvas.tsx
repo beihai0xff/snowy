@@ -70,33 +70,57 @@ export default function GenerativePhysicsCanvas({ spec, values }: Props) {
         {(spec.render_instructions?.layers || []).slice(0, 6).map((layer) => <Tag key={layer}>{layer}</Tag>)}
       </Space>
 
-      <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, background: 'linear-gradient(#eff6ff,#f8fafc)', padding: 12 }}>
+      <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, background: 'linear-gradient(180deg, #ecfeff 0%, #f0f9ff 60%, #f8fafc 100%)', padding: 12, position: 'relative', overflow: 'hidden' }}>
         <svg viewBox="0 0 620 340" style={{ width: '100%', minHeight: 360 }} role="img" aria-label="生成式物理仿真画布">
           <defs>
             <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
               <path d="M0,0 L0,6 L9,3 z" fill="#fa8c16" />
             </marker>
             <marker id="blue-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-              <path d="M0,0 L0,6 L9,3 z" fill="#1677ff" />
+              <path d="M0,0 L0,6 L9,3 z" fill="#0891b2" />
             </marker>
+            <linearGradient id="gpc-traj" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0%" stopColor="#06b6d4" />
+              <stop offset="100%" stopColor="#0891b2" />
+            </linearGradient>
+            <pattern id="gpc-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(8,145,178,0.08)" strokeWidth="1" />
+            </pattern>
+            <style>{`
+              @keyframes gpc-dash { from { stroke-dashoffset: 1200; } to { stroke-dashoffset: 0; } }
+              @keyframes gpc-burst { 0% { r: 4; opacity: 0.9; } 100% { r: 28; opacity: 0; } }
+              .gpc-traj { stroke-dasharray: 1200; animation: gpc-dash 1.2s ease-out both; }
+              .gpc-burst { animation: gpc-burst 0.9s ease-out infinite; transform-origin: center; }
+              @media (prefers-reduced-motion: reduce) {
+                .gpc-traj { animation: none; stroke-dasharray: 0; }
+                .gpc-burst { animation: none; opacity: 0; }
+              }
+            `}</style>
           </defs>
-          <line x1="40" y1="300" x2="580" y2="300" stroke="#64748b" strokeWidth="2" />
-          <line x1="40" y1="40" x2="40" y2="300" stroke="#64748b" strokeWidth="2" />
-          <polyline points={polyline} fill="none" stroke="#1677ff" strokeWidth="4" strokeLinecap="round" />
+          <rect x="40" y="40" width="540" height="260" fill="url(#gpc-grid)" />
+          <line x1="40" y1="300" x2="580" y2="300" stroke="#475569" strokeWidth="2" />
+          <line x1="40" y1="40" x2="40" y2="300" stroke="#475569" strokeWidth="2" />
+          <polyline className="gpc-traj" points={polyline} fill="none" stroke="url(#gpc-traj)" strokeWidth="4" strokeLinecap="round" />
           {isProjectile(spec) && (
             <>
-              <rect x={targetScreenX - 16} y="284" width="32" height="16" rx="4" fill={hit ? '#52c41a' : '#f59e0b'} opacity="0.85" />
+              <rect x={targetScreenX - 16} y="284" width="32" height="16" rx="4" fill={hit ? '#16a34a' : '#f59e0b'} opacity="0.85" />
               <line x1={targetScreenX} y1="300" x2={targetScreenX} y2="245" stroke="#f59e0b" strokeDasharray="4 4" />
               <text x={targetScreenX - 28} y="238" fill="#92400e">目标区</text>
+              {hit && (
+                <>
+                  <circle className="gpc-burst" cx={targetScreenX} cy={296} r="4" fill="none" stroke="#16a34a" strokeWidth="3" />
+                  <circle cx={targetScreenX} cy={296} r="6" fill="#16a34a" />
+                </>
+              )}
             </>
           )}
-          <circle cx={40} cy={sy(valueOf(values, 'h', 20))} r="8" fill="#52c41a" />
+          <circle cx={40} cy={sy(valueOf(values, 'h', 20))} r="8" fill="#0891b2" />
           <circle cx={lastX} cy={lastY} r="9" fill="#fa541c" />
           <line x1={lastX} y1={lastY} x2={Math.min(580, lastX + 52)} y2={lastY} stroke="#fa8c16" strokeWidth="3" markerEnd="url(#arrow)" />
-          <line x1={Math.max(40, lastX - 40)} y1={lastY} x2={Math.max(40, lastX - 40)} y2={Math.min(300, lastY + 48)} stroke="#1677ff" strokeWidth="3" markerEnd="url(#blue-arrow)" />
+          <line x1={Math.max(40, lastX - 40)} y1={lastY} x2={Math.max(40, lastX - 40)} y2={Math.min(300, lastY + 48)} stroke="#0891b2" strokeWidth="3" markerEnd="url(#blue-arrow)" />
           <text x="45" y="322" fill="#475569">x</text>
           <text x="18" y="48" fill="#475569">y</text>
-          <text x={Math.max(60, lastX - 70)} y={Math.max(30, lastY - 18)} fill="#334155">生成式轨迹</text>
+          <text x={Math.max(60, lastX - 70)} y={Math.max(30, lastY - 18)} fill="#0e7490">生成式轨迹</text>
         </svg>
       </div>
 

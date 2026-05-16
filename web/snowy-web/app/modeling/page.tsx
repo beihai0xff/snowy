@@ -30,6 +30,7 @@ import {
 import { api, type EvidenceRef, type GenerativeModelPackage, type VariableSpec } from '@/lib/api';
 import GenerativePhysicsCanvas from '@/components/generative/GenerativePhysicsCanvas';
 import GenerativeBiologyGraph from '@/components/generative/GenerativeBiologyGraph';
+import SkeletonPreview from '@/components/common/SkeletonPreview';
 import InteractionPlanPanel from '@/components/generative/InteractionPlanPanel';
 import ValidationReportPanel from '@/components/generative/ValidationReportPanel';
 import ReactionBar from '@/components/common/ReactionBar';
@@ -415,10 +416,7 @@ function ModelingPageInner() {
           </div>
 
           {loading && !pkg && (
-            <div className="snowy-loading-card" style={{ minHeight: 420, border: 0 }}>
-              <span className="snowy-spinner" />
-              <span>正在编译模型包…</span>
-            </div>
+            <SkeletonPreview height={420} label="正在编译模型包…绑定证据、生成结构化交互模型" />
           )}
 
           {!loading && !pkg && (

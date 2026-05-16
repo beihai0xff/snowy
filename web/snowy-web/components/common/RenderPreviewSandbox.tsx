@@ -4,7 +4,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Button, Space, Tag, Typography } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import type { RenderArtifact } from '@/lib/api';
-import NativePhysicsPreview, { isNativePhysicsPreviewArtifact } from '@/components/physics/NativePhysicsPreview';
+import { isNativePhysicsPreviewArtifact } from '@/components/physics/NativePhysicsPreview';
+import R3FPhysicsPreview from '@/components/physics/r3f/R3FPhysicsPreview';
 
 const { Text } = Typography;
 
@@ -195,7 +196,7 @@ function IframeRenderPreviewSandbox({ artifact, propsData, onStatusChange }: Ren
 
 export default function RenderPreviewSandbox(props: RenderPreviewSandboxProps) {
   if (isNativePhysicsPreviewArtifact(props.artifact)) {
-    return <NativePhysicsPreview {...props} />;
+    return <R3FPhysicsPreview {...props} />;
   }
   return <IframeRenderPreviewSandbox {...props} />;
 }

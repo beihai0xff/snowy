@@ -5,6 +5,7 @@ import { Alert, Card, Col, Empty, List, Row, Space, Steps, Tag, Timeline, Typogr
 import { Background, Controls, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { GenerativeVisualizationSpec } from '@/lib/api';
+import SemanticBiologyRenderer, { hasSemanticBiologyIllustration } from '@/components/biology/SemanticBiologyRenderer';
 
 const { Paragraph, Text } = Typography;
 
@@ -36,14 +37,23 @@ export default function GenerativeBiologyGraph({ spec }: { spec?: GenerativeVisu
 
   if (!spec) return <Empty description="暂无生物可视化结构" />;
 
+  const semanticAvailable = hasSemanticBiologyIllustration(spec.topic, spec.visualization_type);
+
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="middle">
       <Space wrap>
         <Tag color="purple">{spec.visualization_type}</Tag>
         <Tag color="green">{spec.topic}</Tag>
+        {semanticAvailable && <Tag color="cyan">语义化插画</Tag>}
         {(spec.limiting_factors || []).map((item) => <Tag key={item}>{item}</Tag>)}
       </Space>
-      <div style={{ height: 420, border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+      {semanticAvailable && (
+        <SemanticBiologyRenderer
+          topic={spec.topic}
+          visualizationType={spec.visualization_type}
+        />
+      )}
+      <div style={{ height: semanticAvailable ? 280 : 420, border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
         {flow.nodes.length > 0 ? (
           <ReactFlow nodes={flow.nodes} edges={flow.edges} fitView proOptions={{ hideAttribution: true }}>
             <Background />

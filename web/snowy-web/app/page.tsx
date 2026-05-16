@@ -193,10 +193,10 @@ export default function HomePage() {
 
       {/* 三大能力 */}
       <div className="snowy-capability">
-        {capabilityCards.map((card) => (
+        {capabilityCards.map((card, index) => (
           <a
             key={card.title}
-            className="snowy-capability__card"
+            className={`snowy-capability__card snowy-fade-up-${Math.min(index + 1, 4)}`}
             href={card.path}
             onClick={(event) => { event.preventDefault(); router.push(card.path); }}
           >
