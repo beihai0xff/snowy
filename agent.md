@@ -68,6 +68,9 @@ Snowy 是面向高中生的 Web 端 AIGC 科学学习平台，核心能力包括
 
 - 不得把真实 API Key、JWT secret、数据库密码、OAuth secret 等敏感值写入仓库。
 - 示例配置只能保留空值、占位值或本地默认开发密码。
+- `configs/config.yaml` 是本地私密运行配置，任何 Agent 都禁止执行 `git add configs/config.yaml`，禁止把它提交到 Git 仓库。
+- 提交前必须确认 `git check-ignore -v configs/config.yaml` 命中 `.gitignore`，并确认 `git status --short --ignored configs/config.yaml` 只显示 `!! configs/config.yaml`。
+- 仓库内只能提交 `configs/config.example.yaml` 作为安全模板；如果需要修改模型接入示例，只能改模板中的占位值，不得填入真实 AK / API Key。
 - 真实 LLM 密钥只写入本地 gitignored `configs/config.yaml` 的 `llm.models[].api_key`；不要把真实值提交到 Git。
 - 用户后续提供的小米 `base_url` 和 `api_key` 只能写入本地 `configs/config.yaml`。
 - 不要把 `OPENAI_API_KEY`、`MIMO_API_KEY`、`XIAOMI_MIMO_API_KEY` 作为主路径或文档推荐路径。
