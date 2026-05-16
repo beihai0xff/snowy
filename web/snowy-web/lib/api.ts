@@ -762,8 +762,8 @@ export const api = {
   getRecommendations: () => request<RecommendationsResp>('/recommendations'),
 
   // Search
-  searchQuery: (data: SearchQueryReq) =>
-    request<SearchResponse>('/search/query', { method: 'POST', body: JSON.stringify(data) }),
+  searchQuery: (data: SearchQueryReq, options?: { signal?: AbortSignal }) =>
+    request<SearchResponse>('/search/query', { method: 'POST', body: JSON.stringify(data), signal: options?.signal }),
 
   // Physics / Render
   physicsAnalyze: (data: PhysicsAnalyzeReq) =>
@@ -776,8 +776,8 @@ export const api = {
   biologyAnalyze: (data: BiologyAnalyzeReq) =>
     request<BiologyModel>('/modeling/biology/analyze', { method: 'POST', body: JSON.stringify(data) }),
 
-  modelingCompile: (data: ModelingCompileReq) =>
-    request<GenerativeModelPackage>('/modeling/compile', { method: 'POST', body: JSON.stringify(data) }),
+  modelingCompile: (data: ModelingCompileReq, options?: { signal?: AbortSignal }) =>
+    request<GenerativeModelPackage>('/modeling/compile', { method: 'POST', body: JSON.stringify(data), signal: options?.signal }),
 
   listModelingPackages: () => request<PageResponse<GenerativeModelPackage>>('/modeling/packages'),
 
