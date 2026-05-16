@@ -3,7 +3,9 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -286,6 +288,10 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	if err := v.ReadInConfig(); err != nil {
+		if isConfigMissing(err) {
+			return nil, missingConfigError(configPath, err)
+		}
+
 		return nil, fmt.Errorf("read config: %w", err)
 	}
 
@@ -300,6 +306,24 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+func missingConfigError(configPath string, err error) error {
+	return fmt.Errorf(
+		"read config %q: %w; create local runtime config by copying `configs/config.example.yaml` "+
+			"to %q (for example: `cp configs/config.example.yaml %q`), then set llm.models[].base_url, "+
+			"model, and api_key",
+		configPath,
+		err,
+		configPath,
+		configPath,
+	)
+}
+
+func isConfigMissing(err error) bool {
+	var notFound viper.ConfigFileNotFoundError
+
+	return errors.As(err, &notFound) || os.IsNotExist(err)
 }
 
 func bindEnvironment(v *viper.Viper) error {

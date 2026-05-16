@@ -3,7 +3,8 @@
 # 支持构建 snowy 目标二进制
 #
 # 构建参数:
-#   TARGET  — 构建目标 (snowy)，默认 snowy
+#   TARGET   — 构建目标 (snowy)，默认 snowy
+#   GOPROXY  — Go module proxy，默认使用国内代理并回落 direct
 #
 # 用法:
 #   docker build --build-arg TARGET=snowy  -t snowy        .
@@ -13,6 +14,9 @@
 FROM golang:1.25-alpine AS builder
 
 ARG TARGET=snowy
+ARG GOPROXY=https://goproxy.cn,direct
+
+ENV GOPROXY=${GOPROXY}
 
 # 安装编译依赖
 RUN apk add --no-cache gcc musl-dev git ca-certificates tzdata
@@ -53,7 +57,7 @@ WORKDIR /app
 # 复制二进制
 COPY --from=builder /out/snowy-${TARGET} ./snowy-server
 
-# 复制默认配置（运行时可通过 volume 或 env 覆盖）
+# 复制配置模板；运行时通过 volume 挂载本地 configs/config.yaml
 COPY configs/ ./configs/
 
 # 默认 API 端口 8080

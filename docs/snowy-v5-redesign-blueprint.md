@@ -13,9 +13,9 @@ Snowy v5 的模型接入层使用 **`llm.models[]` 有序模型列表 + OpenAI-c
 | 配置项 | 说明 | 设计约束 |
 |---|---|---|
 | `provider` | 统一 Provider 标识，默认 `openai` | 用于监控和脱敏展示；调用实现统一走 OpenAI-compatible Provider |
-| `model_provider` | 部分网关或聚合服务要求的厂商字段 | 可选；仅作为请求字段透传，不触发专用 Provider 分支 |
+| `model_provider` | 部分网关或聚合服务要求的厂商字段 | 可选；仅作为请求字段透传，不触发专用 Provider 分支；可填 `openai` / `xiaomi` / `custom` |
 | `base_url` | OpenAI-compatible 或厂商 API Base URL | 统一去除尾部 `/`，不得展示 API Key |
-| `api_key` | 运行时密钥 | 允许由环境变量覆盖；仓库配置文件不得写明文密钥 |
+| `api_key` | 运行时密钥 | 只写入本地 gitignored `configs/config.yaml`；仓库模板不得写真实密钥 |
 | `model` / `model_name` | 实际模型名 | 兼容两种字段，最终归一为 `EffectiveModel()` |
 | `temperature` | 默认采样温度 | 业务请求未指定时使用模型级默认值 |
 | `max_tokens` | 默认输出 token 上限 | 不指定时使用 Snowy 安全上限 |
@@ -29,7 +29,7 @@ Snowy v5 的模型接入层使用 **`llm.models[]` 有序模型列表 + OpenAI-c
 2. **有序模型列表**：按 `llm.models[]` 的 YAML 声明顺序尝试。
 3. **可观测的兜底链路**：每一次模型尝试都记录 provider、model、latency、status、error、tokens、user_id、operation。
 4. **错误分类**：参数错误、认证错误、配额/限流、超时、5xx、解析失败应能区分；只有可恢复错误进入 retry / fallback。
-5. **单一配置入口**：模型清单只从 `llm.models[]` 读取，确保同一语义只有一套配置来源。
+5. **单一配置入口**：模型清单只从本地 `configs/config.yaml` 的 `llm.models[]` 读取，仓库只保留 `configs/config.example.yaml` 模板。
 
 ### 1.2 实现用户登录、收藏与学习档案
 

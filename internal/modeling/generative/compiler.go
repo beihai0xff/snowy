@@ -595,9 +595,9 @@ func normalizeLearningModel(model map[string]any, raw map[string]any) {
 	}
 
 	if _, ok := model["topic"]; !ok {
-		if modelType := strings.TrimSpace(fmt.Sprint(model["model_type"])); modelType != "" {
+		if modelType := firstNonEmptyString(model["model_type"], ""); modelType != "" {
 			model["topic"] = modelType
-		} else if description := strings.TrimSpace(fmt.Sprint(model["description"])); description != "" {
+		} else if description := firstNonEmptyString(model["description"], ""); description != "" {
 			model["topic"] = description
 		} else {
 			model["topic"] = "generated_model"
@@ -1514,6 +1514,10 @@ func normalizeOutcomeList(value any) any {
 }
 
 func normalizeVisualizationGraph(graph map[string]any) {
+	if explanation, ok := graph["curve_explanation"]; ok {
+		graph["curve_explanation"] = normalizeExplanationText(explanation)
+	}
+
 	if stages, ok := graph["mechanism_stages"]; ok {
 		graph["mechanism_stages"] = normalizeMechanismStages(stages)
 	}
@@ -1524,6 +1528,41 @@ func normalizeVisualizationGraph(graph map[string]any) {
 
 	if factors, ok := graph["limiting_factors"]; ok {
 		graph["limiting_factors"] = normalizeStringList(factors)
+	}
+}
+
+func normalizeExplanationText(value any) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(v)
+	case []any:
+		return strings.Join(anyToStrings(v), "；")
+	case []string:
+		return strings.Join(anyToStrings(v), "；")
+	case map[string]any:
+		for _, key := range []string{"summary", "description", "text", "explanation", "content"} {
+			if text := firstNonEmptyString(v[key], ""); text != "" {
+				return text
+			}
+		}
+
+		parts := make([]string, 0, len(v))
+		for key, item := range v {
+			if text := strings.TrimSpace(fmt.Sprint(item)); text != "" && text != "<nil>" {
+				parts = append(parts, fmt.Sprintf("%s: %s", key, text))
+			}
+		}
+
+		return strings.Join(parts, "；")
+	default:
+		text := strings.TrimSpace(fmt.Sprint(v))
+		if text == "<nil>" {
+			return ""
+		}
+
+		return text
 	}
 }
 
@@ -1851,9 +1890,11 @@ func enrichPhysicsPackageDefaults(pkg *GenerativeModelPackage) {
 
 func enrichBiologyPackageDefaults(pkg *GenerativeModelPackage) {
 	topic := firstNonEmptyString(
-		[]string{pkg.GenerativeModel.Topic, pkg.LearningModel.Topic, pkg.Question},
+		[]string{pkg.GenerativeModel.Topic, pkg.LearningModel.Topic, pkg.Question, pkg.LearningModel.LearningGoal},
 		pkg.Question,
 	)
+	topic = biologyTopicKey(topic)
+
 	if pkg.LearningModel.LearningGoal == "" {
 		pkg.LearningModel.LearningGoal = biologyLearningGoal(topic)
 	}
@@ -1870,7 +1911,13 @@ func enrichBiologyPackageDefaults(pkg *GenerativeModelPackage) {
 		pkg.GenerativeModel.Variables = biologyVariableSpecs(topic)
 	}
 
+	if pkg.VisualizationGraph == nil {
+		pkg.VisualizationGraph = defaultVisualizationGraphForBiology(topic)
+	}
+
 	if pkg.VisualizationGraph != nil {
+		repairBiologyVisualizationGraph(pkg.VisualizationGraph, topic)
+
 		if pkg.VisualizationGraph.CurveExplanation == "" {
 			pkg.VisualizationGraph.CurveExplanation = curveExplanationForBiology(topic)
 		}
@@ -1913,6 +1960,212 @@ func enrichBiologyPackageDefaults(pkg *GenerativeModelPackage) {
 		}
 
 		pkg.AssessmentTasks = assessmentForBiology(topic, vars)
+	}
+}
+
+func biologyTopicKey(topic string) string {
+	lower := strings.ToLower(strings.TrimSpace(topic))
+	switch {
+	case lower == "" || lower == "<nil>" || lower == "generated_model":
+		return "biology_concept"
+	case strings.Contains(lower, "photosynthesis") || strings.Contains(topic, "光合"):
+		return "photosynthesis"
+	case strings.Contains(lower, "enzyme") || strings.Contains(topic, "酶"):
+		return "enzyme_activity"
+	case strings.Contains(lower, "respiration") || strings.Contains(topic, "呼吸"):
+		return "cellular_respiration"
+	default:
+		if lower != "" {
+			return lower
+		}
+
+		return "biology_concept"
+	}
+}
+
+func defaultVisualizationGraphForBiology(topic string) *GenerativeVisualizationSpec {
+	vars := defaultExperimentVariablesForBiology(topic)
+
+	return &GenerativeVisualizationSpec{
+		VisualizationType:   "generated_biology_process_graph",
+		Topic:               topic,
+		Nodes:               defaultBiologyNodes(topic, vars),
+		Edges:               defaultBiologyEdges(topic),
+		ExperimentVariables: vars,
+	}
+}
+
+func repairBiologyVisualizationGraph(graph *GenerativeVisualizationSpec, topic string) {
+	if graph.VisualizationType == "" {
+		graph.VisualizationType = "generated_biology_process_graph"
+	}
+
+	graph.Topic = topic
+
+	if !hasExperimentVariables(graph.ExperimentVariables) {
+		graph.ExperimentVariables = defaultExperimentVariablesForBiology(topic)
+	}
+
+	if len(graph.Nodes) == 0 {
+		graph.Nodes = defaultBiologyNodes(topic, graph.ExperimentVariables)
+	}
+
+	graph.Nodes = normalizeVisualizationNodeIDs(graph.Nodes)
+
+	graph.Edges = normalizeVisualizationEdges(graph.Edges, graph.Nodes)
+	if len(graph.Edges) == 0 {
+		graph.Edges = normalizeVisualizationEdges(defaultBiologyEdges(topic), graph.Nodes)
+	}
+
+	if len(graph.Edges) == 0 && len(graph.Nodes) >= 2 {
+		graph.Edges = []VisualizationEdge{
+			{
+				Source:   graph.Nodes[0].ID,
+				Target:   graph.Nodes[1].ID,
+				Relation: "influences",
+			},
+		}
+	}
+}
+
+func hasExperimentVariables(vars *ExperimentVariables) bool {
+	return vars != nil && (len(vars.Independent) > 0 || len(vars.Dependent) > 0 || len(vars.Controlled) > 0)
+}
+
+func normalizeVisualizationNodeIDs(nodes []VisualizationNode) []VisualizationNode {
+	seen := map[string]int{}
+
+	out := make([]VisualizationNode, 0, len(nodes))
+	for i, node := range nodes {
+		node.ID = strings.TrimSpace(node.ID)
+		if node.ID == "" {
+			node.ID = fmt.Sprintf("node_%d", i+1)
+		}
+
+		if seen[node.ID] > 0 {
+			node.ID = fmt.Sprintf("%s_%d", node.ID, seen[node.ID]+1)
+		}
+
+		seen[node.ID]++
+		if strings.TrimSpace(node.Label) == "" {
+			node.Label = node.ID
+		}
+
+		if strings.TrimSpace(node.Type) == "" {
+			node.Type = "concept"
+		}
+
+		out = append(out, node)
+	}
+
+	return out
+}
+
+func normalizeVisualizationEdges(edges []VisualizationEdge, nodes []VisualizationNode) []VisualizationEdge {
+	idByRef := map[string]string{}
+
+	for _, node := range nodes {
+		if node.ID != "" {
+			idByRef[node.ID] = node.ID
+		}
+
+		if node.Label != "" {
+			idByRef[node.Label] = node.ID
+		}
+	}
+
+	out := make([]VisualizationEdge, 0, len(edges))
+	for _, edge := range edges {
+		source, sourceOK := idByRef[strings.TrimSpace(edge.Source)]
+
+		target, targetOK := idByRef[strings.TrimSpace(edge.Target)]
+		if !sourceOK || !targetOK {
+			continue
+		}
+
+		edge.Source = source
+
+		edge.Target = target
+		if strings.TrimSpace(edge.Relation) == "" {
+			edge.Relation = "influences"
+		}
+
+		out = append(out, edge)
+	}
+
+	return out
+}
+
+func defaultExperimentVariablesForBiology(topic string) *ExperimentVariables {
+	switch topic {
+	case "photosynthesis":
+		return &ExperimentVariables{
+			Independent: []string{"光照强度"},
+			Dependent:   []string{"有机物净积累"},
+			Controlled:  []string{"CO₂ 浓度", "温度", "植物材料"},
+		}
+	case "enzyme_activity":
+		return &ExperimentVariables{
+			Independent: []string{"温度"},
+			Dependent:   []string{"酶活性"},
+			Controlled:  []string{"pH", "底物浓度", "酶浓度"},
+		}
+	default:
+		return &ExperimentVariables{
+			Independent: []string{"自变量"},
+			Dependent:   []string{"因变量"},
+			Controlled:  []string{"控制变量"},
+		}
+	}
+}
+
+func defaultBiologyNodes(topic string, vars *ExperimentVariables) []VisualizationNode {
+	switch topic {
+	case "photosynthesis":
+		return []VisualizationNode{
+			{ID: "light", Label: "光照强度", Type: "factor"},
+			{ID: "co2", Label: "CO₂ 浓度", Type: "factor"},
+			{ID: "photosynthesis", Label: "光合作用速率", Type: "process"},
+			{ID: "organic_accumulation", Label: "有机物净积累", Type: "result"},
+		}
+	case "enzyme_activity":
+		return []VisualizationNode{
+			{ID: "temperature", Label: "温度", Type: "factor"},
+			{ID: "ph", Label: "pH", Type: "factor"},
+			{ID: "enzyme_structure", Label: "酶空间结构", Type: "process"},
+			{ID: "enzyme_activity", Label: "酶活性", Type: "result"},
+		}
+	default:
+		nodes := []VisualizationNode{{ID: "concept", Label: "核心概念", Type: "concept"}}
+		if hasExperimentVariables(vars) {
+			nodes = append(nodes,
+				VisualizationNode{ID: "independent_variable", Label: vars.Independent[0], Type: "factor"},
+				VisualizationNode{ID: "dependent_variable", Label: vars.Dependent[0], Type: "result"},
+			)
+		}
+
+		return nodes
+	}
+}
+
+func defaultBiologyEdges(topic string) []VisualizationEdge {
+	switch topic {
+	case "photosynthesis":
+		return []VisualizationEdge{
+			{Source: "light", Target: "photosynthesis", Relation: "promotes"},
+			{Source: "co2", Target: "photosynthesis", Relation: "limits"},
+			{Source: "photosynthesis", Target: "organic_accumulation", Relation: "produces"},
+		}
+	case "enzyme_activity":
+		return []VisualizationEdge{
+			{Source: "temperature", Target: "enzyme_structure", Relation: "affects"},
+			{Source: "ph", Target: "enzyme_structure", Relation: "affects"},
+			{Source: "enzyme_structure", Target: "enzyme_activity", Relation: "determines"},
+		}
+	default:
+		return []VisualizationEdge{
+			{Source: "independent_variable", Target: "dependent_variable", Relation: "influences"},
+		}
 	}
 }
 

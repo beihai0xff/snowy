@@ -2,22 +2,23 @@
 package llm
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"time"
+
+	openai "github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
+	"github.com/openai/openai-go/v3/packages/param"
 
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 )
 
 // openaiProvider 基于 OpenAI-compatible Chat Completions 协议调用模型网关。
 // 厂商差异通过配置的 base_url、model 与可选 model_provider 表达；
-// 密钥统一从配置 api_key 或运行时 OPENAI_API_KEY 注入。
+// 密钥统一从本地运行时配置 llm.models[].api_key 注入。
 type openaiProvider struct {
 	unsupportedProvider
 
@@ -32,15 +33,6 @@ func NewOpenAIProvider(cfg config.ModelProviderConfig) Provider {
 	}
 }
 
-type openAIChatCompletionRequest struct {
-	Model         string    `json:"model"`
-	ModelProvider string    `json:"model_provider,omitempty"`
-	Messages      []Message `json:"messages"`
-	Temperature   float64   `json:"temperature,omitempty"`
-	MaxTokens     int       `json:"max_tokens,omitempty"`
-	Stream        bool      `json:"stream,omitempty"`
-}
-
 func (p *openaiProvider) ConfiguredModel() string {
 	return p.cfg.EffectiveModel()
 }
@@ -53,29 +45,15 @@ func (p *openaiProvider) ConfiguredModelProvider() string {
 	return strings.TrimSpace(p.cfg.ModelProvider)
 }
 
-type openAIChatCompletionResponse struct {
-	Choices []struct {
-		Message struct {
-			Content string `json:"content"`
-		} `json:"message"`
-		FinishReason string `json:"finish_reason"`
-	} `json:"choices"`
-	Usage struct {
-		PromptTokens     int `json:"prompt_tokens"`
-		CompletionTokens int `json:"completion_tokens"`
-	} `json:"usage"`
-}
-
 func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response, error) {
 	if req == nil {
 		req = &Request{}
 	}
 
-	apiKey, envKeys := p.apiKey()
+	apiKey := p.apiKey()
 	if apiKey == "" {
-		return nil, fmt.Errorf(
-			"openai-compatible provider: api key is empty; set api_key or one of %s",
-			strings.Join(envKeys, ", "),
+		return nil, errors.New(
+			"openai-compatible provider: api key is empty; set llm.models[].api_key",
 		)
 	}
 
@@ -93,33 +71,8 @@ func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response,
 		return nil, errors.New("openai-compatible provider: base_url is empty")
 	}
 
-	maxTokens := req.MaxTokens
-	if maxTokens <= 0 {
-		maxTokens = p.cfg.MaxTokens
-	}
-
-	if maxTokens <= 0 {
-		maxTokens = MaxTokens128K
-	}
-
-	temperature := req.Temperature
-	if temperature <= 0 {
-		temperature = p.cfg.Temperature
-	}
-
-	payload := openAIChatCompletionRequest{
-		Model:         model,
-		ModelProvider: p.ConfiguredModelProvider(),
-		Messages:      req.Messages,
-		Temperature:   temperature,
-		MaxTokens:     maxTokens,
-		Stream:        false,
-	}
-
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
+	maxTokens := p.effectiveMaxTokens(req.MaxTokens)
+	temperature := p.effectiveTemperature(req.Temperature)
 
 	timeout := p.cfg.Timeout
 	if reqCtxDeadline, ok := ctx.Deadline(); ok {
@@ -132,55 +85,121 @@ func (p *openaiProvider) Generate(ctx context.Context, req *Request) (*Response,
 		timeout = 10 * time.Minute
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/chat/completions", bytes.NewReader(body))
+	client := openai.NewClient(
+		option.WithAPIKey(apiKey),
+		option.WithBaseURL(baseURL),
+		option.WithRequestTimeout(timeout),
+	)
+
+	params := openai.ChatCompletionNewParams{
+		Model:    model,
+		Messages: toOpenAIChatMessages(req.Messages),
+	}
+	if maxTokens > 0 {
+		params.MaxTokens = param.NewOpt(int64(maxTokens))
+	}
+
+	if temperature > 0 {
+		params.Temperature = param.NewOpt(temperature)
+	}
+
+	if modelProvider := p.ConfiguredModelProvider(); modelProvider != "" {
+		params.SetExtraFields(map[string]any{"model_provider": modelProvider})
+	}
+
+	resp, err := client.Chat.Completions.New(ctx, params)
 	if err != nil {
-		return nil, err
+		return nil, sdkProviderError(err)
 	}
 
-	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := (&http.Client{Timeout: timeout}).Do(httpReq)
-	if err != nil {
-		return nil, NewProviderError(fmt.Sprintf("openai-compatible provider: request failed: %v", err), true)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		retryable := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= http.StatusInternalServerError
-
-		return nil, NewProviderError(
-			fmt.Sprintf("openai-compatible provider: http status %d", resp.StatusCode),
-			retryable,
-		)
-	}
-
-	var decoded openAIChatCompletionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
-		return nil, err
-	}
-
-	if len(decoded.Choices) == 0 {
+	if resp == nil || len(resp.Choices) == 0 {
 		return nil, errors.New("openai-compatible provider: empty choices")
 	}
 
 	return &Response{
-		Content:      decoded.Choices[0].Message.Content,
-		Model:        model,
-		InputTokens:  decoded.Usage.PromptTokens,
-		OutputTokens: decoded.Usage.CompletionTokens,
-		FinishReason: decoded.Choices[0].FinishReason,
+		Content:      resp.Choices[0].Message.Content,
+		Model:        firstNonEmpty(resp.Model, model),
+		InputTokens:  int(resp.Usage.PromptTokens),
+		OutputTokens: int(resp.Usage.CompletionTokens),
+		FinishReason: resp.Choices[0].FinishReason,
 	}, nil
 }
 
-func (p *openaiProvider) apiKey() (string, []string) {
-	envKeys := []string{"OPENAI_API_KEY"}
-	values := make([]string, 0, len(envKeys)+1)
+func toOpenAIChatMessages(messages []Message) []openai.ChatCompletionMessageParamUnion {
+	out := make([]openai.ChatCompletionMessageParamUnion, 0, len(messages))
+	for _, message := range messages {
+		content := strings.TrimSpace(message.Content)
+		if content == "" {
+			continue
+		}
 
-	values = append(values, p.cfg.APIKey)
-	for _, key := range envKeys {
-		values = append(values, os.Getenv(key))
+		switch strings.ToLower(strings.TrimSpace(message.Role)) {
+		case "system":
+			out = append(out, openai.SystemMessage(content))
+		case "assistant":
+			out = append(out, openai.AssistantMessage(content))
+		case "developer":
+			out = append(out, openai.DeveloperMessage(content))
+		default:
+			out = append(out, openai.UserMessage(content))
+		}
 	}
 
-	return firstNonEmpty(values...), envKeys
+	return out
+}
+
+func sdkProviderError(err error) error {
+	var apiErr *openai.Error
+	if errors.As(err, &apiErr) {
+		retryable := apiErr.StatusCode == http.StatusTooManyRequests || apiErr.StatusCode >= 500
+
+		return NewProviderError(
+			fmt.Sprintf("openai-compatible provider: http status %d: %s", apiErr.StatusCode, apiErr.Message),
+			retryable,
+		)
+	}
+
+	return NewProviderError(fmt.Sprintf("openai-compatible provider: request failed: %v", err), true)
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+
+	return ""
+}
+
+func (p *openaiProvider) apiKey() string {
+	return strings.TrimSpace(p.cfg.APIKey)
+}
+
+func (p *openaiProvider) effectiveTemperature(requestTemperature float64) float64 {
+	if p.cfg.Temperature == 0 {
+		return 0
+	}
+
+	if requestTemperature > 0 {
+		return requestTemperature
+	}
+
+	return p.cfg.Temperature
+}
+
+func (p *openaiProvider) effectiveMaxTokens(requestMaxTokens int) int {
+	if p.cfg.MaxTokens > 0 {
+		if requestMaxTokens > 0 && requestMaxTokens < p.cfg.MaxTokens {
+			return requestMaxTokens
+		}
+
+		return p.cfg.MaxTokens
+	}
+
+	if requestMaxTokens > 0 {
+		return requestMaxTokens
+	}
+
+	return MaxTokens128K
 }
