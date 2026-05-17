@@ -1,24 +1,41 @@
 'use client';
 
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Alert, Button, Collapse, Empty, Select, Space, Tag, Typography, message } from 'antd';
+import { Alert, Button, Collapse, Empty, Input, Popover, Segmented, Select, Space, Tag, Tooltip, Typography, message } from 'antd';
 import {
   BookOutlined,
   BranchesOutlined,
   BulbOutlined,
   CheckCircleFilled,
+  ClearOutlined,
   ExclamationCircleFilled,
   ExperimentOutlined,
+  FilterOutlined,
   FunctionOutlined,
   ReloadOutlined,
   RightOutlined,
   SearchOutlined,
   StarOutlined,
+  StopOutlined,
 } from '@ant-design/icons';
-import { api, type Citation, type FavoriteReq, type SearchResponse } from '@/lib/api';
+import CollabPresence from '@/components/chat/CollabPresence';
+import { useSessionWS } from '@/lib/ws/useSessionWS';
+import {
+  agentChatStream,
+  api,
+  type ChatReq,
+  type Citation,
+  type FavoriteReq,
+  type GenerativeModelPackage,
+  type PreviewPayload,
+  type SearchResponse,
+  type SSEMessage,
+} from '@/lib/api';
 import MarkdownText from '@/components/common/MarkdownText';
 import ReactionBar from '@/components/common/ReactionBar';
+import ChatBubble, { type DemoStatus } from '@/components/chat/ChatBubble';
+import { ShareButton } from '@/components/chat/ShareButton';
 
 const { Title, Text } = Typography;
 
@@ -89,8 +106,168 @@ function AskPageInner() {
   const [result, setResult] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
-  const [subject, setSubject] = useState<string | undefined>();
+  const [subject, setSubject] = useState<string | undefined>(() => searchParams.get('subject') || undefined);
   const [grade, setGrade] = useState<string | undefined>();
+  const [viewMode, setViewMode] = useState<'search' | 'chat'>(
+    (searchParams.get('mode') === 'search' ? 'search' : 'chat'),
+  );
+
+  // ── chat 模式状态 ────────────────────────────────────
+  type ChatMessage = {
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    citations?: Citation[];
+    pkg?: GenerativeModelPackage | null;
+    demoStatus: DemoStatus;
+    demoStage?: 'compile' | 'recompute' | 'regenerate';
+    demoError?: string | null;
+  };
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatBusy, setChatBusy] = useState(false);
+  const [chatSessionId, setChatSessionId] = useState<string>(() => `local-${Date.now()}`);
+  const chatBoxRef = useRef<HTMLDivElement | null>(null);
+  const chatAbortRef = useRef<AbortController | null>(null);
+
+  // 协同在场（仅在 chat 模式下激活；session_id 复用本地会话标识，跟分享 join 时一致）
+  const { presence } = useSessionWS(chatSessionId, { enabled: viewMode === 'chat' });
+
+  useEffect(() => {
+    if (chatBoxRef.current) {
+      chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const sendChat = useCallback(async (text: string, parentPackageId?: string, regenerateReason?: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || chatBusy) return;
+
+    const userMsg: ChatMessage = {
+      id: `u-${Date.now()}`,
+      role: 'user',
+      content: trimmed,
+      demoStatus: 'idle',
+    };
+    const assistantId = `a-${Date.now()}`;
+    const assistantMsg: ChatMessage = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      citations: [],
+      pkg: null,
+      demoStatus: 'idle',
+    };
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    setQuery('');
+    setChatBusy(true);
+
+    const subjectMode = (subject === 'physics' || subject === 'biology' || subject === 'chemistry')
+      ? (subject as 'physics' | 'biology' | 'chemistry')
+      : 'auto';
+    const req: ChatReq = {
+      message: trimmed,
+      mode: subjectMode,
+      filters: { subject, grade },
+      parent_package_id: parentPackageId,
+      regenerate_reason: regenerateReason,
+    };
+
+    const abort = new AbortController();
+    chatAbortRef.current = abort;
+    const patchAssistant = (partial: Partial<ChatMessage>) => {
+      setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, ...partial } : m)));
+    };
+    try {
+      await agentChatStream(req, (evt: SSEMessage) => {
+        switch (evt.event) {
+          case 'content': {
+            const data = evt.data as { text?: string } | string | undefined;
+            const piece = typeof data === 'string' ? data : data?.text ?? '';
+            if (piece) {
+              setMessages((prev) =>
+                prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + piece } : m)),
+              );
+            }
+            break;
+          }
+          case 'citations': {
+            const data = evt.data as { citations?: Citation[] } | Citation[] | undefined;
+            const list = Array.isArray(data) ? data : data?.citations || [];
+            patchAssistant({ citations: list });
+            break;
+          }
+          case 'preview': {
+            const data = evt.data as PreviewPayload;
+            patchAssistant({
+              pkg: data?.package ?? undefined,
+              demoStatus: data?.status ?? 'partial',
+              demoStage: data?.stage,
+              demoError: data?.error ?? null,
+            });
+            break;
+          }
+          case 'done':
+          case 'final':
+          default:
+            break;
+        }
+      }, {
+        signal: abort.signal,
+        onError: (err) => {
+          patchAssistant({ demoStatus: 'failed', demoError: err.message });
+          message.error(err.message);
+        },
+      });
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') {
+        patchAssistant({ demoStatus: 'idle', content: '（已停止生成）' });
+      } else {
+        const msg = err instanceof Error ? err.message : '会话失败';
+        patchAssistant({ demoStatus: 'failed', demoError: msg });
+      }
+    } finally {
+      setChatBusy(false);
+      chatAbortRef.current = null;
+    }
+  }, [chatBusy, subject, grade]);
+
+  const stopGeneration = useCallback(() => {
+    chatAbortRef.current?.abort();
+  }, []);
+
+  const newChatSession = useCallback(() => {
+    chatAbortRef.current?.abort();
+    setMessages([]);
+    setChatSessionId(`local-${Date.now()}`);
+    setQuery('');
+  }, []);
+
+  const handleRegenerate = useCallback((messageId: string, reason: string) => {
+    const target = messages.find((m) => m.id === messageId);
+    const parent = target?.pkg?.package_id;
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    if (!lastUser) return;
+    void sendChat(lastUser.content, parent, reason);
+  }, [messages, sendChat]);
+
+  const handlePackageUpdate = useCallback((messageId: string, next: GenerativeModelPackage) => {
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, pkg: next } : m)));
+  }, []);
+
+  const prevSubjectRef = useRef<string | undefined>(subject);
+  useEffect(() => {
+    if (viewMode !== 'chat') { prevSubjectRef.current = subject; return; }
+    if (messages.length === 0) { prevSubjectRef.current = subject; return; }
+    if (prevSubjectRef.current === subject) return;
+    const subjectLabel = subject ? ({ physics: '物理', biology: '生物', chemistry: '化学', math: '数学' } as Record<string, string>)[subject] || subject : '自动';
+    setMessages((prev) => [...prev, {
+      id: `s-${Date.now()}`,
+      role: 'assistant',
+      content: `_已切换学科：**${subjectLabel}**。后续回答会按该学科生成。_`,
+      demoStatus: 'idle',
+    }]);
+    prevSubjectRef.current = subject;
+  }, [subject, viewMode, messages.length]);
 
   const runSearch = useCallback(async (text: string) => {
     const trimmed = text.trim();
@@ -114,9 +291,14 @@ function AskPageInner() {
     const q = searchParams.get('q');
     if (q) {
       setQuery(q);
-      void runSearch(q);
+      if (viewMode === 'chat') {
+        void sendChat(q);
+      } else {
+        void runSearch(q);
+      }
     }
-  }, [searchParams, runSearch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const confidence = result ? confidenceLevel(result.confidence) : null;
   const evidenceScore = useMemo(() => {
@@ -156,62 +338,111 @@ function AskPageInner() {
   };
 
   return (
-    <div className="snowy-page">
-      {/* 顶部搜索条（吸顶） */}
-      <div className="snowy-ask-bar">
+    <div className={`snowy-page ${viewMode === 'chat' ? 'snowy-ask-page--chat' : ''}`}>
+      {/* 顶部搜索条（吸顶 · 精简） */}
+      <div className="snowy-ask-bar snowy-ask-bar--compact">
+        <div className="snowy-ask-bar__row">
+          <Segmented
+            size="small"
+            value={viewMode}
+            onChange={(v) => setViewMode(v as 'search' | 'chat')}
+            options={[
+              { label: '对话 · 推演演示', value: 'chat' },
+              { label: '检索 · 一次性答案', value: 'search' },
+            ]}
+          />
+          <Popover
+            trigger="click"
+            placement="bottomRight"
+            content={
+              <Space direction="vertical" size={8} style={{ minWidth: 220 }}>
+                <Select
+                  placeholder="学科"
+                  allowClear
+                  style={{ width: '100%' }}
+                  value={subject}
+                  onChange={setSubject}
+                  options={[
+                    { value: 'physics',   label: '物理' },
+                    { value: 'biology',   label: '生物' },
+                    { value: 'chemistry', label: '化学' },
+                    { value: 'math',      label: '数学' },
+                  ]}
+                />
+                <Select
+                  placeholder="年级"
+                  allowClear
+                  style={{ width: '100%' }}
+                  value={grade}
+                  onChange={setGrade}
+                  options={[
+                    { value: 'high_school_1', label: '高一' },
+                    { value: 'high_school_2', label: '高二' },
+                    { value: 'high_school_3', label: '高三' },
+                  ]}
+                />
+                <Text type="secondary" style={{ fontSize: 12 }}>切换学科后，下一条回答会按新学科生成</Text>
+              </Space>
+            }
+          >
+            <Button size="small" icon={<FilterOutlined />}>
+              {[subject && '学科', grade && '年级'].filter(Boolean).join(' · ') || '筛选'}
+            </Button>
+          </Popover>
+          {viewMode === 'chat' && (
+            <>
+              <span className="snowy-ask-bar__spacer" />
+              <CollabPresence clientIds={presence} />
+              <Tooltip title="开始新会话">
+                <Button size="small" icon={<ClearOutlined />} onClick={newChatSession} disabled={messages.length === 0 && !chatBusy}>新会话</Button>
+              </Tooltip>
+            </>
+          )}
+        </div>
+
         <form
-          className="snowy-search"
-          onSubmit={(event) => { event.preventDefault(); void runSearch(query); }}
+          className="snowy-search snowy-ask-bar__form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (viewMode === 'search') {
+              void runSearch(query);
+            } else {
+              void sendChat(query);
+            }
+          }}
           role="search"
         >
           <span className="snowy-search__icon"><SearchOutlined /></span>
-          <input
-            className="snowy-search__input"
-            type="search"
+          <Input.TextArea
+            className="snowy-search__input snowy-search__input--ta"
             value={query}
-            placeholder="再问一个问题，或修改当前问题…"
+            placeholder={viewMode === 'search' ? '再问一个问题，或修改当前问题…' : '在对话中提出你的问题（Enter 发送，Shift+Enter 换行）'}
             onChange={(event) => setQuery(event.target.value)}
             aria-label="输入你的问题"
+            autoSize={{ minRows: 1, maxRows: 5 }}
+            variant="borderless"
+            onPressEnter={(e) => {
+              if (!e.shiftKey) {
+                e.preventDefault();
+                if (viewMode === 'search') void runSearch(query); else void sendChat(query);
+              }
+            }}
           />
-          <button type="submit" className="snowy-search__submit">
-            {loading ? <span className="snowy-spinner" style={{ borderTopColor: '#fff', width: 14, height: 14 }} /> : <RightOutlined />}
-            <span>提问</span>
-          </button>
+          {viewMode === 'chat' && chatBusy ? (
+            <button type="button" className="snowy-search__submit snowy-search__submit--stop" onClick={stopGeneration}>
+              <StopOutlined /><span>停止</span>
+            </button>
+          ) : (
+            <button type="submit" className="snowy-search__submit" disabled={viewMode === 'chat' && chatBusy}>
+              {(loading || chatBusy) ? <span className="snowy-spinner" style={{ borderTopColor: '#fff', width: 14, height: 14 }} /> : <RightOutlined />}
+              <span>{viewMode === 'search' ? '提问' : '发送'}</span>
+            </button>
+          )}
         </form>
-        <Space size={8} style={{ marginTop: 8 }} wrap>
-          <Select
-            placeholder="学科"
-            allowClear
-            size="small"
-            style={{ width: 110 }}
-            value={subject}
-            onChange={setSubject}
-            options={[
-              { value: 'physics',   label: '物理' },
-              { value: 'biology',   label: '生物' },
-              { value: 'chemistry', label: '化学' },
-              { value: 'math',      label: '数学' },
-            ]}
-          />
-          <Select
-            placeholder="年级"
-            allowClear
-            size="small"
-            style={{ width: 110 }}
-            value={grade}
-            onChange={setGrade}
-            options={[
-              { value: 'high_school_1', label: '高一' },
-              { value: 'high_school_2', label: '高二' },
-              { value: 'high_school_3', label: '高三' },
-            ]}
-          />
-          <Text type="secondary" style={{ fontSize: 13 }}>每个答案都会先查证据、再生成结论</Text>
-        </Space>
       </div>
 
       {/* 错误诊断 */}
-      {errorText && !loading && (
+      {viewMode === 'search' && errorText && !loading && (
         <Alert
           type="error"
           showIcon
@@ -223,7 +454,7 @@ function AskPageInner() {
       )}
 
       {/* 加载态 */}
-      {loading && (
+      {viewMode === 'search' && loading && (
         <div className="snowy-loading-card">
           <span className="snowy-spinner" />
           <span>正在检索证据并组织答案…</span>
@@ -231,7 +462,7 @@ function AskPageInner() {
       )}
 
       {/* 空状态 */}
-      {!loading && !result && !errorText && (
+      {viewMode === 'search' && !loading && !result && !errorText && (
         <div className="snowy-loading-card" style={{ padding: 56 }}>
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -252,7 +483,7 @@ function AskPageInner() {
       )}
 
       {/* 答案 + 证据双列 */}
-      {!loading && result && (
+      {viewMode === 'search' && !loading && result && (
         <div className="snowy-ask-layout">
           {/* 左列：答案 */}
           <article className="snowy-answer">
@@ -426,6 +657,65 @@ function AskPageInner() {
               )}
             </Space>
           </aside>
+        </div>
+      )}
+
+      {/* Chat 模式 ── v7 §3：对话 + 推演卡 */}
+      {viewMode === 'chat' && (
+        <div style={{ marginTop: 16 }}>
+          {messages.length === 0 && (
+            <div className="snowy-loading-card" style={{ padding: 48 }}>
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={(
+                  <Space direction="vertical" size={12} align="center">
+                    <Text>对话模式会在回答之外，按需生成可交互的小模型。</Text>
+                    <Space wrap size={8}>
+                      {askExamples.map((q) => (
+                        <button
+                          key={q}
+                          className="snowy-chip"
+                          type="button"
+                          onClick={() => { setQuery(q); void sendChat(q); }}
+                        >
+                          试试：{q}
+                        </button>
+                      ))}
+                    </Space>
+                  </Space>
+                )}
+              />
+            </div>
+          )}
+
+          {messages.length > 0 && (
+            <div
+              ref={chatBoxRef}
+              className="snowy-chat-scroll"
+            >
+              {messages.map((m) => (
+                <div key={m.id}>
+                  <ChatBubble
+                    role={m.role}
+                    content={m.content}
+                    citations={m.citations}
+                    pkg={m.pkg}
+                    demoStatus={m.demoStatus}
+                    demoStage={m.demoStage}
+                    demoError={m.demoError}
+                    onPackageUpdate={(next) => handlePackageUpdate(m.id, next)}
+                    onRegenerateRequest={(reason) => handleRegenerate(m.id, reason)}
+                    onRetry={() => handleRegenerate(m.id, 'retry')}
+                  />
+                  {m.role === 'assistant' && (m.pkg?.package_id || m.content) && (
+                    <div style={{ marginLeft: 56, marginTop: 4 }}>
+                      <ShareButton packageId={m.pkg?.package_id ?? `msg-${m.id}`} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

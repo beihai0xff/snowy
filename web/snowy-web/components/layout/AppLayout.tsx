@@ -6,6 +6,7 @@ import { Button, ConfigProvider, Dropdown, Form, Input, Layout, Menu, Modal, Seg
 import type { MenuProps } from 'antd';
 import {
   BookOutlined,
+  DashboardOutlined,
   DownOutlined,
   ExperimentOutlined,
   HomeOutlined,
@@ -28,6 +29,7 @@ const menuItems = [
   { key: '/ask',       icon: <SearchOutlined />,     label: '提问' },
   { key: '/modeling',  icon: <ExperimentOutlined />, label: '推演' },
   { key: '/learning',  icon: <BookOutlined />,       label: '我的学习' },
+  { key: '/admin/llm', icon: <DashboardOutlined />,  label: '监控' },
 ];
 
 function subscribeAuthStorage(callback: () => void) {
@@ -57,6 +59,7 @@ function selectedKey(pathname: string): string {
   if (pathname.startsWith('/search') || pathname.startsWith('/ask')) return '/ask';
   if (pathname.startsWith('/modeling')) return '/modeling';
   if (pathname.startsWith('/learning')) return '/learning';
+  if (pathname.startsWith('/admin/llm') || pathname.startsWith('/monitoring')) return '/admin/llm';
   return '/';
 }
 

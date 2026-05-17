@@ -1,12 +1,20 @@
+//nolint:funcorder // Incremental event consumers are grouped before terminal response helpers.
 package agent
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/google/uuid"
+)
 
 // StreamResponseAggregator 将 SSE 事件流聚合为最终 ChatResponse。
 type StreamResponseAggregator struct {
 	response      ChatResponse
+	events        []SSEEvent
 	seenCitations map[string]struct{}
 	toolCallIndex map[string]int
+	previewStatus string
+	packageID     *uuid.UUID
 	done          bool
 }
 
@@ -21,6 +29,8 @@ func NewStreamResponseAggregator(initialMode Mode) *StreamResponseAggregator {
 
 // Consume 消费一个 SSE 事件并更新聚合结果。
 func (a *StreamResponseAggregator) Consume(event SSEEvent) error {
+	a.events = append(a.events, event)
+
 	if event.Event == SSEEventDone {
 		a.done = true
 		a.consumeDone(event.Data)
@@ -36,6 +46,18 @@ func (a *StreamResponseAggregator) Consume(event SSEEvent) error {
 // Done 返回是否已收到终态事件。
 func (a *StreamResponseAggregator) Done() bool {
 	return a.done
+}
+
+// Events 返回已收到的全部事件副本（v7 §3：用于 agent_message_events 落库与 replay）。
+func (a *StreamResponseAggregator) Events() []SSEEvent {
+	if len(a.events) == 0 {
+		return nil
+	}
+
+	out := make([]SSEEvent, len(a.events))
+	copy(out, a.events)
+
+	return out
 }
 
 // Response 返回聚合后的最终响应副本。
@@ -56,6 +78,7 @@ func (a *StreamResponseAggregator) Response() *ChatResponse {
 	return &resp
 }
 
+//nolint:cyclop // SSE aggregation intentionally branches by event kind.
 func (a *StreamResponseAggregator) consumeIncrementalEvent(event SSEEvent) {
 	switch event.Event {
 	case SSEEventThinking, SSEEventHeartbeat, SSEEventDone:
@@ -74,11 +97,40 @@ func (a *StreamResponseAggregator) consumeIncrementalEvent(event SSEEvent) {
 		if ok {
 			a.upsertToolCall(toolCall)
 		}
-	case SSEEventDiagram, SSEEventRenderCode, SSEEventPreview:
+	case SSEEventDiagram, SSEEventRenderCode:
 		if a.response.StructuredPayload == nil {
 			a.response.StructuredPayload = event.Data
 		}
+	case SSEEventPreview:
+		// v7 §3 锁定：preview 事件覆盖到最新 complete，保留最后一个有效快照。
+		status, _ := stringValue(event.Data, "status")
+		if a.previewStatus == "complete" && status != "complete" {
+			// 已经有 complete 快照，忽略后续 partial。
+			return
+		}
+
+		a.response.StructuredPayload = event.Data
+		if status != "" {
+			a.previewStatus = status
+		}
+
+		if pid, ok := stringValue(event.Data, "package_id"); ok && pid != "" {
+			if parsed, err := uuid.Parse(pid); err == nil {
+				a.packageID = &parsed
+			}
+		}
 	}
+}
+
+// PackageID v7 §3：返回 preview 事件中携带的 package_id（若有）。
+func (a *StreamResponseAggregator) PackageID() *uuid.UUID {
+	if a.packageID == nil {
+		return nil
+	}
+
+	id := *a.packageID
+
+	return &id
 }
 
 func (a *StreamResponseAggregator) consumeDone(data any) {

@@ -7,12 +7,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/beihai0xff/snowy/internal/modeling/chemistry"
 )
 
 const (
-	DomainAuto    = "auto"
-	DomainPhysics = "physics"
-	DomainBiology = "biology"
+	DomainAuto      = "auto"
+	DomainPhysics   = "physics"
+	DomainBiology   = "biology"
+	DomainChemistry = "chemistry"
 
 	GradeBandHighSchool = "high_school"
 
@@ -142,6 +145,9 @@ type DynamicSimulationSpec struct {
 	RenderInstructions    RenderInstructions `json:"render_instructions"`
 	LocalRecomputeAllowed bool               `json:"local_recompute_allowed"`
 	RegenerateWhen        []string           `json:"regenerate_when,omitempty"`
+	// ChemistryReaction v7 §5：当 Domain=chemistry 时由 chemistry.Service 注入。
+	// 其它学科该字段为 nil。
+	ChemistryReaction *chemistry.ChemistryReactionPackage `json:"chemistry_reaction,omitempty"`
 }
 
 type FormulaSpec struct {

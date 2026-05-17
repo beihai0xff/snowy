@@ -1,4 +1,4 @@
-//nolint:cyclop,goconst,exhaustive,nestif,unused // The compiler normalizes intentionally broad LLM package shapes.
+//nolint:cyclop,goconst,exhaustive,funcorder,nestif,unused // The compiler normalizes intentionally broad LLM package shapes.
 package generative
 
 import (
@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	chemsvc "github.com/beihai0xff/snowy/internal/modeling/chemistry/service"
 	physicsdomain "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 	searchdomain "github.com/beihai0xff/snowy/internal/repo/search"
@@ -27,6 +28,7 @@ type compilerService struct {
 	llmChain  llm.Provider
 	repo      Repository
 	validator Validator
+	chemSvc   chemsvc.Service
 	now       func() time.Time
 }
 
@@ -75,6 +77,15 @@ func WithNow(now func() time.Time) CompilerOption {
 	}
 }
 
+// WithChemistryService 注入化学学科服务，编译器在 domain=chemistry 时调用。
+func WithChemistryService(svc chemsvc.Service) CompilerOption {
+	return func(s *compilerService) {
+		if svc != nil {
+			s.chemSvc = svc
+		}
+	}
+}
+
 func (s *compilerService) Compile(ctx context.Context, req *CompileRequest) (*GenerativeModelPackage, error) {
 	if req == nil {
 		return nil, errors.New("compile request is nil")
@@ -105,6 +116,7 @@ func (s *compilerService) Compile(ctx context.Context, req *CompileRequest) (*Ge
 
 	if llmErr == nil && pkg != nil {
 		s.finalizePackage(req, pkg, domain, evidence, modelName, "success", "")
+		s.applyChemistryAnalysis(ctx, req, pkg, domain)
 		report := s.validator.Validate(pkg)
 		pkg.ValidationReport = report
 
@@ -125,6 +137,43 @@ func (s *compilerService) Compile(ctx context.Context, req *CompileRequest) (*Ge
 	}
 
 	return nil, errors.New("llm model package generation failed: empty model response")
+}
+
+func (s *compilerService) applyChemistryAnalysis(
+	ctx context.Context,
+	req *CompileRequest,
+	pkg *GenerativeModelPackage,
+	domain string,
+) {
+	if pkg == nil || domain != DomainChemistry || s.chemSvc == nil {
+		return
+	}
+
+	result, err := s.chemSvc.AnalyzeReaction(ctx, req.Message)
+	if err != nil || result == nil {
+		if err != nil {
+			pkg.Warnings = append(pkg.Warnings, fmt.Sprintf("chemistry analysis failed: %v", err))
+		}
+
+		return
+	}
+
+	if pkg.SimulationLogic == nil {
+		pkg.SimulationLogic = &DynamicSimulationSpec{}
+	}
+
+	if pkg.SimulationLogic.SimulationType == "" {
+		pkg.SimulationLogic.SimulationType = "chemistry_reaction"
+	}
+
+	if pkg.SimulationLogic.Runtime == "" {
+		pkg.SimulationLogic.Runtime = "chemistry"
+	}
+
+	pkg.SimulationLogic.ChemistryReaction = result
+	if !pkg.SimulationLogic.LocalRecomputeAllowed {
+		pkg.SimulationLogic.LocalRecomputeAllowed = false
+	}
 }
 
 func validationFailureError(report ModelValidationReport) error {
@@ -180,6 +229,127 @@ func (s *compilerService) ListPackages(
 	}
 
 	return s.repo.ListByUser(ctx, userID, offset, limit)
+}
+
+// Recompute v7 §3：在不调用 LLM 的前提下，把 overrides 中提供的变量当作新默认值，
+// 写入 simulation_logic.variables，并落库为新的 package 快照（保留对父 ID 的引用）。
+// 公式求值由前端 expr-eval 完成；后端只负责生成可分享的稳定快照。
+func (s *compilerService) Recompute(
+	ctx context.Context,
+	packageID string,
+	overrides map[string]float64,
+) (*GenerativeModelPackage, error) {
+	parent, err := s.GetPackage(ctx, packageID)
+	if err != nil {
+		return nil, fmt.Errorf("recompute: load parent: %w", err)
+	}
+
+	if parent == nil {
+		return nil, errors.New("recompute: parent package not found")
+	}
+
+	clone := *parent
+	clone.PackageID = uuid.New()
+	clone.CreatedAt = s.now()
+	clone.Status = "recomputed"
+	clone.FallbackReason = fmt.Sprintf("recomputed_from:%s", parent.PackageID)
+
+	if len(overrides) > 0 {
+		applyVariableOverrides(&clone, overrides)
+	}
+
+	return s.saveAndReturn(ctx, &clone)
+}
+
+// Regenerate v7 §3：用父 package 作为上下文，把 reason / 用户追问拼到 message 重新走 Compile。
+// 失败时回退为父快照的拷贝（带 fallback_reason），保证前端总能拿到可渲染对象。
+func (s *compilerService) Regenerate(
+	ctx context.Context,
+	parentID string,
+	reason string,
+	hint CompileContext,
+) (*GenerativeModelPackage, error) {
+	parent, err := s.GetPackage(ctx, parentID)
+	if err != nil {
+		return nil, fmt.Errorf("regenerate: load parent: %w", err)
+	}
+
+	if parent == nil {
+		return nil, errors.New("regenerate: parent package not found")
+	}
+
+	mergedNotes := strings.TrimSpace(reason)
+	if hint.UserNotes != "" {
+		if mergedNotes != "" {
+			mergedNotes += "\n"
+		}
+
+		mergedNotes += hint.UserNotes
+	}
+
+	parentTags := append([]string(nil), hint.KnowledgeTags...)
+	if len(parentTags) == 0 {
+		parentTags = append(parentTags, parent.LearningModel.KnowledgeTags...)
+	}
+
+	regenReq := &CompileRequest{
+		SessionID:  parent.SessionID,
+		UserID:     parent.UserID,
+		Message:    strings.TrimSpace(parent.Question + "\n追问：" + reason),
+		Domain:     parent.Domain,
+		GradeBand:  parent.LearningModel.GradeBand,
+		TargetMode: TargetModeInteractive,
+		Context: CompileContext{
+			Citations:     append(hint.Citations, parent.EvidenceRefs...),
+			KnowledgeTags: parentTags,
+			SourcePage:    hint.SourcePage,
+			UserNotes:     mergedNotes,
+		},
+	}
+
+	pkg, compileErr := s.Compile(ctx, regenReq)
+	if compileErr == nil && pkg != nil {
+		pkg.FallbackReason = fmt.Sprintf("regenerated_from:%s", parent.PackageID)
+		pkg.RegenerationHints = append(pkg.RegenerationHints, RegenerationHint{
+			Reason:  "parent_package",
+			Message: parent.PackageID.String(),
+		})
+
+		return s.saveAndReturn(ctx, pkg)
+	}
+
+	// 回退：复制父快照，避免 SSE 流给前端的是 nil。
+	clone := *parent
+	clone.PackageID = uuid.New()
+	clone.CreatedAt = s.now()
+	clone.Status = "regenerate_failed"
+	clone.FallbackReason = fmt.Sprintf("regenerated_from:%s; fallback_reason:%v", parent.PackageID, compileErr)
+
+	return s.saveAndReturn(ctx, &clone)
+}
+
+func applyVariableOverrides(pkg *GenerativeModelPackage, overrides map[string]float64) {
+	if pkg == nil || len(overrides) == 0 {
+		return
+	}
+
+	for i := range pkg.GenerativeModel.Variables {
+		v := &pkg.GenerativeModel.Variables[i]
+		if val, ok := overrides[v.Name]; ok {
+			v.Default = val
+		}
+	}
+
+	if pkg.SimulationLogic == nil {
+		return
+	}
+
+	for i := range pkg.SimulationLogic.Variables {
+		v := &pkg.SimulationLogic.Variables[i]
+		if val, ok := overrides[v.Name]; ok {
+			v.Default = val
+		}
+	}
 }
 
 func (s *compilerService) compileWithLLM(
@@ -1774,7 +1944,7 @@ func stripJSONFence(content string) string {
 
 func resolveDomain(domain, text string) string {
 	domain = strings.ToLower(strings.TrimSpace(domain))
-	if domain == DomainPhysics || domain == DomainBiology {
+	if domain == DomainPhysics || domain == DomainBiology || domain == DomainChemistry {
 		return domain
 	}
 
@@ -1786,7 +1956,30 @@ func resolveDomain(domain, text string) string {
 		return DomainBiology
 	}
 
+	if strings.Contains(lower, "化学") || strings.Contains(lower, "反应") || strings.Contains(lower, "酸") ||
+		strings.Contains(lower, "碱") || strings.Contains(lower, "电解") || strings.Contains(lower, "氧化") ||
+		strings.Contains(lower, "还原") || strings.Contains(lower, "中和") || strings.Contains(lower, "燃烧") ||
+		strings.Contains(lower, "chemistry") || strings.Contains(lower, "reaction") ||
+		hasChemistryEquation(text) {
+		return DomainChemistry
+	}
+
 	return DomainPhysics
+}
+
+// hasChemistryEquation 简单识别"化学方程式式样"：包含 -> 或 → 或 ⇌，并出现化学元素符号。
+func hasChemistryEquation(text string) bool {
+	if !strings.Contains(text, "->") && !strings.Contains(text, "→") && !strings.Contains(text, "⇌") {
+		return false
+	}
+	// 至少出现一个常见元素符号
+	for _, e := range []string{"H2O", "O2", "H2", "CO2", "Na", "Cl", "Fe", "Cu", "Al", "Ca", "Mg"} {
+		if strings.Contains(text, e) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func providerConfiguredModel(provider llm.Provider) string {

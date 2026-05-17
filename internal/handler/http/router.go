@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/beihai0xff/snowy/internal/handler/ws"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 	"github.com/beihai0xff/snowy/internal/pkg/middleware"
 )
@@ -18,7 +19,10 @@ type Handlers struct {
 	Physics    *PhysicsHandler
 	Render     *RenderHandler
 	Biology    *BiologyHandler
+	Chemistry  *ChemistryHandler
 	Generative *GenerativeHandler
+	Share      *ShareHandler
+	WSManager  *ws.Manager
 	User       *UserHandler
 	Monitoring *MonitoringHandler
 }
@@ -26,6 +30,8 @@ type Handlers struct {
 // NewRouter 创建 Gin 路由，组装所有路由和中间件。
 // 参考技术方案 §17 API 设计。
 // 当前已禁用登录，所有接口对匿名用户开放。
+//
+//nolint:funlen // Router construction enumerates versioned endpoint groups in one composition root.
 func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) *gin.Engine {
 	gin.SetMode(cfg.Server.Mode)
 
@@ -74,6 +80,7 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 		agent.POST("/sessions", h.Agent.CreateSession)
 		agent.GET("/sessions/:id", h.Agent.GetSession)
 		agent.GET("/sessions/:id/messages", h.Agent.ListMessages)
+		agent.GET("/messages/:id/replay", h.Agent.Replay)
 	}
 
 	// ── 搜索接口 ───────────────────────────────────────
@@ -89,6 +96,8 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 			modeling.POST("/compile", h.Generative.Compile)
 			modeling.GET("/packages", h.Generative.ListPackages)
 			modeling.GET("/packages/:id", h.Generative.GetPackage)
+			modeling.POST("/packages/:id/recompute", h.Generative.Recompute)
+			modeling.POST("/packages/:id/regenerate", h.Generative.Regenerate)
 		}
 
 		physics := modeling.Group("/physics")
@@ -105,6 +114,39 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 		biology := modeling.Group("/biology")
 		{
 			biology.POST("/analyze", h.Biology.Analyze)
+		}
+
+		if h.Chemistry != nil {
+			chem := modeling.Group("/chemistry")
+			{
+				chem.POST("/analyze", h.Chemistry.Analyze)
+				chem.POST("/balance", h.Chemistry.Balance)
+			}
+		}
+	}
+
+	// ── 静态分享 v7 §6.2 ──────────────────────────────
+	if h.Share != nil {
+		shareGroup := v1.Group("/share")
+		{
+			shareGroup.POST("/packages", h.Share.CreatePackageShare)
+			shareGroup.GET("/:token", h.Share.GetPackageShare)
+			shareGroup.POST("/:token/join", h.Share.JoinPackageShare)
+		}
+	}
+
+	// ── 协同 WebSocket v7 §10 (D2) ────────────────────
+	if h.WSManager != nil {
+		wsGroup := v1.Group("/ws")
+		{
+			wsGroup.GET("/session/:id", h.WSManager.Handle)
+			wsGroup.GET("/session/:id/presence", h.WSManager.PresenceHandler)
+		}
+		// 与 v7 §6.3 中的契约路径对齐
+		collabGroup := v1.Group("/collab")
+		{
+			collabGroup.GET("/packages/:id/ws", h.WSManager.Handle)
+			collabGroup.GET("/packages/:id/presence", h.WSManager.PresenceHandler)
 		}
 	}
 

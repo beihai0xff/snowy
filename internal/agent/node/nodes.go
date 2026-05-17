@@ -14,6 +14,7 @@ import (
 	"github.com/beihai0xff/snowy/internal/agent/assembler"
 	agentrouter "github.com/beihai0xff/snowy/internal/agent/router"
 	biologymodel "github.com/beihai0xff/snowy/internal/modeling/biology/domain"
+	"github.com/beihai0xff/snowy/internal/modeling/generative"
 	physicsmodel "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 )
 
@@ -51,7 +52,23 @@ type State struct {
 	Response           *agent.ChatResponse
 	ValidationWarnings []string
 	FallbackReason     string
+
+	// v7 §3 M2：会话化内嵌演示编排状态。
+	RegenerateAction RegenerateAction
+	RegenerateReason string
+	TargetVars       map[string]float64
+	Package          *generative.GenerativeModelPackage
+	PackageID        *uuid.UUID
 }
+
+// RegenerateAction 由 regenerate_classifier 节点产出，控制 demo_planner 走何种路径。
+type RegenerateAction string
+
+const (
+	RegenerateActionNew        RegenerateAction = "new"
+	RegenerateActionRecompute  RegenerateAction = "recompute"
+	RegenerateActionRegenerate RegenerateAction = "regenerate"
+)
 
 // InputNode 请求解析节点。
 type InputNode struct{}
@@ -317,6 +334,13 @@ func (n *OutputNode) Run(_ context.Context, input any) (any, error) {
 					agent.SSEEvent{Event: agent.SSEEventPreview, Data: map[string]any{previewStatusKey: "ready"}},
 				)
 			}
+		case agent.ModeChemistry:
+			if state.Response.StructuredPayload != nil {
+				sendEvent(
+					state.Events,
+					agent.SSEEvent{Event: agent.SSEEventDiagram, Data: state.Response.StructuredPayload},
+				)
+			}
 		case agent.ModeSearch, agent.ModeAuto:
 		}
 
@@ -345,6 +369,8 @@ func resolveTaskType(mode agent.Mode) agentrouter.TaskType {
 	case agent.ModePhysics:
 		return agentrouter.TaskPhysicsDerivation
 	case agent.ModeBiology:
+		return agentrouter.TaskBiologyModeling
+	case agent.ModeChemistry:
 		return agentrouter.TaskBiologyModeling
 	}
 
@@ -380,6 +406,8 @@ func validateResolvedMode(state *State) error {
 		if len(state.Response.Citations) == 0 {
 			state.ValidationWarnings = append(state.ValidationWarnings, "检索结果缺少引用，已降级为摘要回答")
 		}
+	case agent.ModeChemistry:
+		return nil
 	case agent.ModeAuto:
 		return nil
 	}

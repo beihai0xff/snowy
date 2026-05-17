@@ -19,8 +19,10 @@ import (
 	agentrouter "github.com/beihai0xff/snowy/internal/agent/router"
 	"github.com/beihai0xff/snowy/internal/agent/tool"
 	biologydomain "github.com/beihai0xff/snowy/internal/modeling/biology/domain"
+	"github.com/beihai0xff/snowy/internal/modeling/generative"
 	physicsdomain "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 	"github.com/beihai0xff/snowy/internal/pkg/common"
+	"github.com/beihai0xff/snowy/internal/repo/llm"
 	searchdomain "github.com/beihai0xff/snowy/internal/repo/search"
 )
 
@@ -44,6 +46,8 @@ type Builder struct {
 	renderCodeTool     *tool.RenderCodeTool
 	biologyAnalyzeTool *tool.BiologyAnalyzeTool
 	citationTool       *tool.CitationTool
+	generativeSvc      generative.Service
+	classifierLLM      llm.Provider
 	callbacks          []callback.NodeCallback
 
 	buildOnce sync.Once
@@ -81,6 +85,16 @@ func WithBiologyAnalyzeTool(biologyTool *tool.BiologyAnalyzeTool) Option {
 
 func WithCitationTool(citationTool *tool.CitationTool) Option {
 	return func(b *Builder) { b.citationTool = citationTool }
+}
+
+// WithGenerativeService 注入 generative.Service 启用 demo_planner（v7 §3 M2）。
+func WithGenerativeService(svc generative.Service) Option {
+	return func(b *Builder) { b.generativeSvc = svc }
+}
+
+// WithRegenerateClassifierLLM 注入分类器使用的 LLM Provider（v7 §3 M2）。
+func WithRegenerateClassifierLLM(provider llm.Provider) Option {
+	return func(b *Builder) { b.classifierLLM = provider }
 }
 
 func WithCallbacks(callbacks ...callback.NodeCallback) Option {
@@ -166,6 +180,12 @@ func (b *Builder) run(ctx context.Context, input *nodepkg.InputPayload) (*agent.
 		return nil, err
 	}
 
+	// v7 §3 M2：ParentPackageID 命中时前置 regenerate_classifier。
+	state, err = b.runRegenerateClassifier(ctx, state)
+	if err != nil {
+		return nil, err
+	}
+
 	state, err = b.runPrimaryFlow(ctx, state)
 	if err != nil {
 		return nil, err
@@ -231,7 +251,7 @@ func (b *Builder) executeTool(ctx context.Context, state *nodepkg.State) error {
 		return b.runPhysicsTool(ctx, state)
 	case agent.ModeBiology:
 		return b.runBiologyTool(ctx, state)
-	case agent.ModeSearch, agent.ModeAuto:
+	case agent.ModeSearch, agent.ModeAuto, agent.ModeChemistry:
 		return b.runSearchTool(ctx, state)
 	}
 
@@ -327,6 +347,12 @@ func ensureRequestID(ctx context.Context) context.Context {
 }
 
 func (b *Builder) runPrimaryFlow(ctx context.Context, state *nodepkg.State) (*nodepkg.State, error) {
+	// v7 §3 M2：recompute/regenerate 走捷径，跳过工具与 assembler，直接执行 demo_planner。
+	if state.RegenerateAction == nodepkg.RegenerateActionRecompute ||
+		state.RegenerateAction == nodepkg.RegenerateActionRegenerate {
+		return b.runRegenerateShortcut(ctx, state)
+	}
+
 	if err := b.executeTool(ctx, state); err != nil {
 		return b.runFallbackWithReason(ctx, state, err)
 	}
@@ -346,7 +372,82 @@ func (b *Builder) runPrimaryFlow(ctx context.Context, state *nodepkg.State) (*no
 		return b.runFallbackWithReason(ctx, state, err)
 	}
 
-	return graphState(current, "validated state")
+	state, err = graphState(current, "validated state")
+	if err != nil {
+		return nil, err
+	}
+
+	// v7 §3 M2：在物理/生物/化学分支后追加 demo_planner。
+	state, err = b.runDemoPlanner(ctx, state)
+	if err != nil {
+		return nil, err
+	}
+
+	return state, nil
+}
+
+func (b *Builder) runRegenerateClassifier(
+	ctx context.Context,
+	state *nodepkg.State,
+) (*nodepkg.State, error) {
+	if state.Request == nil || state.Request.ParentPackageID == nil {
+		state.RegenerateAction = nodepkg.RegenerateActionNew
+
+		return state, nil
+	}
+
+	current, err := b.runNode(ctx, nodepkg.NewRegenerateClassifierNode(b.classifierLLM), state)
+	if err != nil {
+		return nil, err
+	}
+
+	return graphState(current, "classifier state")
+}
+
+func (b *Builder) runDemoPlanner(ctx context.Context, state *nodepkg.State) (*nodepkg.State, error) {
+	if b.generativeSvc == nil {
+		return state, nil
+	}
+
+	current, err := b.runNode(ctx, nodepkg.NewDemoPlannerNode(b.generativeSvc), state)
+	if err != nil {
+		return nil, err
+	}
+
+	return graphState(current, "demo planned state")
+}
+
+// runRegenerateShortcut v7 §3 M2：recompute/regenerate 路径下跳过工具，直接调用 generative。
+func (b *Builder) runRegenerateShortcut(
+	ctx context.Context,
+	state *nodepkg.State,
+) (*nodepkg.State, error) {
+	if state.Response == nil {
+		state.Response = &agent.ChatResponse{
+			Mode:   state.ResolvedMode,
+			Answer: shortcutAnswer(state.RegenerateAction),
+		}
+	}
+
+	state, err := b.runDemoPlanner(ctx, state)
+	if err != nil {
+		return nil, err
+	}
+
+	return state, nil
+}
+
+func shortcutAnswer(action nodepkg.RegenerateAction) string {
+	switch action {
+	case nodepkg.RegenerateActionNew:
+		return ""
+	case nodepkg.RegenerateActionRecompute:
+		return "已根据你的参数调整重新计算演示。"
+	case nodepkg.RegenerateActionRegenerate:
+		return "已根据你的追问重新生成演示。"
+	}
+
+	return ""
 }
 
 func (b *Builder) runFallbackWithReason(

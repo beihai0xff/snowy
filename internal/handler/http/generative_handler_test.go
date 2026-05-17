@@ -16,9 +16,11 @@ import (
 )
 
 type mockGenerativeService struct {
-	compileFn func(context.Context, *generative.CompileRequest) (*generative.GenerativeModelPackage, error)
-	getFn     func(context.Context, string) (*generative.GenerativeModelPackage, error)
-	listFn    func(context.Context, uuid.UUID, int, int) ([]*generative.GenerativeModelPackage, int64, error)
+	compileFn    func(context.Context, *generative.CompileRequest) (*generative.GenerativeModelPackage, error)
+	getFn        func(context.Context, string) (*generative.GenerativeModelPackage, error)
+	listFn       func(context.Context, uuid.UUID, int, int) ([]*generative.GenerativeModelPackage, int64, error)
+	recomputeFn  func(context.Context, string, map[string]float64) (*generative.GenerativeModelPackage, error)
+	regenerateFn func(context.Context, string, string, generative.CompileContext) (*generative.GenerativeModelPackage, error)
 }
 
 func (m *mockGenerativeService) Compile(ctx context.Context, req *generative.CompileRequest) (*generative.GenerativeModelPackage, error) {
@@ -47,6 +49,22 @@ func (m *mockGenerativeService) ListPackages(
 	}
 
 	return m.listFn(ctx, userID, offset, limit)
+}
+
+func (m *mockGenerativeService) Recompute(ctx context.Context, id string, overrides map[string]float64) (*generative.GenerativeModelPackage, error) {
+	if m.recomputeFn == nil {
+		return nil, errors.New("recompute not implemented")
+	}
+
+	return m.recomputeFn(ctx, id, overrides)
+}
+
+func (m *mockGenerativeService) Regenerate(ctx context.Context, id string, reason string, hint generative.CompileContext) (*generative.GenerativeModelPackage, error) {
+	if m.regenerateFn == nil {
+		return nil, errors.New("regenerate not implemented")
+	}
+
+	return m.regenerateFn(ctx, id, reason, hint)
 }
 
 func TestGenerativeHandler_CompileSuccess(t *testing.T) {

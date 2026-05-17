@@ -184,3 +184,60 @@ func (r *agentToolCallRepo) ListByRun(ctx context.Context, runID uuid.UUID) ([]*
 
 	return calls, nil
 }
+
+// agentMessageEventRepo 实现 agent.MessageEventRepository 接口（v7 §3）。
+type agentMessageEventRepo struct {
+	db *gorm.DB
+}
+
+// NewAgentMessageEventRepository 创建 SSE 事件落库 Repository。
+func NewAgentMessageEventRepository(db *gorm.DB) agent.MessageEventRepository {
+	return &agentMessageEventRepo{db: db}
+}
+
+func (r *agentMessageEventRepo) InsertEvents(ctx context.Context, events []*agent.MessageEvent) error {
+	if len(events) == 0 {
+		return nil
+	}
+
+	rows := make([]*agentMessageEventRow, 0, len(events))
+	for _, evt := range events {
+		if evt == nil {
+			continue
+		}
+
+		rows = append(rows, newAgentMessageEventRow(evt))
+	}
+
+	if len(rows) == 0 {
+		return nil
+	}
+
+	if err := dbFromContext(ctx, r.db).Create(&rows).Error; err != nil {
+		return fmt.Errorf("insert agent message events: %w", err)
+	}
+
+	return nil
+}
+
+func (r *agentMessageEventRepo) ListByMessage(
+	ctx context.Context,
+	messageID uuid.UUID,
+) ([]*agent.MessageEvent, error) {
+	rows := make([]agentMessageEventRow, 0)
+
+	err := dbFromContext(ctx, r.db).
+		Where("message_id = ?", messageID).
+		Order("seq ASC").
+		Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("list agent message events: %w", err)
+	}
+
+	events := make([]*agent.MessageEvent, 0, len(rows))
+	for i := range rows {
+		events = append(events, rows[i].toDomain())
+	}
+
+	return events, nil
+}

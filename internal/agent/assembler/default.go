@@ -6,6 +6,7 @@ import (
 
 	"github.com/beihai0xff/snowy/internal/agent"
 	biologymodel "github.com/beihai0xff/snowy/internal/modeling/biology/domain"
+	chemistrymodel "github.com/beihai0xff/snowy/internal/modeling/chemistry"
 	physicsmodel "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 	searchdomain "github.com/beihai0xff/snowy/internal/repo/search"
 )
@@ -17,6 +18,7 @@ func NewDefaultAssembler() Assembler {
 	return &defaultAssembler{}
 }
 
+//nolint:cyclop // Auto mode intentionally probes each available assembler in priority order.
 func (a *defaultAssembler) Assemble(
 	_ context.Context,
 	mode agent.Mode,
@@ -34,6 +36,8 @@ func (a *defaultAssembler) Assemble(
 		return assemblePhysicsResponse(mode, toolOutputs)
 	case agent.ModeBiology:
 		return assembleBiologyResponse(mode, toolOutputs)
+	case agent.ModeChemistry:
+		return assembleChemistryResponse(mode, toolOutputs)
 	case agent.ModeAuto:
 		if response, err := assembleSearchResponse(agent.ModeSearch, toolOutputs); err == nil {
 			return response, nil
@@ -46,9 +50,28 @@ func (a *defaultAssembler) Assemble(
 		if response, err := assembleBiologyResponse(agent.ModeBiology, toolOutputs); err == nil {
 			return response, nil
 		}
+
+		if response, err := assembleChemistryResponse(agent.ModeChemistry, toolOutputs); err == nil {
+			return response, nil
+		}
 	}
 
 	return nil, fmt.Errorf("no tool output available for mode %s", mode)
+}
+
+func assembleChemistryResponse(mode agent.Mode, toolOutputs map[string]any) (*agent.ChatResponse, error) {
+	pkg, ok := toolOutputs["chemistry"].(*chemistrymodel.ChemistryReactionPackage)
+	if !ok || pkg == nil {
+		return nil, fmt.Errorf("no tool output available for mode %s", mode)
+	}
+
+	return &agent.ChatResponse{
+		Mode:              mode,
+		Answer:            "已完成化学反应分析与配平。",
+		StructuredPayload: pkg,
+		Confidence:        0.86,
+		NextActions:       []string{"可查看反应类型、配平方程、粒子模型和反应条件"},
+	}, nil
 }
 
 func assembleSearchResponse(mode agent.Mode, toolOutputs map[string]any) (*agent.ChatResponse, error) {

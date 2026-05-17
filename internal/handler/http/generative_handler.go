@@ -146,3 +146,52 @@ func convertEvidenceRefs(items []dto.EvidenceRefDTO) []generative.EvidenceRef {
 
 	return out
 }
+
+// Recompute POST /api/v1/modeling/packages/:id/recompute — v7 §3。
+func (h *GenerativeHandler) Recompute(c *gin.Context) {
+	reqID := common.RequestIDFromContext(c.Request.Context())
+
+	var req dto.ModelingRecomputeReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	pkg, err := h.generativeSvc.Recompute(c.Request.Context(), c.Param("id"), req.Overrides)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	c.JSON(http.StatusOK, common.Success(pkg))
+}
+
+// Regenerate POST /api/v1/modeling/packages/:id/regenerate — v7 §3。
+func (h *GenerativeHandler) Regenerate(c *gin.Context) {
+	reqID := common.RequestIDFromContext(c.Request.Context())
+
+	var req dto.ModelingRegenerateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	hint := generative.CompileContext{
+		Citations:     convertEvidenceRefs(req.Context.Citations),
+		KnowledgeTags: req.Context.KnowledgeTags,
+		SourcePage:    req.Context.SourcePage,
+		UserNotes:     req.Context.UserNotes,
+	}
+
+	pkg, err := h.generativeSvc.Regenerate(c.Request.Context(), c.Param("id"), req.Reason, hint)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal.WithMessage(err.Error()), reqID))
+
+		return
+	}
+
+	c.JSON(http.StatusOK, common.Success(pkg))
+}

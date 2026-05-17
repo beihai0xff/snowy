@@ -489,11 +489,12 @@ func (r *agentSessionRow) toDomain() *agent.Session {
 
 //nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.
 type agentMessageRow struct {
-	ID        uuid.UUID `gorm:"column:id"`
-	SessionID uuid.UUID `gorm:"column:session_id"`
-	Role      string    `gorm:"column:role"`
-	Content   string    `gorm:"column:content"`
-	CreatedAt time.Time `gorm:"column:created_at"`
+	ID        uuid.UUID  `gorm:"column:id"`
+	SessionID uuid.UUID  `gorm:"column:session_id"`
+	Role      string     `gorm:"column:role"`
+	Content   string     `gorm:"column:content"`
+	PackageID *uuid.UUID `gorm:"column:package_id"`
+	CreatedAt time.Time  `gorm:"column:created_at"`
 }
 
 func (agentMessageRow) TableName() string { return "agent_messages" }
@@ -508,6 +509,7 @@ func newAgentMessageRow(msg *agent.Message) *agentMessageRow {
 		SessionID: msg.SessionID,
 		Role:      msg.Role,
 		Content:   msg.Content,
+		PackageID: msg.PackageID,
 		CreatedAt: msg.CreatedAt,
 	}
 }
@@ -522,6 +524,49 @@ func (r *agentMessageRow) toDomain() *agent.Message {
 		SessionID: r.SessionID,
 		Role:      r.Role,
 		Content:   r.Content,
+		PackageID: r.PackageID,
+		CreatedAt: r.CreatedAt,
+	}
+}
+
+//nolint:recvcheck // GORM row types intentionally mix value and pointer receivers for table metadata and conversions.
+type agentMessageEventRow struct {
+	ID        uuid.UUID `gorm:"column:id"`
+	MessageID uuid.UUID `gorm:"column:message_id"`
+	Seq       int       `gorm:"column:seq"`
+	Event     string    `gorm:"column:event"`
+	Data      jsonValue `gorm:"column:data"`
+	CreatedAt time.Time `gorm:"column:created_at"`
+}
+
+func (agentMessageEventRow) TableName() string { return "agent_message_events" }
+
+func newAgentMessageEventRow(evt *agent.MessageEvent) *agentMessageEventRow {
+	if evt == nil {
+		return nil
+	}
+
+	return &agentMessageEventRow{
+		ID:        evt.ID,
+		MessageID: evt.MessageID,
+		Seq:       evt.Seq,
+		Event:     string(evt.Event),
+		Data:      newJSONValue(evt.Data),
+		CreatedAt: evt.CreatedAt,
+	}
+}
+
+func (r *agentMessageEventRow) toDomain() *agent.MessageEvent {
+	if r == nil {
+		return nil
+	}
+
+	return &agent.MessageEvent{
+		ID:        r.ID,
+		MessageID: r.MessageID,
+		Seq:       r.Seq,
+		Event:     agent.SSEEventType(r.Event),
+		Data:      r.Data.Data,
 		CreatedAt: r.CreatedAt,
 	}
 }
