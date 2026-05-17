@@ -211,5 +211,6 @@ var Table = map[string]Molecule{
 // Lookup 命中返回 (mol, true)；未命中返回 (zero, false)。
 func Lookup(formula string) (Molecule, bool) {
 	m, ok := Table[formula]
+
 	return m, ok
 }

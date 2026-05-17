@@ -239,6 +239,7 @@ func (h *AgentHandler) Replay(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 
 	idx := 0
+
 	c.Stream(func(_ io.Writer) bool {
 		if idx >= len(events) {
 			return false
@@ -383,5 +384,7 @@ func recordAgentHistory(c *gin.Context, userSvc user.Service, mode agent.Mode, q
 		recordHistory(c, userSvc, "physics", query)
 	case agent.ModeBiology:
 		recordHistory(c, userSvc, "biology", query)
+	case agent.ModeChemistry:
+		recordHistory(c, userSvc, "chemistry", query)
 	}
 }

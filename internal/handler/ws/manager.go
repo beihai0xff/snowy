@@ -9,6 +9,8 @@
 //     把收到的消息 fan-out 到本地连接（一致性弱但延迟低，符合协同推演定位）。
 //
 // 单元测试目前依靠 redismock；端到端 (e2e) 的多客户端连接验证留给集成测试。
+//
+//nolint:funcorder // Manager helpers are kept near lifecycle code to preserve websocket flow readability.
 package ws
 
 import (
@@ -28,15 +30,17 @@ import (
 )
 
 const (
-	presenceKeyPrefix = "snowy:ws:session:"
-	busChannelPrefix  = "snowy:ws:bus:"
-	oplogKeyPrefix    = "snowy:ws:oplog:"
-	presenceTTL       = 90 * time.Second
-	oplogMaxLen       = 200
-	writeTimeout      = 5 * time.Second
-	pongTimeout       = 60 * time.Second
-	pingPeriod        = (pongTimeout * 8) / 10
-	readMaxBytes      = 64 * 1024
+	presenceKeyPrefix  = "snowy:ws:session:"
+	busChannelPrefix   = "snowy:ws:bus:"
+	oplogKeyPrefix     = "snowy:ws:oplog:"
+	presenceTTL        = 90 * time.Second
+	oplogMaxLen        = 200
+	writeTimeout       = 5 * time.Second
+	pongTimeout        = 60 * time.Second
+	pingPeriod         = (pongTimeout * 8) / 10
+	readMaxBytes       = 64 * 1024
+	responseCodeKey    = "code"
+	responseMessageKey = "message"
 )
 
 // Event 协同总线事件。payload 由客户端 / 服务端自由扩展。
@@ -87,11 +91,14 @@ func (m *Manager) Handle(c *gin.Context) {
 	session := c.Param("id")
 	if session == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing session id"})
+
 		return
 	}
+
 	conn, err := m.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		slog.Warn("ws upgrade failed", "err", err)
+
 		return
 	}
 
@@ -112,25 +119,30 @@ func (m *Manager) Handle(c *gin.Context) {
 	// 异步 add presence + 回放 oplog + 启动读写循环。
 	go cl.writeLoop()
 	go cl.readLoop()
+
 	cl.onJoin()
 }
 
 func (m *Manager) getOrCreateHub(session string) *sessionHub {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	if h, ok := m.hubs[session]; ok {
 		return h
 	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	h := &sessionHub{
 		sessionID: session,
 		clients:   make(map[*client]struct{}),
 		cancel:    cancel,
 	}
+
 	m.hubs[session] = h
 	if m.rdb != nil {
 		go m.subscribe(ctx, h)
 	}
+
 	return h
 }
 
@@ -138,7 +150,9 @@ func (m *Manager) getOrCreateHub(session string) *sessionHub {
 func (m *Manager) subscribe(ctx context.Context, h *sessionHub) {
 	sub := m.rdb.Subscribe(ctx, m.busChannel(h.sessionID))
 	defer sub.Close()
+
 	ch := sub.Channel()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -147,6 +161,7 @@ func (m *Manager) subscribe(ctx context.Context, h *sessionHub) {
 			if !ok {
 				return
 			}
+
 			h.broadcastLocal([]byte(msg.Payload))
 		}
 	}
@@ -155,13 +170,16 @@ func (m *Manager) subscribe(ctx context.Context, h *sessionHub) {
 func (m *Manager) removeHubIfEmpty(h *sessionHub) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	h.mu.RLock()
 	empty := len(h.clients) == 0
 	h.mu.RUnlock()
+
 	if empty {
 		if h.cancel != nil {
 			h.cancel()
 		}
+
 		delete(m.hubs, h.sessionID)
 	}
 }
@@ -184,6 +202,7 @@ func (h *sessionHub) unregister(c *client) {
 func (h *sessionHub) broadcastLocal(data []byte) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
+
 	for c := range h.clients {
 		select {
 		case c.send <- data:
@@ -199,19 +218,23 @@ func (m *Manager) publish(ctx context.Context, evt *Event) error {
 	if err != nil {
 		return err
 	}
+
 	if m.rdb == nil {
 		// 测试 / 无 Redis 模式：直接本地广播。
 		if h, ok := m.hubs[evt.SessionID]; ok {
 			h.broadcastLocal(data)
 		}
+
 		return nil
 	}
+
 	pipe := m.rdb.TxPipeline()
 	pipe.Publish(ctx, m.busChannel(evt.SessionID), data)
 	pipe.LPush(ctx, m.oplogKey(evt.SessionID), data)
 	pipe.LTrim(ctx, m.oplogKey(evt.SessionID), 0, oplogMaxLen-1)
 	pipe.Expire(ctx, m.oplogKey(evt.SessionID), 24*time.Hour)
 	_, err = pipe.Exec(ctx)
+
 	return err
 }
 
@@ -220,6 +243,7 @@ func (m *Manager) Presence(ctx context.Context, session string) ([]string, error
 	if m.rdb == nil {
 		return nil, nil
 	}
+
 	return m.rdb.SMembers(ctx, m.presenceKey(session)).Result()
 }
 
@@ -228,6 +252,7 @@ func (m *Manager) PresenceCount(ctx context.Context, session string) (int64, err
 	if m.rdb == nil {
 		return 0, nil
 	}
+
 	return m.rdb.SCard(ctx, m.presenceKey(session)).Result()
 }
 
@@ -235,16 +260,20 @@ func (m *Manager) PresenceCount(ctx context.Context, session string) (int64, err
 func (m *Manager) PresenceHandler(c *gin.Context) {
 	session := c.Param("id")
 	if session == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "missing session id"})
+		c.JSON(http.StatusBadRequest, gin.H{responseCodeKey: 400, responseMessageKey: "missing session id"})
+
 		return
 	}
+
 	members, err := m.Presence(c.Request.Context(), session)
 	if err != nil && !errors.Is(err, redis.Nil) {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{responseCodeKey: 500, responseMessageKey: err.Error()})
+
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"code": 0,
+		responseCodeKey: 0,
 		"data": gin.H{
 			"session_id": session,
 			"members":    members,
@@ -257,8 +286,10 @@ func asString(v any) string {
 	if v == nil {
 		return ""
 	}
+
 	if s, ok := v.(string); ok {
 		return s
 	}
+
 	return fmt.Sprintf("%v", v)
 }

@@ -1,7 +1,3 @@
-// Package node 中 demo_planner 节点。
-// v7 §3：在 runPrimaryFlow 物理/生物/化学分支后执行，
-// 根据 regenerate_classifier 结果（或新会话）调用 generative.Service
-// 产出 GenerativeModelPackage，并发射 preview SSE 事件。
 package node
 
 import (
@@ -62,6 +58,8 @@ func demoApplicable(state *State) bool {
 	switch state.ResolvedMode {
 	case agent.ModePhysics, agent.ModeBiology, agent.ModeChemistry:
 		return true
+	case agent.ModeSearch, agent.ModeAuto:
+		return false
 	}
 
 	if state.Request != nil && state.Request.InteractiveDemo != nil {
@@ -81,6 +79,7 @@ func (n *DemoPlannerNode) dispatch(
 	}
 
 	switch state.RegenerateAction {
+	case RegenerateActionNew:
 	case RegenerateActionRecompute:
 		if parentID == "" {
 			break
@@ -135,6 +134,7 @@ func buildCompileRequest(state *State) *generative.CompileRequest {
 
 func buildRegenerateContext(state *State) generative.CompileContext {
 	hint := generative.CompileContext{}
+
 	if state.Request != nil {
 		if state.Request.RegenerateReason != "" {
 			hint.UserNotes = state.Request.RegenerateReason
@@ -163,6 +163,7 @@ func resolveDomain(state *State) string {
 		return "biology"
 	case agent.ModeChemistry:
 		return "chemistry"
+	case agent.ModeSearch, agent.ModeAuto:
 	}
 
 	if state.Request != nil && state.Request.InteractiveDemo != nil && state.Request.InteractiveDemo.Domain != "" {

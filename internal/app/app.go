@@ -163,7 +163,14 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 
 	reactionRepo := mysqlrepo.NewReactionRepository(shared.db)
 	userSvc := user.NewService(userRepo, favoriteRepo, historyRepo, transactor, shared.cfg.Auth, reactionRepo)
-	agentWriteSvc := agent.NewWriteService(transactor, sessionRepo, messageRepo, runRepo, toolCallRepo, messageEventRepo)
+	agentWriteSvc := agent.NewWriteService(
+		transactor,
+		sessionRepo,
+		messageRepo,
+		runRepo,
+		toolCallRepo,
+		messageEventRepo,
+	)
 	searchSvc := searchservice.NewService(
 		nil,
 		searchquery.NewSimpleParser(),
@@ -219,7 +226,8 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 	var agentSvc agent.Service = graphBuilder
 
 	handlers := &handler.Handlers{
-		Agent:      handler.NewAgentHandler(agentSvc, agentWriteSvc, sessionRepo, messageRepo, userSvc).WithEventRepository(messageEventRepo),
+		Agent: handler.NewAgentHandler(agentSvc, agentWriteSvc, sessionRepo, messageRepo, userSvc).
+			WithEventRepository(messageEventRepo),
 		Search:     handler.NewSearchHandler(searchSvc, userSvc),
 		Physics:    handler.NewPhysicsHandler(physicsSvc, userSvc),
 		Render:     handler.NewRenderHandler(physicsSvc),

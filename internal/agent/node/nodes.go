@@ -334,6 +334,13 @@ func (n *OutputNode) Run(_ context.Context, input any) (any, error) {
 					agent.SSEEvent{Event: agent.SSEEventPreview, Data: map[string]any{previewStatusKey: "ready"}},
 				)
 			}
+		case agent.ModeChemistry:
+			if state.Response.StructuredPayload != nil {
+				sendEvent(
+					state.Events,
+					agent.SSEEvent{Event: agent.SSEEventDiagram, Data: state.Response.StructuredPayload},
+				)
+			}
 		case agent.ModeSearch, agent.ModeAuto:
 		}
 
@@ -362,6 +369,8 @@ func resolveTaskType(mode agent.Mode) agentrouter.TaskType {
 	case agent.ModePhysics:
 		return agentrouter.TaskPhysicsDerivation
 	case agent.ModeBiology:
+		return agentrouter.TaskBiologyModeling
+	case agent.ModeChemistry:
 		return agentrouter.TaskBiologyModeling
 	}
 
@@ -397,6 +406,8 @@ func validateResolvedMode(state *State) error {
 		if len(state.Response.Citations) == 0 {
 			state.ValidationWarnings = append(state.ValidationWarnings, "检索结果缺少引用，已降级为摘要回答")
 		}
+	case agent.ModeChemistry:
+		return nil
 	case agent.ModeAuto:
 		return nil
 	}

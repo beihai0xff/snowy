@@ -18,6 +18,12 @@ import (
 	"github.com/beihai0xff/snowy/internal/share"
 )
 
+const (
+	shareResponseTokenKey     = "token"
+	shareResponsePackageIDKey = "package_id"
+	shareResponseExpiresAtKey = "expires_at"
+)
+
 // ShareHandler v7 §6.2 静态分享。
 type ShareHandler struct {
 	shareRepo     share.Repository
@@ -71,9 +77,11 @@ func (h *ShareHandler) CreatePackageShare(c *gin.Context) {
 	if fromCtx := common.UserIDFromContext(c.Request.Context()); fromCtx != "" {
 		userID = fromCtx
 	}
+
 	uid, _ := uuid.Parse(userID)
 
 	var expires *time.Time
+
 	if req.ExpiresInHours > 0 {
 		t := time.Now().Add(time.Duration(req.ExpiresInHours) * time.Hour)
 		expires = &t
@@ -95,17 +103,18 @@ func (h *ShareHandler) CreatePackageShare(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, common.Success(gin.H{
-		"token":      token,
-		"package_id": pkg.PackageID,
-		"mode":       entry.Mode,
-		"expires_at": expires,
+		shareResponseTokenKey:     token,
+		shareResponsePackageIDKey: pkg.PackageID,
+		"mode":                    entry.Mode,
+		shareResponseExpiresAtKey: expires,
 	}))
 }
 
 // GetPackageShare GET /api/v1/share/:token — 公开访问。
 func (h *ShareHandler) GetPackageShare(c *gin.Context) {
 	reqID := common.RequestIDFromContext(c.Request.Context())
-	token := c.Param("token")
+
+	token := c.Param(shareResponseTokenKey)
 	if token == "" {
 		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage("missing token"), reqID))
 
@@ -125,6 +134,7 @@ func (h *ShareHandler) GetPackageShare(c *gin.Context) {
 
 			return
 		}
+
 		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
 
 		return
@@ -138,13 +148,13 @@ func (h *ShareHandler) GetPackageShare(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, common.Success(gin.H{
-		"token":      entry.Token,
-		"package_id": entry.PackageID,
-		"mode":       entry.Mode,
-		"created_at": entry.CreatedAt,
-		"expires_at": entry.ExpiresAt,
-		"snapshot":   snapshot,
-		"can_collab": entry.Mode == "collab",
+		shareResponseTokenKey:     entry.Token,
+		shareResponsePackageIDKey: entry.PackageID,
+		"mode":                    entry.Mode,
+		"created_at":              entry.CreatedAt,
+		shareResponseExpiresAtKey: entry.ExpiresAt,
+		"snapshot":                snapshot,
+		"can_collab":              entry.Mode == "collab",
 	}))
 }
 
@@ -152,7 +162,8 @@ func (h *ShareHandler) GetPackageShare(c *gin.Context) {
 // v7 §6.3：仅在 share.mode=collab 时返回可加入的 WS 地址。
 func (h *ShareHandler) JoinPackageShare(c *gin.Context) {
 	reqID := common.RequestIDFromContext(c.Request.Context())
-	token := c.Param("token")
+
+	token := c.Param(shareResponseTokenKey)
 	if token == "" {
 		c.JSON(http.StatusBadRequest, common.Fail(common.ErrInvalidInput.WithMessage("missing token"), reqID))
 
@@ -172,18 +183,23 @@ func (h *ShareHandler) JoinPackageShare(c *gin.Context) {
 
 			return
 		}
+
 		c.JSON(http.StatusInternalServerError, common.Fail(common.ErrInternal, reqID))
 
 		return
 	}
 
 	if entry.Mode != "collab" {
-		c.JSON(http.StatusForbidden, common.Fail(common.ErrInvalidInput.WithMessage("share is not collaborative"), reqID))
+		c.JSON(
+			http.StatusForbidden,
+			common.Fail(common.ErrInvalidInput.WithMessage("share is not collaborative"), reqID),
+		)
 
 		return
 	}
 
 	userID := common.UserIDFromContext(c.Request.Context())
+
 	role := "guest"
 	if userID != "" && userID == entry.CreatedBy.String() {
 		role = "host"
@@ -192,11 +208,11 @@ func (h *ShareHandler) JoinPackageShare(c *gin.Context) {
 	wsURL := "/api/v1/ws/session/" + entry.PackageID.String() + "?token=" + entry.Token
 
 	c.JSON(http.StatusOK, common.Success(gin.H{
-		"token":      entry.Token,
-		"package_id": entry.PackageID,
-		"role":       role,
-		"ws_url":     wsURL,
-		"expires_at": entry.ExpiresAt,
+		shareResponseTokenKey:     entry.Token,
+		shareResponsePackageIDKey: entry.PackageID,
+		"role":                    role,
+		"ws_url":                  wsURL,
+		shareResponseExpiresAtKey: entry.ExpiresAt,
 	}))
 }
 

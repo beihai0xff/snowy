@@ -1,10 +1,3 @@
-// Package node 中 regenerate_classifier 节点。
-// v7 §3：当 ChatRequest.ParentPackageID 命中时前置运行，对追问做三分类：
-//   - recompute：仅变量变化（"如果 v0 变成 30 呢"）→ 走 generative.Recompute(parent, overrides)
-//   - regenerate：结构变化（"改成天体公转的例子"）→ 走 generative.Regenerate(parent, reason, ctx)
-//   - new：新主题 → 走正常 Compile 流程
-//
-// 分类策略：LLM JSON 输出优先，失败时回退到关键词规则。
 package node
 
 import (
@@ -52,7 +45,7 @@ func (n *RegenerateClassifierNode) Run(ctx context.Context, input any) (any, err
 
 	action, vars, reason := n.classifyWithLLM(ctx, state.Request.Message)
 	if action == "" {
-		action, vars, reason = classifyByKeyword(state.Request.Message)
+		action, reason = classifyByKeyword(state.Request.Message)
 	}
 
 	state.RegenerateAction = action
@@ -114,6 +107,7 @@ func parseClassifierOutput(content string) (*classifierOutput, error) {
 	}
 
 	start := strings.Index(content, "{")
+
 	end := strings.LastIndex(content, "}")
 	if start < 0 || end < start {
 		return nil, errors.New("classifier output is not json")
@@ -128,28 +122,28 @@ func parseClassifierOutput(content string) (*classifierOutput, error) {
 }
 
 // classifyByKeyword 关键词兜底规则。命中"换/重新/再来一个/不同"等关键词 → regenerate；命中数字或参数词 → recompute；其余 new。
-func classifyByKeyword(message string) (RegenerateAction, map[string]float64, string) {
+func classifyByKeyword(message string) (RegenerateAction, string) {
 	lower := strings.ToLower(message)
 
 	regenerateKeywords := []string{"换一个", "换个", "重新", "再来一个", "不同", "另一个", "其他例子", "再举", "换成"}
 	for _, kw := range regenerateKeywords {
 		if strings.Contains(message, kw) || strings.Contains(lower, kw) {
-			return RegenerateActionRegenerate, nil, kw
+			return RegenerateActionRegenerate, kw
 		}
 	}
 
 	recomputeKeywords := []string{"如果", "假设", "改成", "变成", "调成", "设为", "if "}
 	for _, kw := range recomputeKeywords {
 		if strings.Contains(message, kw) || strings.Contains(lower, kw) {
-			return RegenerateActionRecompute, nil, kw
+			return RegenerateActionRecompute, kw
 		}
 	}
 
 	if containsDigit(message) {
-		return RegenerateActionRecompute, nil, "numeric_param"
+		return RegenerateActionRecompute, "numeric_param"
 	}
 
-	return RegenerateActionNew, nil, ""
+	return RegenerateActionNew, ""
 }
 
 func containsDigit(s string) bool {

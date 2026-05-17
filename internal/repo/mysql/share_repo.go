@@ -56,13 +56,16 @@ func (r *shareRepo) Create(ctx context.Context, p *share.Package) error {
 
 func (r *shareRepo) GetByToken(ctx context.Context, token string) (*share.Package, error) {
 	var row packageShareSchema
+
 	err := dbFromContext(ctx, r.db).Where("token = ?", token).Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, share.ErrNotFound
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("query package share: %w", err)
 	}
+
 	if row.ExpiresAt != nil && row.ExpiresAt.Before(time.Now()) {
 		return nil, share.ErrNotFound
 	}

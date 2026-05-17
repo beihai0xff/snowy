@@ -24,7 +24,7 @@ const (
 // v7：新增追问 / 重生成上下文，参考 docs/snowy-v7-conversational-modeling-platform.md §3。
 type ChatRequest struct {
 	SessionID        uuid.UUID        `json:"session_id,omitempty"`
-	Message          string           `json:"message"              binding:"required"`
+	Message          string           `json:"message"                     binding:"required"`
 	Mode             Mode             `json:"mode"`
 	Filters          Filters          `json:"filters,omitempty"`
 	ParentPackageID  *uuid.UUID       `json:"parent_package_id,omitempty"`

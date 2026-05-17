@@ -1,4 +1,4 @@
-//nolint:cyclop,goconst,exhaustive,nestif,unused // The compiler normalizes intentionally broad LLM package shapes.
+//nolint:cyclop,goconst,exhaustive,funcorder,nestif,unused // The compiler normalizes intentionally broad LLM package shapes.
 package generative
 
 import (
@@ -139,7 +139,12 @@ func (s *compilerService) Compile(ctx context.Context, req *CompileRequest) (*Ge
 	return nil, errors.New("llm model package generation failed: empty model response")
 }
 
-func (s *compilerService) applyChemistryAnalysis(ctx context.Context, req *CompileRequest, pkg *GenerativeModelPackage, domain string) {
+func (s *compilerService) applyChemistryAnalysis(
+	ctx context.Context,
+	req *CompileRequest,
+	pkg *GenerativeModelPackage,
+	domain string,
+) {
 	if pkg == nil || domain != DomainChemistry || s.chemSvc == nil {
 		return
 	}
@@ -149,18 +154,22 @@ func (s *compilerService) applyChemistryAnalysis(ctx context.Context, req *Compi
 		if err != nil {
 			pkg.Warnings = append(pkg.Warnings, fmt.Sprintf("chemistry analysis failed: %v", err))
 		}
+
 		return
 	}
 
 	if pkg.SimulationLogic == nil {
 		pkg.SimulationLogic = &DynamicSimulationSpec{}
 	}
+
 	if pkg.SimulationLogic.SimulationType == "" {
 		pkg.SimulationLogic.SimulationType = "chemistry_reaction"
 	}
+
 	if pkg.SimulationLogic.Runtime == "" {
 		pkg.SimulationLogic.Runtime = "chemistry"
 	}
+
 	pkg.SimulationLogic.ChemistryReaction = result
 	if !pkg.SimulationLogic.LocalRecomputeAllowed {
 		pkg.SimulationLogic.LocalRecomputeAllowed = false
@@ -1946,6 +1955,7 @@ func resolveDomain(domain, text string) string {
 		strings.Contains(lower, "biology") {
 		return DomainBiology
 	}
+
 	if strings.Contains(lower, "化学") || strings.Contains(lower, "反应") || strings.Contains(lower, "酸") ||
 		strings.Contains(lower, "碱") || strings.Contains(lower, "电解") || strings.Contains(lower, "氧化") ||
 		strings.Contains(lower, "还原") || strings.Contains(lower, "中和") || strings.Contains(lower, "燃烧") ||
@@ -1968,6 +1978,7 @@ func hasChemistryEquation(text string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 

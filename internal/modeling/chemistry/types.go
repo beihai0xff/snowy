@@ -114,6 +114,8 @@ type InteractionPlan struct {
 }
 
 // ChemistryReactionPackage 化学反应建模包（v7 §5.1）。
+//
+//nolint:revive // Public contract keeps the Chemistry prefix for cross-package API clarity.
 type ChemistryReactionPackage struct {
 	ReactionType     ReactionType     `json:"reaction_type"`
 	Equation         BalancedEquation `json:"equation"`

@@ -1,3 +1,4 @@
+//nolint:funcorder // Incremental event consumers are grouped before terminal response helpers.
 package agent
 
 import (
@@ -77,6 +78,7 @@ func (a *StreamResponseAggregator) Response() *ChatResponse {
 	return &resp
 }
 
+//nolint:cyclop // SSE aggregation intentionally branches by event kind.
 func (a *StreamResponseAggregator) consumeIncrementalEvent(event SSEEvent) {
 	switch event.Event {
 	case SSEEventThinking, SSEEventHeartbeat, SSEEventDone:

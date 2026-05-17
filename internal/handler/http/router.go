@@ -30,6 +30,8 @@ type Handlers struct {
 // NewRouter 创建 Gin 路由，组装所有路由和中间件。
 // 参考技术方案 §17 API 设计。
 // 当前已禁用登录，所有接口对匿名用户开放。
+//
+//nolint:funlen // Router construction enumerates versioned endpoint groups in one composition root.
 func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) *gin.Engine {
 	gin.SetMode(cfg.Server.Mode)
 

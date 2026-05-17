@@ -251,7 +251,7 @@ func (b *Builder) executeTool(ctx context.Context, state *nodepkg.State) error {
 		return b.runPhysicsTool(ctx, state)
 	case agent.ModeBiology:
 		return b.runBiologyTool(ctx, state)
-	case agent.ModeSearch, agent.ModeAuto:
+	case agent.ModeSearch, agent.ModeAuto, agent.ModeChemistry:
 		return b.runSearchTool(ctx, state)
 	}
 
@@ -411,7 +411,7 @@ func (b *Builder) runDemoPlanner(ctx context.Context, state *nodepkg.State) (*no
 
 	current, err := b.runNode(ctx, nodepkg.NewDemoPlannerNode(b.generativeSvc), state)
 	if err != nil {
-		return state, nil
+		return nil, err
 	}
 
 	return graphState(current, "demo planned state")
@@ -439,6 +439,8 @@ func (b *Builder) runRegenerateShortcut(
 
 func shortcutAnswer(action nodepkg.RegenerateAction) string {
 	switch action {
+	case nodepkg.RegenerateActionNew:
+		return ""
 	case nodepkg.RegenerateActionRecompute:
 		return "已根据你的参数调整重新计算演示。"
 	case nodepkg.RegenerateActionRegenerate:

@@ -4,27 +4,36 @@
 package reaction
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/beihai0xff/snowy/internal/modeling/chemistry"
 	"github.com/beihai0xff/snowy/internal/modeling/chemistry/balancer"
 )
 
+const formulaWater = "H2O"
+
 // Classify 基于已配平的方程式 + 原始输入文本判断反应类型。
+//
+//nolint:cyclop,gocognit,gocyclo // Reaction classification is a flat rule table over equation features.
 func Classify(eq *balancer.Equation, raw string) chemistry.ReactionType {
 	rawLower := strings.ToLower(raw)
 	if strings.Contains(rawLower, "电解") || strings.Contains(rawLower, "electrolysis") {
 		return chemistry.ReactionElectrolysis
 	}
+
 	if strings.Contains(rawLower, "燃烧") || strings.Contains(rawLower, "combust") {
 		return chemistry.ReactionCombustion
 	}
+
 	if strings.Contains(rawLower, "水解") || strings.Contains(rawLower, "hydroly") {
 		return chemistry.ReactionHydrolysis
 	}
+
 	if strings.Contains(rawLower, "电离") || strings.Contains(rawLower, "ioniz") {
 		return chemistry.ReactionIonization
 	}
+
 	if eq == nil {
 		return chemistry.ReactionUnknown
 	}
@@ -40,24 +49,30 @@ func Classify(eq *balancer.Equation, raw string) chemistry.ReactionType {
 	for _, side := range [][]balancer.SpeciesCount{eq.Reactants, eq.Products} {
 		for _, sp := range side {
 			f := sp.Formula
-			if f == "H2O" {
+			if f == formulaWater {
 				hasH2O = true
 			}
+
 			if f == "O2" {
 				hasO2 = true
 			}
+
 			if isAcid(f) {
 				hasAcid = true
 			}
+
 			if isBase(f) {
 				hasBase = true
 			}
+
 			if isSalt(f) {
 				hasSalt = true
 			}
+
 			if isMetal(f) {
 				hasMetal = true
 			}
+
 			if isSimpleSubstance(sp) {
 				hasSimpleSubstance++
 			}
@@ -76,6 +91,7 @@ func Classify(eq *balancer.Equation, raw string) chemistry.ReactionType {
 	case hasAcid && hasSalt, hasBase && hasSalt, hasSalt && hasH2O:
 		return chemistry.ReactionMetathesis
 	}
+
 	return chemistry.ReactionUnknown
 }
 
@@ -84,6 +100,7 @@ func isAcid(f string) bool {
 	if !strings.HasPrefix(f, "H") {
 		return false
 	}
+
 	return strings.ContainsAny(f, "ClBrISFNO") && f != "H2O" && f != "H2"
 }
 
@@ -91,6 +108,7 @@ func isBase(f string) bool {
 	if !strings.HasSuffix(f, "OH") && !strings.HasSuffix(f, ")2") && !strings.HasSuffix(f, ")3") {
 		return false
 	}
+
 	return strings.Contains(f, "OH")
 }
 
@@ -99,25 +117,26 @@ func isSalt(f string) bool {
 	if isBase(f) || isAcid(f) || f == "H2O" {
 		return false
 	}
+
 	hasMetal := false
+
 	for _, m := range []string{"Na", "K", "Li", "Mg", "Ca", "Al", "Fe", "Cu", "Zn", "Ba", "Ag", "Pb"} {
 		if strings.HasPrefix(f, m) {
 			hasMetal = true
+
 			break
 		}
 	}
+
 	hasNonmetal := strings.ContainsAny(f, "ClSNOPI")
+
 	return hasMetal && hasNonmetal
 }
 
 func isMetal(f string) bool {
 	metals := []string{"Na", "K", "Li", "Mg", "Ca", "Al", "Fe", "Cu", "Zn", "Ba", "Ag", "Pb"}
-	for _, m := range metals {
-		if f == m {
-			return true
-		}
-	}
-	return false
+
+	return slices.Contains(metals, f)
 }
 
 func isSimpleSubstance(sp balancer.SpeciesCount) bool {
@@ -133,5 +152,6 @@ func transferOfOxidation(eq *balancer.Equation) bool {
 			}
 		}
 	}
+
 	return false
 }

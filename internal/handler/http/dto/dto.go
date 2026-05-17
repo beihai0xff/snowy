@@ -9,8 +9,8 @@ import "github.com/google/uuid"
 // v7 §3：新增 parent_package_id / regenerate_reason / interactive_demo。
 type ChatReq struct {
 	SessionID string `json:"session_id,omitempty"`
-	Message   string `json:"message"              binding:"required"`
-	Mode      string `json:"mode"                 binding:"omitempty,oneof=search physics biology chemistry auto"`
+	Message   string `json:"message"                     binding:"required"`
+	Mode      string `json:"mode"                        binding:"omitempty,oneof=search physics biology chemistry auto"`
 	Filters   struct {
 		Subject string `json:"subject,omitempty"`
 		Grade   string `json:"grade,omitempty"`
@@ -121,9 +121,9 @@ type ChemistryBalanceReq struct {
 
 // PackageShareCreateReq v7 §6.2 静态分享请求 DTO。
 type PackageShareCreateReq struct {
-	PackageID      string `binding:"required" json:"package_id"`
+	PackageID      string `binding:"required"                         json:"package_id"`
 	Mode           string `binding:"omitempty,oneof=view interactive" json:"mode,omitempty"`
-	ExpiresInHours int    `binding:"omitempty,min=0,max=8760" json:"expires_in_hours,omitempty"`
+	ExpiresInHours int    `binding:"omitempty,min=0,max=8760"         json:"expires_in_hours,omitempty"`
 }
 
 // ── Auth / User ───────────────────────────────────────────
