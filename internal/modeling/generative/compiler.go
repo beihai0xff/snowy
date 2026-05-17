@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	chemsvc "github.com/beihai0xff/snowy/internal/modeling/chemistry/service"
 	physicsdomain "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 	searchdomain "github.com/beihai0xff/snowy/internal/repo/search"
@@ -27,6 +28,7 @@ type compilerService struct {
 	llmChain  llm.Provider
 	repo      Repository
 	validator Validator
+	chemSvc   chemsvc.Service
 	now       func() time.Time
 }
 
@@ -75,6 +77,15 @@ func WithNow(now func() time.Time) CompilerOption {
 	}
 }
 
+// WithChemistryService 注入化学学科服务，编译器在 domain=chemistry 时调用。
+func WithChemistryService(svc chemsvc.Service) CompilerOption {
+	return func(s *compilerService) {
+		if svc != nil {
+			s.chemSvc = svc
+		}
+	}
+}
+
 func (s *compilerService) Compile(ctx context.Context, req *CompileRequest) (*GenerativeModelPackage, error) {
 	if req == nil {
 		return nil, errors.New("compile request is nil")
@@ -105,6 +116,7 @@ func (s *compilerService) Compile(ctx context.Context, req *CompileRequest) (*Ge
 
 	if llmErr == nil && pkg != nil {
 		s.finalizePackage(req, pkg, domain, evidence, modelName, "success", "")
+		s.applyChemistryAnalysis(ctx, req, pkg, domain)
 		report := s.validator.Validate(pkg)
 		pkg.ValidationReport = report
 
@@ -125,6 +137,34 @@ func (s *compilerService) Compile(ctx context.Context, req *CompileRequest) (*Ge
 	}
 
 	return nil, errors.New("llm model package generation failed: empty model response")
+}
+
+func (s *compilerService) applyChemistryAnalysis(ctx context.Context, req *CompileRequest, pkg *GenerativeModelPackage, domain string) {
+	if pkg == nil || domain != DomainChemistry || s.chemSvc == nil {
+		return
+	}
+
+	result, err := s.chemSvc.AnalyzeReaction(ctx, req.Message)
+	if err != nil || result == nil {
+		if err != nil {
+			pkg.Warnings = append(pkg.Warnings, fmt.Sprintf("chemistry analysis failed: %v", err))
+		}
+		return
+	}
+
+	if pkg.SimulationLogic == nil {
+		pkg.SimulationLogic = &DynamicSimulationSpec{}
+	}
+	if pkg.SimulationLogic.SimulationType == "" {
+		pkg.SimulationLogic.SimulationType = "chemistry_reaction"
+	}
+	if pkg.SimulationLogic.Runtime == "" {
+		pkg.SimulationLogic.Runtime = "chemistry"
+	}
+	pkg.SimulationLogic.ChemistryReaction = result
+	if !pkg.SimulationLogic.LocalRecomputeAllowed {
+		pkg.SimulationLogic.LocalRecomputeAllowed = false
+	}
 }
 
 func validationFailureError(report ModelValidationReport) error {
@@ -1895,7 +1935,7 @@ func stripJSONFence(content string) string {
 
 func resolveDomain(domain, text string) string {
 	domain = strings.ToLower(strings.TrimSpace(domain))
-	if domain == DomainPhysics || domain == DomainBiology {
+	if domain == DomainPhysics || domain == DomainBiology || domain == DomainChemistry {
 		return domain
 	}
 
@@ -1906,8 +1946,29 @@ func resolveDomain(domain, text string) string {
 		strings.Contains(lower, "biology") {
 		return DomainBiology
 	}
+	if strings.Contains(lower, "化学") || strings.Contains(lower, "反应") || strings.Contains(lower, "酸") ||
+		strings.Contains(lower, "碱") || strings.Contains(lower, "电解") || strings.Contains(lower, "氧化") ||
+		strings.Contains(lower, "还原") || strings.Contains(lower, "中和") || strings.Contains(lower, "燃烧") ||
+		strings.Contains(lower, "chemistry") || strings.Contains(lower, "reaction") ||
+		hasChemistryEquation(text) {
+		return DomainChemistry
+	}
 
 	return DomainPhysics
+}
+
+// hasChemistryEquation 简单识别"化学方程式式样"：包含 -> 或 → 或 ⇌，并出现化学元素符号。
+func hasChemistryEquation(text string) bool {
+	if !strings.Contains(text, "->") && !strings.Contains(text, "→") && !strings.Contains(text, "⇌") {
+		return false
+	}
+	// 至少出现一个常见元素符号
+	for _, e := range []string{"H2O", "O2", "H2", "CO2", "Na", "Cl", "Fe", "Cu", "Al", "Ca", "Mg"} {
+		if strings.Contains(text, e) {
+			return true
+		}
+	}
+	return false
 }
 
 func providerConfiguredModel(provider llm.Provider) string {

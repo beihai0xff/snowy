@@ -1,8 +1,8 @@
 'use client';
 
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Alert, Button, Collapse, Empty, Select, Space, Tag, Typography, message } from 'antd';
+import { Alert, Button, Collapse, Empty, Segmented, Select, Space, Tag, Typography, message } from 'antd';
 import {
   BookOutlined,
   BranchesOutlined,
@@ -16,9 +16,21 @@ import {
   SearchOutlined,
   StarOutlined,
 } from '@ant-design/icons';
-import { api, type Citation, type FavoriteReq, type SearchResponse } from '@/lib/api';
+import {
+  agentChatStream,
+  api,
+  type ChatReq,
+  type Citation,
+  type FavoriteReq,
+  type GenerativeModelPackage,
+  type PreviewPayload,
+  type SearchResponse,
+  type SSEMessage,
+} from '@/lib/api';
 import MarkdownText from '@/components/common/MarkdownText';
 import ReactionBar from '@/components/common/ReactionBar';
+import ChatBubble, { type DemoStatus } from '@/components/chat/ChatBubble';
+import { ShareButton } from '@/components/chat/ShareButton';
 
 const { Title, Text } = Typography;
 
@@ -91,6 +103,129 @@ function AskPageInner() {
   const [errorText, setErrorText] = useState<string | null>(null);
   const [subject, setSubject] = useState<string | undefined>();
   const [grade, setGrade] = useState<string | undefined>();
+  const [viewMode, setViewMode] = useState<'search' | 'chat'>(
+    (searchParams.get('mode') === 'search' ? 'search' : 'chat'),
+  );
+
+  // ── chat 模式状态 ────────────────────────────────────
+  type ChatMessage = {
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    citations?: Citation[];
+    pkg?: GenerativeModelPackage | null;
+    demoStatus: DemoStatus;
+    demoStage?: 'compile' | 'recompute' | 'regenerate';
+    demoError?: string | null;
+  };
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatBusy, setChatBusy] = useState(false);
+  const chatBoxRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (chatBoxRef.current) {
+      chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const sendChat = useCallback(async (text: string, parentPackageId?: string, regenerateReason?: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || chatBusy) return;
+
+    const userMsg: ChatMessage = {
+      id: `u-${Date.now()}`,
+      role: 'user',
+      content: trimmed,
+      demoStatus: 'idle',
+    };
+    const assistantId = `a-${Date.now()}`;
+    const assistantMsg: ChatMessage = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      citations: [],
+      pkg: null,
+      demoStatus: 'idle',
+    };
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    setQuery('');
+    setChatBusy(true);
+
+    const subjectMode = (subject === 'physics' || subject === 'biology' || subject === 'chemistry')
+      ? (subject as 'physics' | 'biology' | 'chemistry')
+      : 'auto';
+    const req: ChatReq = {
+      message: trimmed,
+      mode: subjectMode,
+      filters: { subject, grade },
+      parent_package_id: parentPackageId,
+      regenerate_reason: regenerateReason,
+    };
+
+    const abort = new AbortController();
+    const patchAssistant = (partial: Partial<ChatMessage>) => {
+      setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, ...partial } : m)));
+    };
+    try {
+      await agentChatStream(req, (evt: SSEMessage) => {
+        switch (evt.event) {
+          case 'content': {
+            const data = evt.data as { text?: string } | string | undefined;
+            const piece = typeof data === 'string' ? data : data?.text ?? '';
+            if (piece) {
+              setMessages((prev) =>
+                prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + piece } : m)),
+              );
+            }
+            break;
+          }
+          case 'citations': {
+            const data = evt.data as { citations?: Citation[] } | Citation[] | undefined;
+            const list = Array.isArray(data) ? data : data?.citations || [];
+            patchAssistant({ citations: list });
+            break;
+          }
+          case 'preview': {
+            const data = evt.data as PreviewPayload;
+            patchAssistant({
+              pkg: data?.package ?? undefined,
+              demoStatus: data?.status ?? 'partial',
+              demoStage: data?.stage,
+              demoError: data?.error ?? null,
+            });
+            break;
+          }
+          case 'done':
+          case 'final':
+          default:
+            break;
+        }
+      }, {
+        signal: abort.signal,
+        onError: (err) => {
+          patchAssistant({ demoStatus: 'failed', demoError: err.message });
+          message.error(err.message);
+        },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '会话失败';
+      patchAssistant({ demoStatus: 'failed', demoError: msg });
+    } finally {
+      setChatBusy(false);
+    }
+  }, [chatBusy, subject, grade]);
+
+  const handleRegenerate = useCallback((messageId: string, reason: string) => {
+    const target = messages.find((m) => m.id === messageId);
+    const parent = target?.pkg?.package_id;
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    if (!lastUser) return;
+    void sendChat(lastUser.content, parent, reason);
+  }, [messages, sendChat]);
+
+  const handlePackageUpdate = useCallback((messageId: string, next: GenerativeModelPackage) => {
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, pkg: next } : m)));
+  }, []);
 
   const runSearch = useCallback(async (text: string) => {
     const trimmed = text.trim();
@@ -114,9 +249,14 @@ function AskPageInner() {
     const q = searchParams.get('q');
     if (q) {
       setQuery(q);
-      void runSearch(q);
+      if (viewMode === 'chat') {
+        void sendChat(q);
+      } else {
+        void runSearch(q);
+      }
     }
-  }, [searchParams, runSearch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const confidence = result ? confidenceLevel(result.confidence) : null;
   const evidenceScore = useMemo(() => {
@@ -159,9 +299,26 @@ function AskPageInner() {
     <div className="snowy-page">
       {/* 顶部搜索条（吸顶） */}
       <div className="snowy-ask-bar">
+        <Segmented
+          size="small"
+          style={{ marginBottom: 12 }}
+          value={viewMode}
+          onChange={(v) => setViewMode(v as 'search' | 'chat')}
+          options={[
+            { label: '对话 · 推演演示', value: 'chat' },
+            { label: '检索 · 一次性答案', value: 'search' },
+          ]}
+        />
         <form
           className="snowy-search"
-          onSubmit={(event) => { event.preventDefault(); void runSearch(query); }}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (viewMode === 'search') {
+              void runSearch(query);
+            } else {
+              void sendChat(query);
+            }
+          }}
           role="search"
         >
           <span className="snowy-search__icon"><SearchOutlined /></span>
@@ -169,13 +326,13 @@ function AskPageInner() {
             className="snowy-search__input"
             type="search"
             value={query}
-            placeholder="再问一个问题，或修改当前问题…"
+            placeholder={viewMode === 'search' ? '再问一个问题，或修改当前问题…' : '在对话中提出你的问题…'}
             onChange={(event) => setQuery(event.target.value)}
             aria-label="输入你的问题"
           />
-          <button type="submit" className="snowy-search__submit">
-            {loading ? <span className="snowy-spinner" style={{ borderTopColor: '#fff', width: 14, height: 14 }} /> : <RightOutlined />}
-            <span>提问</span>
+          <button type="submit" className="snowy-search__submit" disabled={viewMode === 'chat' && chatBusy}>
+            {(loading || chatBusy) ? <span className="snowy-spinner" style={{ borderTopColor: '#fff', width: 14, height: 14 }} /> : <RightOutlined />}
+            <span>{viewMode === 'search' ? '提问' : '发送'}</span>
           </button>
         </form>
         <Space size={8} style={{ marginTop: 8 }} wrap>
@@ -211,7 +368,7 @@ function AskPageInner() {
       </div>
 
       {/* 错误诊断 */}
-      {errorText && !loading && (
+      {viewMode === 'search' && errorText && !loading && (
         <Alert
           type="error"
           showIcon
@@ -223,7 +380,7 @@ function AskPageInner() {
       )}
 
       {/* 加载态 */}
-      {loading && (
+      {viewMode === 'search' && loading && (
         <div className="snowy-loading-card">
           <span className="snowy-spinner" />
           <span>正在检索证据并组织答案…</span>
@@ -231,7 +388,7 @@ function AskPageInner() {
       )}
 
       {/* 空状态 */}
-      {!loading && !result && !errorText && (
+      {viewMode === 'search' && !loading && !result && !errorText && (
         <div className="snowy-loading-card" style={{ padding: 56 }}>
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -252,7 +409,7 @@ function AskPageInner() {
       )}
 
       {/* 答案 + 证据双列 */}
-      {!loading && result && (
+      {viewMode === 'search' && !loading && result && (
         <div className="snowy-ask-layout">
           {/* 左列：答案 */}
           <article className="snowy-answer">
@@ -426,6 +583,72 @@ function AskPageInner() {
               )}
             </Space>
           </aside>
+        </div>
+      )}
+
+      {/* Chat 模式 ── v7 §3：对话 + 推演卡 */}
+      {viewMode === 'chat' && (
+        <div style={{ marginTop: 16 }}>
+          {messages.length === 0 && (
+            <div className="snowy-loading-card" style={{ padding: 48 }}>
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={(
+                  <Space direction="vertical" size={12} align="center">
+                    <Text>对话模式会在回答之外，按需生成可交互的小模型。</Text>
+                    <Space wrap size={8}>
+                      {askExamples.map((q) => (
+                        <button
+                          key={q}
+                          className="snowy-chip"
+                          type="button"
+                          onClick={() => { setQuery(q); void sendChat(q); }}
+                        >
+                          试试：{q}
+                        </button>
+                      ))}
+                    </Space>
+                  </Space>
+                )}
+              />
+            </div>
+          )}
+
+          {messages.length > 0 && (
+            <div
+              ref={chatBoxRef}
+              style={{
+                maxHeight: '70vh',
+                overflowY: 'auto',
+                paddingRight: 8,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+              }}
+            >
+              {messages.map((m) => (
+                <div key={m.id}>
+                  <ChatBubble
+                    role={m.role}
+                    content={m.content}
+                    citations={m.citations}
+                    pkg={m.pkg}
+                    demoStatus={m.demoStatus}
+                    demoStage={m.demoStage}
+                    demoError={m.demoError}
+                    onPackageUpdate={(next) => handlePackageUpdate(m.id, next)}
+                    onRegenerateRequest={(reason) => handleRegenerate(m.id, reason)}
+                    onRetry={() => handleRegenerate(m.id, 'retry')}
+                  />
+                  {m.role === 'assistant' && m.pkg?.package_id && (
+                    <div style={{ marginLeft: 56, marginTop: 4 }}>
+                      <ShareButton packageId={m.pkg.package_id} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

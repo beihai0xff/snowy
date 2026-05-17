@@ -104,6 +104,28 @@ type BiologyAnalyzeReq struct {
 	Context  string `                   json:"context,omitempty"`
 }
 
+// ── Chemistry ─────────────────────────────────────────────
+
+// ChemistryAnalyzeReq 化学反应解析请求 DTO，参考技术方案 §5。
+type ChemistryAnalyzeReq struct {
+	Equation string `binding:"required" json:"equation"`
+	Context  string `                   json:"context,omitempty"`
+}
+
+// ChemistryBalanceReq 化学方程式配平请求 DTO。
+type ChemistryBalanceReq struct {
+	Equation string `binding:"required" json:"equation"`
+}
+
+// ── Share ─────────────────────────────────────────────────
+
+// PackageShareCreateReq v7 §6.2 静态分享请求 DTO。
+type PackageShareCreateReq struct {
+	PackageID      string `binding:"required" json:"package_id"`
+	Mode           string `binding:"omitempty,oneof=view interactive" json:"mode,omitempty"`
+	ExpiresInHours int    `binding:"omitempty,min=0,max=8760" json:"expires_in_hours,omitempty"`
+}
+
 // ── Auth / User ───────────────────────────────────────────
 
 type EmailRegisterReq struct {

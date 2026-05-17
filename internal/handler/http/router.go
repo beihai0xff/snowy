@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/beihai0xff/snowy/internal/handler/ws"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 	"github.com/beihai0xff/snowy/internal/pkg/middleware"
 )
@@ -18,7 +19,10 @@ type Handlers struct {
 	Physics    *PhysicsHandler
 	Render     *RenderHandler
 	Biology    *BiologyHandler
+	Chemistry  *ChemistryHandler
 	Generative *GenerativeHandler
+	Share      *ShareHandler
+	WSManager  *ws.Manager
 	User       *UserHandler
 	Monitoring *MonitoringHandler
 }
@@ -108,6 +112,39 @@ func NewRouter(cfg *config.Config, h *Handlers, limiter middleware.RateLimiter) 
 		biology := modeling.Group("/biology")
 		{
 			biology.POST("/analyze", h.Biology.Analyze)
+		}
+
+		if h.Chemistry != nil {
+			chem := modeling.Group("/chemistry")
+			{
+				chem.POST("/analyze", h.Chemistry.Analyze)
+				chem.POST("/balance", h.Chemistry.Balance)
+			}
+		}
+	}
+
+	// ── 静态分享 v7 §6.2 ──────────────────────────────
+	if h.Share != nil {
+		shareGroup := v1.Group("/share")
+		{
+			shareGroup.POST("/packages", h.Share.CreatePackageShare)
+			shareGroup.GET("/:token", h.Share.GetPackageShare)
+			shareGroup.POST("/:token/join", h.Share.JoinPackageShare)
+		}
+	}
+
+	// ── 协同 WebSocket v7 §10 (D2) ────────────────────
+	if h.WSManager != nil {
+		wsGroup := v1.Group("/ws")
+		{
+			wsGroup.GET("/session/:id", h.WSManager.Handle)
+			wsGroup.GET("/session/:id/presence", h.WSManager.PresenceHandler)
+		}
+		// 与 v7 §6.3 中的契约路径对齐
+		collabGroup := v1.Group("/collab")
+		{
+			collabGroup.GET("/packages/:id/ws", h.WSManager.Handle)
+			collabGroup.GET("/packages/:id/presence", h.WSManager.PresenceHandler)
 		}
 	}
 

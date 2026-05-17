@@ -14,6 +14,7 @@ import (
 	"github.com/beihai0xff/snowy/internal/agent/assembler"
 	agentrouter "github.com/beihai0xff/snowy/internal/agent/router"
 	biologymodel "github.com/beihai0xff/snowy/internal/modeling/biology/domain"
+	"github.com/beihai0xff/snowy/internal/modeling/generative"
 	physicsmodel "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 )
 
@@ -51,7 +52,23 @@ type State struct {
 	Response           *agent.ChatResponse
 	ValidationWarnings []string
 	FallbackReason     string
+
+	// v7 §3 M2：会话化内嵌演示编排状态。
+	RegenerateAction RegenerateAction
+	RegenerateReason string
+	TargetVars       map[string]float64
+	Package          *generative.GenerativeModelPackage
+	PackageID        *uuid.UUID
 }
+
+// RegenerateAction 由 regenerate_classifier 节点产出，控制 demo_planner 走何种路径。
+type RegenerateAction string
+
+const (
+	RegenerateActionNew        RegenerateAction = "new"
+	RegenerateActionRecompute  RegenerateAction = "recompute"
+	RegenerateActionRegenerate RegenerateAction = "regenerate"
+)
 
 // InputNode 请求解析节点。
 type InputNode struct{}

@@ -405,6 +405,89 @@ export interface GenerativeModelSpec {
   relations?: { source: string; target: string; type: string; description?: string; condition?: string }[];
 }
 
+export interface ChemistrySpeciesCoef {
+  species: string;
+  coef: number;
+}
+
+export interface ChemistryBalancedEquation {
+  reactants: ChemistrySpeciesCoef[];
+  products: ChemistrySpeciesCoef[];
+  arrow: string;
+}
+
+export interface ChemistryAtomXYZ {
+  element: string;
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface ChemistryBond {
+  a: number;
+  b: number;
+  order: number;
+}
+
+export interface ChemistrySpeciesModel {
+  formula: string;
+  atoms?: ChemistryAtomXYZ[];
+  bonds?: ChemistryBond[];
+  color?: string;
+  fallback_2d?: boolean;
+}
+
+export interface ChemistryAnimationFrame {
+  t: number;
+  note: string;
+  highlight?: string[];
+}
+
+export interface ChemistryAnimationScript {
+  duration: number;
+  frames: ChemistryAnimationFrame[];
+}
+
+export interface ChemistryReactionPackage {
+  reaction_type: string;
+  equation: ChemistryBalancedEquation;
+  raw_input?: string;
+  conditions: {
+    temperature?: string;
+    catalyst?: string;
+    solvent?: string;
+    energy?: string;
+    pressure?: string;
+  };
+  electron_transfer?: {
+    from_element: string;
+    to_element: string;
+    electrons: number;
+    from_oxidation: number;
+    to_oxidation: number;
+  }[];
+  energy_profile?: {
+    reactant_energy: number;
+    product_energy: number;
+    activation_energy: number;
+    exothermic: boolean;
+  };
+  species?: ChemistrySpeciesModel[];
+  animation: ChemistryAnimationScript;
+  interaction_plan: {
+    controls?: {
+      variable: string;
+      label: string;
+      unit?: string;
+      min: number;
+      max: number;
+      default: number;
+      step?: number;
+    }[];
+  };
+  warnings?: string[];
+}
+
 export interface DynamicSimulationSpec {
   simulation_type: string;
   runtime: string;
@@ -418,6 +501,7 @@ export interface DynamicSimulationSpec {
   render_instructions?: { coordinate_system?: string; layers?: string[]; annotations?: string[] };
   local_recompute_allowed: boolean;
   regenerate_when?: string[];
+  chemistry_reaction?: ChemistryReactionPackage;
 }
 
 export interface MechanismStage {
@@ -499,27 +583,58 @@ export interface GenerativeModelPackage {
   created_at: string;
 }
 
+export interface ModelingCompileContext {
+  citations?: EvidenceRef[];
+  knowledge_tags?: string[];
+  source_page?: string;
+  user_notes?: string;
+}
+
 export interface ModelingCompileReq {
   session_id?: string;
   message: string;
-  domain?: 'auto' | 'physics' | 'biology';
+  domain?: 'auto' | 'physics' | 'biology' | 'chemistry';
   grade_band?: string;
   target_mode?: 'interactive_model' | 'review' | 'explain';
-  context?: {
-    citations?: EvidenceRef[];
-    knowledge_tags?: string[];
-    source_page?: string;
-    user_notes?: string;
-  };
+  context?: ModelingCompileContext;
 }
 
 // ── Agent / Chat ─────────────────────────────────────────
 
+export interface DemoRequestHint {
+  domain?: string;
+  target_mode?: string;
+  overrides?: Record<string, unknown>;
+}
+
 export interface ChatReq {
   session_id?: string;
   message: string;
-  mode?: 'search' | 'physics' | 'biology' | 'auto';
+  mode?: 'search' | 'physics' | 'biology' | 'chemistry' | 'auto';
   filters?: { subject?: string; grade?: string };
+  /** v7 §3：追问场景透传父 package。 */
+  parent_package_id?: string;
+  /** v7 §3：regenerate 时附带的原因，会进入 classifier reason。 */
+  regenerate_reason?: string;
+  /** v7 §3：前端透传给 demo_planner 的提示。 */
+  interactive_demo?: DemoRequestHint;
+}
+
+export interface PreviewPayload {
+  package_id?: string;
+  status: 'partial' | 'complete' | 'failed';
+  stage?: 'compile' | 'recompute' | 'regenerate';
+  package?: GenerativeModelPackage;
+  error?: string;
+}
+
+export interface ModelingRecomputeReq {
+  overrides: Record<string, number>;
+}
+
+export interface ModelingRegenerateReq {
+  reason: string;
+  context?: ModelingCompileContext;
 }
 
 export interface ChatResponse {
@@ -530,6 +645,8 @@ export interface ChatResponse {
   structured_payload?: unknown;
   confidence: number;
   next_actions?: string[];
+  /** v7 §3：当 demo_planner 产出/复用了 package 时回传。 */
+  package_id?: string;
 }
 
 export interface SessionResp {
@@ -784,6 +901,43 @@ export const api = {
   getModelingPackage: (id: string) =>
     request<GenerativeModelPackage>(`/modeling/packages/${encodeURIComponent(id)}`),
 
+  recomputeModelingPackage: (id: string, data: ModelingRecomputeReq) =>
+    request<GenerativeModelPackage>(`/modeling/packages/${encodeURIComponent(id)}/recompute`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  regenerateModelingPackage: (id: string, data: ModelingRegenerateReq) =>
+    request<GenerativeModelPackage>(`/modeling/packages/${encodeURIComponent(id)}/regenerate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Chemistry (v7 §5)
+  chemistryAnalyze: (data: { equation: string; context?: string }) =>
+    request<unknown>('/modeling/chemistry/analyze', { method: 'POST', body: JSON.stringify(data) }),
+
+  chemistryBalance: (data: { equation: string }) =>
+    request<unknown>('/modeling/chemistry/balance', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Share (v7 §6.2)
+  createPackageShare: (data: { package_id: string; mode?: string; expires_in_hours?: number }) =>
+    request<{ token: string; package_id: string; mode: string; expires_at?: string }>('/share/packages', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getPackageShare: (token: string) =>
+    request<{ token: string; package_id: string; mode: string; snapshot: GenerativeModelPackage; created_at: string; expires_at?: string; can_collab?: boolean }>(
+      `/share/${encodeURIComponent(token)}`,
+    ),
+
+  joinPackageShare: (token: string) =>
+    request<{ token: string; package_id: string; role: 'host' | 'guest'; ws_url: string; expires_at?: string }>(
+      `/share/${encodeURIComponent(token)}/join`,
+      { method: 'POST' },
+    ),
+
   // Agent Chat
   agentChat: (data: ChatReq) =>
     request<ChatResponse>('/agent/chat', { method: 'POST', body: JSON.stringify(data) }),
@@ -877,6 +1031,81 @@ export async function agentChatStream(
     }
   } catch (error) {
     const normalized = error instanceof Error ? error : new Error('SSE stream failed');
+    options.onError?.(normalized);
+    throw normalized;
+  }
+}
+
+/**
+ * v7 §3：拉取一条已落库消息（含 SSE 事件序列）的回放流。
+ * 后端 `/agent/messages/:id/replay` 按 seq 重发 SSE。
+ */
+export async function replayMessageStream(
+  messageID: string,
+  onEvent: (event: SSEMessage) => void,
+  options: AgentChatStreamOptions = {},
+): Promise<void> {
+  try {
+    const res = await fetch(`${API_BASE}/agent/messages/${encodeURIComponent(messageID)}/replay`, {
+      method: 'GET',
+      headers: {
+        Accept: 'text/event-stream',
+        ...(getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : {}),
+      },
+      signal: options.signal,
+    });
+
+    if (!res.ok || !res.body) {
+      const text = await res.text().catch(() => '');
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+
+    options.onOpen?.();
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    const flush = (chunk: string) => {
+      const lines = chunk.replace(/\r\n/g, '\n').split('\n');
+      let eventName = 'message';
+      const dataLines: string[] = [];
+      for (const line of lines) {
+        if (!line || line.startsWith(':')) continue;
+        if (line.startsWith('event:')) eventName = line.slice(6).trim();
+        else if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart());
+      }
+      const raw = dataLines.join('\n');
+      let payload: unknown = raw;
+      try {
+        payload = raw ? JSON.parse(raw) : null;
+      } catch {
+        payload = raw;
+      }
+      onEvent({ event: eventName, data: payload });
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      let normalizedBuffer = buffer.replace(/\r\n/g, '\n');
+      let idx = normalizedBuffer.indexOf('\n\n');
+      while (idx >= 0) {
+        const chunk = normalizedBuffer.slice(0, idx).trim();
+        normalizedBuffer = normalizedBuffer.slice(idx + 2);
+        if (chunk) flush(chunk);
+        idx = normalizedBuffer.indexOf('\n\n');
+      }
+      buffer = normalizedBuffer;
+      if (done) {
+        const rest = buffer.trim();
+        if (rest) flush(rest);
+        options.onDone?.();
+        break;
+      }
+    }
+  } catch (error) {
+    const normalized = error instanceof Error ? error : new Error('replay stream failed');
     options.onError?.(normalized);
     throw normalized;
   }

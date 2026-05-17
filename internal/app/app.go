@@ -23,9 +23,11 @@ import (
 	agentrouter "github.com/beihai0xff/snowy/internal/agent/router"
 	agenttool "github.com/beihai0xff/snowy/internal/agent/tool"
 	handler "github.com/beihai0xff/snowy/internal/handler/http"
+	"github.com/beihai0xff/snowy/internal/handler/ws"
 	biologyexperiment "github.com/beihai0xff/snowy/internal/modeling/biology/experiment"
 	biologygraph "github.com/beihai0xff/snowy/internal/modeling/biology/graph"
 	biologyservice "github.com/beihai0xff/snowy/internal/modeling/biology/service"
+	chemistryservice "github.com/beihai0xff/snowy/internal/modeling/chemistry/service"
 	generativeservice "github.com/beihai0xff/snowy/internal/modeling/generative"
 	physicscalculator "github.com/beihai0xff/snowy/internal/modeling/physics/calculator"
 	physicsservice "github.com/beihai0xff/snowy/internal/modeling/physics/service"
@@ -136,6 +138,7 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 	runRepo := mysqlrepo.NewAgentRunRepository(shared.db)
 	toolCallRepo := mysqlrepo.NewAgentToolCallRepository(shared.db)
 	generativeRepo := mysqlrepo.NewGenerativeModelPackageRepository(shared.db)
+	shareRepo := mysqlrepo.NewShareRepository(shared.db)
 	answerRecordRepo := mysqlrepo.NewAnswerRecordRepository(shared.db)
 	transactor := mysqlrepo.NewTransactor(shared.db)
 
@@ -179,12 +182,14 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 		biologyexperiment.NewSimpleAnalyzer(),
 		biologygraph.NewSimpleDiagramBuilder(),
 	)
+	chemistrySvc := chemistryservice.NewService()
 	generativeSvc := generativeservice.NewCompilerService(
 		searchSvc,
 		physicsSvc,
 		biologySvc,
 		generativeRepo,
 		generativeservice.WithLLMProvider(llmChain),
+		generativeservice.WithChemistryService(chemistrySvc),
 	)
 
 	modelRouter := agentrouter.NewStaticRouter(shared.cfg.LLM)
@@ -206,6 +211,8 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 		agentgraph.WithRenderCodeTool(agenttool.NewRenderCodeTool(physicsSvc)),
 		agentgraph.WithBiologyAnalyzeTool(agenttool.NewBiologyAnalyzeTool(biologySvc)),
 		agentgraph.WithCitationTool(agenttool.NewCitationTool()),
+		agentgraph.WithGenerativeService(generativeSvc),
+		agentgraph.WithRegenerateClassifierLLM(llmChain),
 		agentgraph.WithCallbacks(callbacks...),
 	)
 
@@ -217,7 +224,10 @@ func newAPISurface(shared *sharedDeps) *apiSurface {
 		Physics:    handler.NewPhysicsHandler(physicsSvc, userSvc),
 		Render:     handler.NewRenderHandler(physicsSvc),
 		Biology:    handler.NewBiologyHandler(biologySvc, userSvc),
+		Chemistry:  handler.NewChemistryHandler(chemistrySvc, userSvc),
 		Generative: handler.NewGenerativeHandler(generativeSvc, userSvc),
+		Share:      handler.NewShareHandler(shareRepo, generativeSvc),
+		WSManager:  ws.NewManager(shared.rdb),
 		User:       handler.NewUserHandler(userSvc, answerRecordRepo),
 		Monitoring: handler.NewMonitoringHandler(llmRecorder),
 	}

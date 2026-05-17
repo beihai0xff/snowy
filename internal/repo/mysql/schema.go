@@ -289,6 +289,19 @@ type promptTemplateSchema struct {
 
 func (promptTemplateSchema) TableName() string { return "prompt_templates" }
 
+// packageShareSchema v7 §6.2：静态分享包。
+type packageShareSchema struct {
+	Token        string     `gorm:"column:token;type:char(32);primaryKey"`
+	PackageID    uuid.UUID  `gorm:"column:package_id;type:char(36);not null;index:idx_package_shares_pkg"`
+	SnapshotJSON jsonValue  `gorm:"column:snapshot_json;type:longtext;not null"`
+	CreatedBy    uuid.UUID  `gorm:"column:created_by;type:char(36);not null;index:idx_package_shares_user,priority:1"`
+	ExpiresAt    *time.Time `gorm:"column:expires_at;type:datetime(3)"`
+	Mode         string     `gorm:"column:mode;type:varchar(32);not null;default:'view'"`
+	CreatedAt    time.Time  `gorm:"column:created_at;type:datetime(3);not null;index:idx_package_shares_user,priority:2,sort:desc"`
+}
+
+func (packageShareSchema) TableName() string { return "package_shares" }
+
 func schemaModels() []any {
 	return []any{
 		&llmCallRecordSchema{},
@@ -310,6 +323,7 @@ func schemaModels() []any {
 		&conceptGraphSnapshotSchema{},
 		&historySchema{},
 		&promptTemplateSchema{},
+		&packageShareSchema{},
 	}
 }
 
