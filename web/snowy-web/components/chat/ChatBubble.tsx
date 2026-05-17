@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { Avatar, Card, Space, Tag, Typography } from 'antd';
+import { Avatar, Card, Popover, Space, Tag, Tooltip, Typography } from 'antd';
 import { RobotOutlined, UserOutlined } from '@ant-design/icons';
 import MarkdownText from '@/components/common/MarkdownText';
 import type { Citation, GenerativeModelPackage } from '@/lib/api';
@@ -82,9 +82,32 @@ export default function ChatBubble({
         {!isUser && citations && citations.length > 0 && (
           <Space size={[4, 4]} wrap style={{ marginTop: 6 }}>
             {citations.slice(0, 5).map((c, i) => (
-              <Tag key={`${c.doc_id || i}`} color="default">
-                [{i + 1}] {c.doc_id || c.source_type || '引用'}
-              </Tag>
+              <Popover
+                key={`${c.doc_id || i}`}
+                trigger="click"
+                placement="top"
+                content={
+                  <div style={{ maxWidth: 320 }}>
+                    <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>
+                      {c.source_type || '引用'} · {c.doc_id}
+                    </div>
+                    <div style={{ fontSize: 13, lineHeight: 1.6, color: '#333' }}>
+                      {c.snippet || '（无摘要）'}
+                    </div>
+                    {typeof c.score === 'number' && (
+                      <div style={{ marginTop: 6, fontSize: 12, color: '#52c41a' }}>
+                        相关度 {Math.round(c.score * 100)}%
+                      </div>
+                    )}
+                  </div>
+                }
+              >
+                <Tooltip title="点击查看证据摘要">
+                  <Tag color="default" style={{ cursor: 'pointer' }}>
+                    [{i + 1}] {c.doc_id || c.source_type || '引用'}
+                  </Tag>
+                </Tooltip>
+              </Popover>
             ))}
           </Space>
         )}

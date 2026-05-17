@@ -17,7 +17,7 @@ const { Title, Paragraph, Text } = Typography;
 const exampleQueries = [
   '为什么平抛运动水平方向是匀速？',
   '光合作用的限制因素有哪些？',
-  '怎么判断带电粒子在磁场里的运动方向？',
+  '氧化还原反应中电子是如何转移的？',
 ];
 
 type RecentEntry = {
@@ -81,19 +81,24 @@ function subjectTagColor(category: string): { color: string; label: string } {
 }
 
 function recommendationHref(item: RecommendationItem): string {
-  if (item.category === 'biology') return `/modeling?type=biology&q=${encodeURIComponent(item.title)}`;
-  if (item.category === 'physics') return `/modeling?type=physics&q=${encodeURIComponent(item.title)}`;
+  if (item.category === 'biology')   return `/modeling?type=biology&q=${encodeURIComponent(item.title)}`;
+  if (item.category === 'physics')   return `/modeling?type=physics&q=${encodeURIComponent(item.title)}`;
+  if (item.category === 'chemistry') return `/ask?q=${encodeURIComponent(item.title)}&subject=chemistry`;
   return `/ask?q=${encodeURIComponent(item.title)}`;
 }
 
 function inferAskRoute(text: string): string {
   if (!text.trim()) return '/ask';
   const wantsModel = /画|图|演示|推导|模拟|仿真|怎么动|轨迹|曲线|过程图/.test(text);
-  const isBiology = /光合|细胞|酶|遗传|突触|神经|生态|呼吸|膜|DNA|RNA|蛋白质/.test(text);
+  const isChemistry = /反应|电子|酸|碱|盐|有机|无机|氧化|还原|摩尔|官能团|化合价|离子|溶液|沉淀|燃烧|NaOH|H2SO4|HCl|催化/.test(text);
+  const isBiology   = /光合|细胞|酶|遗传|突触|神经|生态|呼吸|膜|DNA|RNA|蛋白质|染色体|分裂|基因/.test(text);
+  if (isChemistry) {
+    return `/ask?q=${encodeURIComponent(text)}&subject=chemistry`;
+  }
   if (wantsModel) {
     return `/modeling?type=${isBiology ? 'biology' : 'physics'}&q=${encodeURIComponent(text)}`;
   }
-  return `/ask?q=${encodeURIComponent(text)}`;
+  return `/ask?q=${encodeURIComponent(text)}${isBiology ? '&subject=biology' : ''}`;
 }
 
 export default function HomePage() {

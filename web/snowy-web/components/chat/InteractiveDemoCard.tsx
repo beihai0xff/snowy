@@ -14,8 +14,8 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Alert, Button, Card, Slider, Space, Spin, Tag, Typography } from 'antd';
-import { ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Input, Popover, Slider, Space, Spin, Tag, Tooltip, Typography } from 'antd';
+import { ReloadOutlined, ThunderboltOutlined, UndoOutlined } from '@ant-design/icons';
 import {
   api,
   type GenerativeModelPackage,
@@ -81,6 +81,8 @@ export default function InteractiveDemoCard({
   const [values, setValues] = useState<Record<string, number>>(initial);
   const [recomputing, setRecomputing] = useState(false);
   const [recomputeError, setRecomputeError] = useState<string | null>(null);
+  const [regenReason, setRegenReason] = useState('');
+  const [regenOpen, setRegenOpen] = useState(false);
   const recomputeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -143,20 +145,50 @@ export default function InteractiveDemoCard({
           <ThunderboltOutlined />
           <span>{pkg.learning_model.topic || '交互演示'}</span>
           <Tag color="blue">{pkg.domain}</Tag>
-          {pkg.status === 'fallback' && <Tag color="orange">降级</Tag>}
+          {pkg.status === 'fallback' && (
+            <Tooltip title="AI 没找到完整公式或仿真逻辑，已用近似版本展示，仅供参考">
+              <Tag color="orange" style={{ cursor: 'help' }}>降级</Tag>
+            </Tooltip>
+          )}
           {pkg.status === 'regenerate_failed' && <Tag color="red">再生失败</Tag>}
         </Space>
       }
       extra={
-        onRegenerateRequest ? (
-          <Button
-            size="small"
-            icon={<ReloadOutlined />}
-            onClick={() => onRegenerateRequest('用户希望换一个演示方案')}
-          >
-            换一个
-          </Button>
-        ) : null
+        <Space size={4}>
+          {variables.length > 0 && (
+            <Tooltip title="重置为默认参数">
+              <Button size="small" icon={<UndoOutlined />} onClick={() => setValues(initial)} />
+            </Tooltip>
+          )}
+          {onRegenerateRequest && (
+            <Popover
+              trigger="click"
+              open={regenOpen}
+              onOpenChange={setRegenOpen}
+              placement="bottomRight"
+              content={
+                <div style={{ width: 260 }}>
+                  <Input.TextArea
+                    autoSize={{ minRows: 2, maxRows: 4 }}
+                    placeholder="想换什么？例如：加入摩擦力 / 用更简单的公式"
+                    value={regenReason}
+                    onChange={(e) => setRegenReason(e.target.value)}
+                  />
+                  <Space style={{ marginTop: 8, justifyContent: 'flex-end', width: '100%' }}>
+                    <Button size="small" onClick={() => { setRegenOpen(false); setRegenReason(''); }}>取消</Button>
+                    <Button size="small" type="primary" onClick={() => {
+                      onRegenerateRequest(regenReason.trim() || '用户希望换一个演示方案');
+                      setRegenOpen(false);
+                      setRegenReason('');
+                    }}>再生</Button>
+                  </Space>
+                </div>
+              }
+            >
+              <Button size="small" icon={<ReloadOutlined />}>换一个</Button>
+            </Popover>
+          )}
+        </Space>
       }
       style={{ marginTop: 8 }}
     >
@@ -173,7 +205,7 @@ export default function InteractiveDemoCard({
           <GenerativeBiologyGraph spec={pkg.visualization_graph} values={values} />
         )}
 
-        {variables.length > 0 && (
+        {variables.length > 0 && pkg.domain !== 'chemistry' && (
           <div>
             {variables.map((v) => (
               <div key={v.name} style={{ marginBottom: 8 }}>
@@ -192,6 +224,11 @@ export default function InteractiveDemoCard({
               </div>
             ))}
           </div>
+        )}
+        {pkg.domain === 'chemistry' && variables.length > 0 && (
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            化学反应包暂不响应参数调节，如需变体请点「换一个」描述需求
+          </Text>
         )}
 
         {formulaResults.length > 0 && (

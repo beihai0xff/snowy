@@ -569,6 +569,43 @@ a:hover { color: var(--color-primary-hover); text-decoration: underline; text-un
   border-bottom: 1px solid var(--color-divider);
 }
 
+.snowy-ask-bar--compact { padding: var(--space-3) 0; margin-bottom: var(--space-4); }
+.snowy-ask-bar__row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
+.snowy-ask-bar__spacer { flex: 1; }
+.snowy-ask-bar__form { width: 100%; }
+.snowy-search__input--ta { resize: none !important; padding: 8px 0 !important; line-height: 1.5 !important; min-height: 28px; background: transparent; }
+.snowy-search__submit--stop { background: var(--color-danger) !important; }
+
+/* 对话模式：固定整体布局，避免双滚动条 */
+.snowy-ask-page--chat { display: flex; flex-direction: column; height: calc(100vh - var(--header-height)); padding-top: 0 !important; padding-bottom: 0 !important; overflow: hidden; }
+.snowy-ask-page--chat .snowy-ask-bar { position: static; flex-shrink: 0; margin-bottom: 0; }
+.snowy-chat-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-2) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 响应式：窄屏改单列 */
+@media (max-width: 960px) {
+  .snowy-ask-layout { grid-template-columns: 1fr !important; }
+  .snowy-ask-aside { position: static !important; }
+}
+
+/* 焦点可见性（a11y） */
+.snowy-capability__card:focus-visible,
+.snowy-recent-card:focus-visible,
+.snowy-recommend-card:focus-visible,
+.snowy-citation-row:focus-visible,
+.snowy-related-item:focus-visible,
+.snowy-chip:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 .snowy-ask-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
