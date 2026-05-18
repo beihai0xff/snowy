@@ -1,0 +1,146 @@
+subject: physics
+pitfalls:
+  - id: phy.projectile.001
+    knowledge_tags: [projectile_motion, horizontal_uniform]
+    pitfall: 误以为平抛运动水平方向有加速度
+    correct: 水平方向只有惯性，加速度恒为 0；只有竖直方向受重力 g
+    common_mistake: "在 vx 方向写出 v_x = v_0 + at（错）"
+    correction_hint: "vx 恒等于 v₀；at 只对 v_y 适用"
+    severity: high
+    evidence_section: pep.physics.compulsory-2.ch5.4
+
+  - id: phy.projectile.002
+    knowledge_tags: [projectile_motion]
+    pitfall: 把"水平射程"算成"轨迹长度"
+    correct: 水平射程是水平位移 x = v₀t；轨迹长度是抛物线弧长（一般不要求）
+    common_mistake: "误用 √(x² + y²) 作为'落地总距离'"
+    correction_hint: 题目问"水平射程"时，只算 x = v₀t
+    severity: medium
+    evidence_section: pep.physics.compulsory-2.ch5.4
+
+  - id: phy.projectile.003
+    knowledge_tags: [projectile_motion, vertical_freefall]
+    pitfall: 落地速度方向忽略 v_x，只算 v_y
+    correct: 落地速度是 v_x 与 v_y 的矢量和；方向与水平方向夹角 tan θ = v_y / v_x
+    common_mistake: "认为落地速度大小 = gt"
+    correction_hint: "v = √(v_x² + v_y²)，且 v_x = v₀ 不变"
+    severity: high
+    evidence_section: pep.physics.compulsory-2.ch5.4
+
+  - id: phy.newton.001
+    knowledge_tags: [newton_second_law, force_acceleration_mass]
+    pitfall: F = ma 中的 F 是合外力，而不是某一个力
+    correct: 牛二定律中 F 必须是物体受到的合外力（矢量和），方向与加速度方向一致
+    common_mistake: 把单一推力直接代入 F
+    correction_hint: 先做受力分析画出所有力，求合力再代入 F = ma
+    severity: high
+    evidence_section: pep.physics.compulsory-1.ch4.3
+
+  - id: phy.newton.002
+    knowledge_tags: [newton_second_law, friction]
+    pitfall: 静摩擦力等于 μN（错）
+    correct: 静摩擦力大小 ∈ [0, μs N]，由"使物体不动所需的力"决定；只有最大静摩擦力 ≈ μs N
+    common_mistake: 题目没说"将要滑动"就直接用 μN
+    correction_hint: 判断是否达到滑动临界后再决定用 μs N 还是 μk N
+    severity: high
+    evidence_section: pep.physics.compulsory-1.ch3.2
+
+  - id: phy.kinematics.001
+    knowledge_tags: [uniform_accelerated_motion, displacement_time]
+    pitfall: "用 x = v t 处理变速运动"
+    correct: x = v t 只在匀速时成立；变速请用 x = v₀ t + ½ a t² 或 x = (v₀+v)t/2（平均速度法）
+    common_mistake: 把瞬时速度当成平均速度代入 x = v t
+    correction_hint: 匀变速可用平均速度 v̄ = (v₀+v)/2
+    severity: medium
+    evidence_section: pep.physics.compulsory-1.ch2.3
+
+  - id: phy.kinematics.002
+    knowledge_tags: [acceleration]
+    pitfall: 加速度方向跟着速度方向走
+    correct: 加速度方向 = 合外力方向；可与速度同向（加速）也可反向（减速）
+    common_mistake: 减速运动时把加速度写成正
+    correction_hint: 沿初速度方向选正方向后，减速时 a 为负
+    severity: medium
+    evidence_section: pep.physics.compulsory-1.ch1.4
+
+  - id: phy.spring.001
+    knowledge_tags: [hooke_law, spring_force, spring_oscillation, simple_harmonic]
+    pitfall: 胡克定律 F = kx 中的 x 是"形变量"而不是"弹簧长度"
+    correct: x 是从自然长度的伸长 / 压缩量；弹簧自然长度时 F = 0
+    common_mistake: 用"当前长度"直接代入
+    correction_hint: 先求自然长度，x = |L - L₀|
+    severity: medium
+    evidence_section: pep.physics.compulsory-1.ch3.1
+
+  - id: phy.circular.001
+    knowledge_tags: [circular_motion, centripetal_force]
+    pitfall: 向心力是"额外加的一个力"
+    correct: 向心力是合外力沿半径指向圆心的分量，不是新力
+    common_mistake: 在受力分析中加一个"向心力"
+    correction_hint: 先做常规受力分析，再求合外力沿半径方向的分量
+    severity: high
+    evidence_section: pep.physics.compulsory-2.ch6.2
+
+  - id: phy.orbit.001
+    knowledge_tags: [orbital_motion, gravitation, satellite]
+    pitfall: 卫星轨道越高速度越大
+    correct: 由 v = √(GM/r) 可知，r 越大 v 越小；轨道越高，绕行越慢
+    common_mistake: 直觉认为"高轨道能量大 → 速度大"
+    correction_hint: 高轨道动能小但势能大；总能 = -GMm/(2r)，r 大时能量大但 v 小
+    severity: high
+    evidence_section: pep.physics.compulsory-2.ch7.3
+
+  - id: phy.energy.001
+    knowledge_tags: [work, kinetic_energy, work_energy_theorem]
+    pitfall: 摩擦力做的功用 f·s 算位移
+    correct: 摩擦生热 = f × Δs（相对位移）；摩擦做功用 -f × s（物体对地面位移）
+    common_mistake: 把"摩擦生热"等同"摩擦做功"
+    correction_hint: 摩擦生热 ≥ |摩擦做的功|（仅在地面不动时取等）
+    severity: medium
+    evidence_section: pep.physics.compulsory-2.ch8.3
+
+  - id: phy.energy.002
+    knowledge_tags: [mechanical_energy_conservation]
+    pitfall: 有摩擦时还用机械能守恒
+    correct: 机械能守恒要求"只有重力 / 弹力做功"（无摩擦、无其他外力做功）
+    common_mistake: 斜面有摩擦时仍写 mgh = ½mv²
+    correction_hint: 有摩擦改用能量守恒 mgh = ½mv² + f·s
+    severity: high
+    evidence_section: pep.physics.compulsory-2.ch8.4
+
+  - id: phy.collision.001
+    knowledge_tags: [momentum_conservation]
+    pitfall: 系统内有摩擦时不能用动量守恒
+    correct: 只要系统所受合外力为 0（或外力远小于内力），动量守恒就成立；内部摩擦属于内力
+    common_mistake: 因有摩擦放弃动量守恒
+    correction_hint: 看是否有"水平方向外力" / 碰撞时间极短可忽略外力冲量
+    severity: medium
+    evidence_section: pep.physics.compulsory-2.ch8.4
+
+  - id: phy.collision.002
+    knowledge_tags: [momentum_conservation, kinetic_energy]
+    pitfall: 完全弹性碰撞动量守恒不成立
+    correct: 任何碰撞动量都守恒；弹性碰撞动能也守恒，非弹性碰撞动能减少
+    common_mistake: 把"动能守恒"当作动量守恒的前提
+    correction_hint: 动量守恒：合外力冲量为 0 即可
+    severity: medium
+    evidence_section: pep.physics.compulsory-2.ch8
+
+  - id: phy.vector.001
+    knowledge_tags: [vector_addition, force_decomposition]
+    pitfall: 矢量相加直接代数加
+    correct: 矢量加要按平行四边形 / 三角形法则，考虑方向
+    common_mistake: 5 N + 3 N = 8 N（实际范围 2~8 N）
+    correction_hint: 同方向才取代数和；夹角 θ 时 F² = F₁² + F₂² + 2F₁F₂cosθ
+    severity: high
+    evidence_section: pep.physics.compulsory-1.ch3.4
+
+  - id: phy.relative.001
+    knowledge_tags: [reference_frame, motion_decomposition]
+    pitfall: 小船渡河"过河时间"与水流有关
+    correct: 过河时间 = 河宽 / 船相对水的速度的垂直分量；与水流速度无关
+    common_mistake: 用合速度的方向分时间
+    correction_hint: 时间问题分量化处理：垂直河岸方向看垂直分速度
+    severity: medium
+    evidence_section: pep.physics.compulsory-2.ch5.2
+

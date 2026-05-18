@@ -31,15 +31,18 @@ import {
 import { api, type EvidenceRef, type GenerativeModelPackage, type VariableSpec } from '@/lib/api';
 import GenerativePhysics3DCanvas from '@/components/generative/GenerativePhysics3DCanvas';
 import GenerativeBiologyGraph from '@/components/generative/GenerativeBiologyGraph';
+import GenerativeChemistryCanvas from '@/components/chemistry/GenerativeChemistryCanvas';
 import SkeletonPreview from '@/components/common/SkeletonPreview';
 import InteractionPlanPanel from '@/components/generative/InteractionPlanPanel';
 import ValidationReportPanel from '@/components/generative/ValidationReportPanel';
 import ReactionBar from '@/components/common/ReactionBar';
+import CurriculumBadge from '@/components/learning/CurriculumBadge';
+import { normalizedSubject, type SubjectKey } from '@/lib/curriculum';
 
 const { Title, Paragraph, Text } = Typography;
 const { TextArea } = Input;
 
-type ModelingSubject = 'physics' | 'biology';
+type ModelingSubject = SubjectKey;
 type Stage = 'idle' | 'grounding' | 'reasoning' | 'validating' | 'rendering' | 'done' | 'error';
 
 const stageText: Record<Stage, string> = {
@@ -65,10 +68,27 @@ const subjectExamples: Record<ModelingSubject, string[]> = {
     '遗传分离定律如何推导子代表现型比例？',
     '酶活性受温度影响的实验变量如何设计？',
   ],
+  chemistry: [
+    '2NaOH + H2SO4 如何配平并理解中和反应？',
+    '电解水时为什么氢气和氧气体积比是 2:1？',
+    '铁与硫酸铜反应中电子如何转移？',
+  ],
 };
 
 function normalizeSubject(value: string | null): ModelingSubject {
-  return value === 'biology' ? 'biology' : 'physics';
+  return normalizedSubject(value);
+}
+
+function subjectPlaceholder(subject: ModelingSubject): string {
+  if (subject === 'biology') return '输入生物问题，例如：光合作用平台期怎么形成？';
+  if (subject === 'chemistry') return '输入化学反应，例如：2NaOH + H2SO4 如何配平？';
+  return '输入物理题目，例如：平抛运动怎样命中目标区？';
+}
+
+function subjectCanvasTitle(subject: ModelingSubject): string {
+  if (subject === 'biology') return '生物图谱画布';
+  if (subject === 'chemistry') return '化学反应画布';
+  return '物理推演画布';
 }
 
 function initialValues(pkg: GenerativeModelPackage | null): Record<string, number> {
@@ -217,7 +237,7 @@ function ModelingPageInner() {
           setPkg(data);
           setValues(initialValues(data));
           if (data?.question) setQuestion(data.question);
-          if (data?.domain === 'biology' || data?.domain === 'physics') setSubject(data.domain);
+          if (data?.domain === 'biology' || data?.domain === 'physics' || data?.domain === 'chemistry') setSubject(data.domain);
           setStage(data ? 'done' : 'idle');
         })
         .catch((error) => {
@@ -290,11 +310,12 @@ function ModelingPageInner() {
           options={[
             { label: <Space size={4}><ExperimentOutlined />物理</Space>, value: 'physics' },
             { label: <Space size={4}><BranchesOutlined />生物</Space>,   value: 'biology' },
+            { label: <Space size={4}><ExperimentOutlined />化学</Space>, value: 'chemistry' },
           ]}
         />
         <Input
           size="large"
-          placeholder={subject === 'physics' ? '输入物理题目，例如：平抛运动怎样命中目标区？' : '输入生物问题，例如：光合作用平台期怎么形成？'}
+          placeholder={subjectPlaceholder(subject)}
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
           onPressEnter={() => void handleCompile()}
@@ -387,7 +408,10 @@ function ModelingPageInner() {
                 )}
               </div>
               <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-                {evidenceOpen ? '点击收起' : '点击展开查看完整证据列表'}
+                <Space size={8} wrap>
+                  <span>{evidenceOpen ? '点击收起' : '点击展开查看完整证据列表'}</span>
+                  <CurriculumBadge subject={normalizedSubject(pkg.domain)} tags={evidenceTags} compact />
+                </Space>
               </div>
             </div>
             <RightOutlined className="snowy-evidence-bar__caret" />
@@ -431,7 +455,7 @@ function ModelingPageInner() {
                 {pkg ? (pkg.learning_model.topic || '当前模型') : '模型画布'}
               </div>
               <div style={{ fontSize: 16, fontWeight: 600 }}>
-                {pkg?.learning_model.learning_goal || (subject === 'physics' ? '物理推演画布' : '生物图谱画布')}
+                {pkg?.learning_model.learning_goal || subjectCanvasTitle(subject)}
               </div>
             </div>
             <Space wrap size={6}>
@@ -469,8 +493,9 @@ function ModelingPageInner() {
             />
           )}
 
-          {pkg && pkg.domain === 'biology'  && <GenerativeBiologyGraph spec={pkg.visualization_graph} values={values} />}
-          {pkg && pkg.domain !== 'biology'  && <GenerativePhysics3DCanvas spec={pkg.simulation_logic} values={values} />}
+          {pkg && pkg.domain === 'biology' && <GenerativeBiologyGraph spec={pkg.visualization_graph} values={values} />}
+          {pkg && pkg.domain === 'chemistry' && <GenerativeChemistryCanvas pkg={pkg} values={values} />}
+          {pkg && pkg.domain !== 'biology' && pkg.domain !== 'chemistry' && <GenerativePhysics3DCanvas spec={pkg.simulation_logic} values={values} />}
         </div>
 
         {/* 右：AI 教练 */}
@@ -509,7 +534,7 @@ function ModelingPageInner() {
                 </section>
               )}
 
-              <InteractionPlanPanel pkg={pkg} values={values} subject={subject} onChange={(name, value) => setValues((prev) => ({ ...prev, [name]: value }))} onRegenerate={() => void handleCompile()} />
+              <InteractionPlanPanel pkg={pkg} values={values} subject={normalizedSubject(pkg.domain)} onChange={(name, value) => setValues((prev) => ({ ...prev, [name]: value }))} onRegenerate={() => void handleCompile()} />
 
               <Collapse
                 ghost

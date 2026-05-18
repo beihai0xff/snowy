@@ -1,0 +1,52 @@
+version: pep-2019
+subject: biology
+book: compulsory-1
+book_title: 普通高中教科书·生物学·必修第一册·分子与细胞
+chapters:
+  - id: ch4
+    title: 细胞的物质输入和输出
+    sections:
+      - id: ch4.1
+        title: 物质跨膜运输的实例
+        knowledge_tags: [membrane_transport, osmosis, diffusion]
+        difficulty: medium
+      - id: ch4.2
+        title: 生物膜的流动镶嵌模型
+        knowledge_tags: [phospholipid_bilayer, membrane_protein, membrane_fluidity]
+        difficulty: medium
+      - id: ch4.3
+        title: 物质跨膜运输的方式
+        knowledge_tags: [passive_transport, active_transport, facilitated_diffusion]
+        difficulty: hard
+
+  - id: ch5
+    title: 细胞的能量供应和利用
+    sections:
+      - id: ch5.1
+        title: 降低反应活化能的酶
+        knowledge_tags: [enzyme, catalysis, activation_energy]
+        learning_goals:
+          - 理解酶的高效性、专一性、温和性
+          - 理解温度 / pH 对酶活性的影响曲线（钟形）
+        difficulty: medium
+      - id: ch5.2
+        title: 细胞的能量"通货"——ATP
+        knowledge_tags: [atp, energy_currency]
+        difficulty: easy
+      - id: ch5.3
+        title: 细胞呼吸
+        knowledge_tags: [respiration, cellular_respiration, aerobic_respiration, anaerobic_respiration, mitochondria]
+        learning_goals:
+          - 区分有氧呼吸三阶段与场所
+          - 区分有氧呼吸与无氧呼吸的产物 / 能量
+        core_formulas: ["C_6H_{12}O_6 + 6O_2 \\to 6CO_2 + 6H_2O + \\text{能量}"]
+        difficulty: hard
+      - id: ch5.4
+        title: 光合作用与能量转化
+        knowledge_tags: [photosynthesis, light_reaction, dark_reaction, calvin_cycle, chloroplast]
+        learning_goals:
+          - 理解光反应（类囊体）与暗反应（基质）的物质 / 能量变化
+          - 理解光照强度、CO₂、温度对光合速率的影响曲线
+        core_formulas: ["6CO_2 + 12H_2O \\xrightarrow{\\text{光}} C_6H_{12}O_6 + 6O_2 + 6H_2O"]
+        difficulty: hard
+

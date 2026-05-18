@@ -16,9 +16,10 @@ import { numberValue, type SimState } from '../lib/types';
 
 interface Props {
   simRef: React.MutableRefObject<SimState | null>;
+  quality?: 'eco' | 'standard' | 'high';
 }
 
-export default function ForceScene({ simRef }: Props) {
+export default function ForceScene({ simRef, quality = 'standard' }: Props) {
   const boxRef = useRef<THREE.Mesh | null>(null);
 
   useFrame(() => {
@@ -34,11 +35,11 @@ export default function ForceScene({ simRef }: Props) {
 
   return (
     <>
-      <R3FStage kind="force" />
-      <R3FTrail simRef={simRef} source="main" color="#22d3ee" />
+      <R3FStage kind="force" quality={quality} />
+      <R3FTrail simRef={simRef} source="main" color="#22d3ee" tailColor="#070b18" maxPoints={240} />
       <mesh ref={boxRef} castShadow>
         <boxGeometry args={[1.2, 1.2, 1.2]} />
-        <meshStandardMaterial color="#67e8f9" emissive="#0e7490" emissiveIntensity={0.5} roughness={0.35} metalness={0.55} />
+        <meshStandardMaterial color="#67e8f9" emissive="#0e7490" emissiveIntensity={0.55} roughness={0.3} metalness={0.6} toneMapped={false} />
       </mesh>
       <FrameVector
         simRef={simRef}

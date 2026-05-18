@@ -14,6 +14,7 @@ import { numberValue, type SimState } from '../lib/types';
 
 interface Props {
   simRef: React.MutableRefObject<SimState | null>;
+  quality?: 'eco' | 'standard' | 'high';
 }
 
 class HelixCurve extends THREE.Curve<THREE.Vector3> {
@@ -29,7 +30,7 @@ class HelixCurve extends THREE.Curve<THREE.Vector3> {
   }
 }
 
-export default function SpringScene({ simRef }: Props) {
+export default function SpringScene({ simRef, quality = 'standard' }: Props) {
   const massRef = useRef<THREE.Mesh | null>(null);
   const springRef = useRef<THREE.Mesh | null>(null);
   const wallRef = useRef<THREE.Mesh | null>(null);
@@ -70,17 +71,27 @@ export default function SpringScene({ simRef }: Props) {
 
   return (
     <>
-      <R3FStage kind="spring" />
-      <mesh ref={wallRef} geometry={wallGeo} castShadow>
-        <meshStandardMaterial color="#1e293b" metalness={0.7} roughness={0.4} />
+      <R3FStage kind="spring" quality={quality} />
+      {/* 墙面（红砖金属感） */}
+      <mesh ref={wallRef} geometry={wallGeo} castShadow receiveShadow>
+        <meshStandardMaterial color="#1f2937" metalness={0.78} roughness={0.35} emissive="#0ea5e9" emissiveIntensity={0.08} />
       </mesh>
+      {/* 弹簧 */}
       <mesh ref={springRef} castShadow>
-        <tubeGeometry args={[new HelixCurve(2, 8, 0.18), 96, 0.045, 8, false]} />
-        <meshStandardMaterial color="#22d3ee" emissive="#0e7490" emissiveIntensity={0.4} metalness={0.65} roughness={0.3} />
+        <tubeGeometry args={[new HelixCurve(2, 8, 0.18), 96, 0.05, 10, false]} />
+        <meshStandardMaterial color="#67e8f9" emissive="#0e7490" emissiveIntensity={0.55} metalness={0.75} roughness={0.22} toneMapped={false} />
       </mesh>
+      {/* 质点 */}
       <mesh ref={massRef} castShadow>
-        <sphereGeometry args={[0.32, 36, 36]} />
-        <meshStandardMaterial color="#67e8f9" emissive="#22d3ee" emissiveIntensity={0.7} roughness={0.25} metalness={0.55} />
+        <sphereGeometry args={[0.34, 48, 48]} />
+        <meshStandardMaterial
+          color="#cffafe"
+          emissive="#22d3ee"
+          emissiveIntensity={0.85}
+          roughness={0.18}
+          metalness={0.6}
+          toneMapped={false}
+        />
       </mesh>
     </>
   );

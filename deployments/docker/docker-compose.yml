@@ -9,7 +9,7 @@ services:
   # MySQL — 主数据库
   # ──────────────────────────────────────────────
   mysql:
-    image: mysql:8.0
+    image: ${MYSQL_IMAGE:-docker.m.daocloud.io/library/mysql:8.0}
     container_name: snowy-mysql
     restart: unless-stopped
     environment:
@@ -36,7 +36,7 @@ services:
   # Redis — 缓存 / 会话上下文 / 限流计数 / Asynq 队列
   # ──────────────────────────────────────────────
   redis:
-    image: redis:7-alpine
+    image: ${REDIS_IMAGE:-docker.m.daocloud.io/library/redis:7-alpine}
     container_name: snowy-redis
     restart: unless-stopped
     command: >
@@ -97,11 +97,14 @@ services:
       args:
         TARGET: snowy
         GOPROXY: ${GOPROXY:-https://goproxy.cn,direct}
+        GO_BUILDER_IMAGE: ${GO_BUILDER_IMAGE:-docker.m.daocloud.io/library/golang:1.25-alpine}
+        ALPINE_RUNTIME_IMAGE: ${ALPINE_RUNTIME_IMAGE:-docker.m.daocloud.io/library/alpine:3.21}
     image: snowy:latest
     container_name: snowy
     restart: unless-stopped
     environment:
       - SNOWY_SERVER_RUN_MODE
+      - SNOWY_SERVER_STARTUP_MIGRATE=false
     extra_hosts:
       - "snowy-host.internal:host-gateway"
     ports:
@@ -128,13 +131,16 @@ services:
     build:
       context: ../..
       dockerfile: deployments/docker/Dockerfile.web
+      args:
+        NODE_BUILDER_IMAGE: ${NODE_BUILDER_IMAGE:-docker.m.daocloud.io/library/node:22-alpine}
+        NGINX_RUNTIME_IMAGE: ${NGINX_RUNTIME_IMAGE:-docker.m.daocloud.io/library/nginx:1.27-alpine}
     image: snowy-web:latest
     container_name: snowy-web
     restart: unless-stopped
     ports:
-      - "3001:80"
+      - "3001:3001"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

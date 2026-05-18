@@ -1,0 +1,93 @@
+version: pep-2019
+subject: physics
+book: compulsory-2
+book_title: 普通高中教科书·物理·必修第二册
+chapters:
+  - id: ch5
+    title: 抛体运动
+    sections:
+      - id: ch5.1
+        title: 曲线运动
+        knowledge_tags: [curved_motion, velocity_direction]
+        learning_goals:
+          - 知道曲线运动的速度方向沿轨迹的切线方向
+          - 知道曲线运动是变速运动
+        difficulty: medium
+      - id: ch5.2
+        title: 运动的合成与分解
+        knowledge_tags: [motion_decomposition, vector_addition]
+        learning_goals:
+          - 理解小船渡河、绳模型分速度的处理方法
+        difficulty: medium
+      - id: ch5.4
+        title: 抛体运动的规律
+        knowledge_tags: [projectile_motion, horizontal_uniform, vertical_freefall]
+        learning_goals:
+          - 理解平抛运动可分解为水平匀速 + 竖直自由落体
+          - 推导并应用 x = v₀t、y = ½gt²
+          - 计算落地速度大小与方向
+        core_formulas:
+          - "x = v_0 t"
+          - "y = \\tfrac{1}{2} g t^2"
+          - "v_y = g t"
+          - "v = \\sqrt{v_x^2 + v_y^2}"
+        difficulty: hard
+
+  - id: ch6
+    title: 圆周运动
+    sections:
+      - id: ch6.1
+        title: 圆周运动
+        knowledge_tags: [circular_motion, angular_velocity, linear_velocity]
+        core_formulas: ["v = \\omega r", "T = \\dfrac{2\\pi}{\\omega}"]
+        difficulty: medium
+      - id: ch6.2
+        title: 向心力
+        knowledge_tags: [centripetal_force, centripetal_acceleration]
+        core_formulas: ["F = \\dfrac{m v^2}{r} = m \\omega^2 r"]
+        difficulty: hard
+
+  - id: ch7
+    title: 万有引力与宇宙航行
+    sections:
+      - id: ch7.2
+        title: 万有引力定律
+        knowledge_tags: [gravitation, kepler_law, orbital_motion]
+        core_formulas: ["F = G \\dfrac{m_1 m_2}{r^2}"]
+        difficulty: medium
+      - id: ch7.3
+        title: 万有引力理论的成就
+        knowledge_tags: [orbital_motion, satellite, kepler_law]
+        learning_goals:
+          - 由 GMm/r² = mv²/r 推出第一宇宙速度
+        core_formulas:
+          - "v = \\sqrt{\\dfrac{GM}{r}}"
+          - "T = 2\\pi \\sqrt{\\dfrac{r^3}{GM}}"
+        difficulty: hard
+
+  - id: ch8
+    title: 机械能守恒定律
+    sections:
+      - id: ch8.1
+        title: 功与功率
+        knowledge_tags: [work, power]
+        core_formulas: ["W = F s \\cos\\theta", "P = \\dfrac{W}{t} = F v"]
+        difficulty: medium
+      - id: ch8.2
+        title: 重力势能
+        knowledge_tags: [gravitational_pe]
+        core_formulas: ["E_p = m g h"]
+        difficulty: easy
+      - id: ch8.3
+        title: 动能和动能定理
+        knowledge_tags: [kinetic_energy, work_energy_theorem]
+        core_formulas: ["E_k = \\tfrac{1}{2} m v^2", "W_{\\text{合}} = \\Delta E_k"]
+        difficulty: hard
+      - id: ch8.4
+        title: 机械能守恒定律
+        knowledge_tags: [mechanical_energy_conservation, spring_oscillation, simple_harmonic]
+        learning_goals:
+          - 应用机械能守恒处理单摆、弹簧、斜面问题
+        core_formulas: ["E_k + E_p = \\text{const}"]
+        difficulty: hard
+

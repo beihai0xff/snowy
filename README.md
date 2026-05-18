@@ -229,7 +229,7 @@ SNOWY_REDIS_DB=0
 
 欢迎提交 Issue 和 Pull Request。请确保：
 
-1. 代码通过 `make ci`（fmt → vet → lint → test → build）
+1. 代码通过 `make ci`（lint → vet → test → build）
 2. 接口变更同步更新 `api/openapi/` 契约
 3. 文档更新与代码变更在同一 PR 中提交
 

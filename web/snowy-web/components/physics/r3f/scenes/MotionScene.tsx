@@ -16,9 +16,10 @@ import type { SimState } from '../lib/types';
 
 interface Props {
   simRef: React.MutableRefObject<SimState | null>;
+  quality?: 'eco' | 'standard' | 'high';
 }
 
-export default function MotionScene({ simRef }: Props) {
+export default function MotionScene({ simRef, quality = 'standard' }: Props) {
   const meshRef = useRef<THREE.Mesh | null>(null);
 
   useFrame(() => {
@@ -32,11 +33,17 @@ export default function MotionScene({ simRef }: Props) {
 
   return (
     <>
-      <R3FStage kind="motion" />
-      <R3FTrail simRef={simRef} source="main" color="#22d3ee" />
+      <R3FStage kind="motion" quality={quality} />
+      <R3FTrail simRef={simRef} source="main" color="#67e8f9" tailColor="#0b1226" />
       <mesh ref={meshRef} castShadow>
-        <sphereGeometry args={[0.28, 32, 32]} />
-        <meshStandardMaterial color="#67e8f9" emissive="#22d3ee" emissiveIntensity={0.6} roughness={0.3} metalness={0.5} />
+        <sphereGeometry args={[0.3, 36, 36]} />
+        <meshStandardMaterial
+          color="#a5f3fc"
+          emissive="#22d3ee"
+          emissiveIntensity={0.75}
+          roughness={0.18}
+          metalness={0.65}
+        />
       </mesh>
       <FrameVector simRef={simRef} bodyKey="main" color="#facc15" scale={0.2} />
     </>

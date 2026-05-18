@@ -1,0 +1,1677 @@
+{
+  "version": "pep-2019",
+  "subject": "physics",
+  "books": [
+    {
+      "version": "pep-2019",
+      "subject": "physics",
+      "book": "compulsory-1",
+      "book_title": "普通高中教科书·物理·必修第一册",
+      "chapters": [
+        {
+          "id": "ch1",
+          "title": "运动的描述",
+          "sections": [
+            {
+              "id": "ch1.1",
+              "title": "质点 参考系",
+              "knowledge_tags": [
+                "particle_model",
+                "reference_frame",
+                "1d_kinematics_simulation"
+              ],
+              "learning_goals": [
+                "知道质点是理想化模型",
+                "知道运动的相对性，能选择合适的参考系"
+              ],
+              "difficulty": "easy"
+            },
+            {
+              "id": "ch1.2",
+              "title": "时间 位移",
+              "knowledge_tags": [
+                "displacement_vs_distance",
+                "time_interval"
+              ],
+              "learning_goals": [
+                "区分位移与路程",
+                "知道矢量与标量"
+              ],
+              "core_formulas": [
+                "\\\\vec{s} = \\\\vec{r_2} - \\\\vec{r_1}"
+              ],
+              "difficulty": "easy"
+            },
+            {
+              "id": "ch1.3",
+              "title": "位置变化快慢的描述——速度",
+              "knowledge_tags": [
+                "velocity",
+                "average_velocity",
+                "instantaneous_velocity",
+                "1d_kinematics_simulation",
+                "uniform_motion"
+              ],
+              "learning_goals": [
+                "理解速度的概念，区分平均速度与瞬时速度",
+                "会用 v = Δx/Δt 计算"
+              ],
+              "core_formulas": [
+                "v = \\\\dfrac{\\\\Delta x}{\\\\Delta t}"
+              ],
+              "difficulty": "medium"
+            },
+            {
+              "id": "ch1.4",
+              "title": "速度变化快慢的描述——加速度",
+              "knowledge_tags": [
+                "acceleration",
+                "kinematics"
+              ],
+              "learning_goals": [
+                "理解加速度的方向与速度方向的关系"
+              ],
+              "core_formulas": [
+                "a = \\\\dfrac{\\\\Delta v}{\\\\Delta t}"
+              ],
+              "difficulty": "medium"
+            }
+          ]
+        },
+        {
+          "id": "ch2",
+          "title": "匀变速直线运动的研究",
+          "sections": [
+            {
+              "id": "ch2.2",
+              "title": "匀变速直线运动的速度与时间的关系",
+              "knowledge_tags": [
+                "uniform_accelerated_motion",
+                "kinematics"
+              ],
+              "learning_goals": [
+                "推导并应用 v = v₀ + at"
+              ],
+              "core_formulas": [
+                "v = v_0 + at"
+              ],
+              "difficulty": "medium"
+            },
+            {
+              "id": "ch2.3",
+              "title": "位移与时间的关系",
+              "knowledge_tags": [
+                "uniform_accelerated_motion",
+                "displacement_time",
+                "kinematics"
+              ],
+              "learning_goals": [
+                "推导并应用 x = v₀t + ½at²",
+                "理解 v-t 图像与位移的关系"
+              ],
+              "core_formulas": [
+                "x = v_0 t + \\\\tfrac{1}{2} a t^2",
+                "v^2 = v_0^2 + 2 a x"
+              ],
+              "difficulty": "medium"
+            },
+            {
+              "id": "ch2.4",
+              "title": "自由落体运动",
+              "knowledge_tags": [
+                "free_fall",
+                "gravity",
+                "vertical_freefall"
+              ],
+              "learning_goals": [
+                "认识自由落体是初速度为 0 的匀加速运动"
+              ],
+              "core_formulas": [
+                "h = \\\\tfrac{1}{2} g t^2",
+                "v = g t"
+              ],
+              "difficulty": "medium"
+            }
+          ]
+        },
+        {
+          "id": "ch3",
+          "title": "相互作用——力",
+          "sections": [
+            {
+              "id": "ch3.1",
+              "title": "重力与弹力",
+              "knowledge_tags": [
+                "gravity_force",
+                "spring_force",
+                "hooke_law"
+              ],
+              "learning_goals": [
+                "理解胡克定律"
+              ],
+              "core_formulas": [
+                "F = k x"
+              ],
+              "difficulty": "easy"
+            },
+            {
+              "id": "ch3.2",
+              "title": "摩擦力",
+              "knowledge_tags": [
+                "friction",
+                "static_friction",
+                "kinetic_friction"
+              ],
+              "difficulty": "medium"
+            },
+            {
+              "id": "ch3.4",
+              "title": "力的合成与分解",
+              "knowledge_tags": [
+                "force_decomposition",
+                "parallelogram_law",
+                "vector_addition"
+              ],
+              "difficulty": "medium"
+            }
+          ]
+        },
+        {
+          "id": "ch4",
+          "title": "运动和力的关系",
+          "sections": [
+            {
+              "id": "ch4.2",
+              "title": "实验：探究加速度与力、质量的关系",
+              "knowledge_tags": [
+                "newton_second_law_experiment"
+              ],
+              "difficulty": "medium"
+            },
+            {
+              "id": "ch4.3",
+              "title": "牛顿第二定律",
+              "knowledge_tags": [
+                "newton_second_law",
+                "force_acceleration_mass"
+              ],
+              "learning_goals": [
+                "理解 F = ma 中三个量的方向关系",
+                "能用 F = ma 解决斜面、连接体等问题"
+              ],
+              "core_formulas": [
+                "F = m a"
+              ],
+              "difficulty": "hard"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "version": "pep-2019",
+      "subject": "physics",
+      "book": "compulsory-2",
+      "book_title": "普通高中教科书·物理·必修第二册",
+      "chapters": [
+        {
+          "id": "ch5",
+          "title": "抛体运动",
+          "sections": [
+            {
+              "id": "ch5.1",
+              "title": "曲线运动",
+              "knowledge_tags": [
+                "curved_motion",
+                "velocity_direction"
+              ],
+              "learning_goals": [
+                "知道曲线运动的速度方向沿轨迹的切线方向",
+                "知道曲线运动是变速运动"
+              ],
+              "difficulty": "medium"
+            },
+            {
+              "id": "ch5.2",
+              "title": "运动的合成与分解",
+              "knowledge_tags": [
+                "motion_decomposition",
+                "vector_addition"
+              ],
+              "learning_goals": [
+                "理解小船渡河、绳模型分速度的处理方法"
+              ],
+              "difficulty": "medium"
+            },
+            {
+              "id": "ch5.4",
+              "title": "抛体运动的规律",
+              "knowledge_tags": [
+                "projectile_motion",
+                "horizontal_uniform",
+                "vertical_freefall"
+              ],
+              "learning_goals": [
+                "理解平抛运动可分解为水平匀速 + 竖直自由落体",
+                "推导并应用 x = v₀t、y = ½gt²",
+                "计算落地速度大小与方向"
+              ],
+              "core_formulas": [
+                "x = v_0 t",
+                "y = \\\\tfrac{1}{2} g t^2",
+                "v_y = g t",
+                "v = \\\\sqrt{v_x^2 + v_y^2}"
+              ],
+              "difficulty": "hard"
+            }
+          ]
+        },
+        {
+          "id": "ch6",
+          "title": "圆周运动",
+          "sections": [
+            {
+              "id": "ch6.1",
+              "title": "圆周运动",
+              "knowledge_tags": [
+                "circular_motion",
+                "angular_velocity",
+                "linear_velocity"
+              ],
+              "core_formulas": [
+                "v = \\\\omega r",
+                "T = \\\\dfrac{2\\\\pi}{\\\\omega}"
+              ],
+              "difficulty": "medium"
+            },
+            {
+              "id": "ch6.2",
+              "title": "向心力",
+              "knowledge_tags": [
+                "centripetal_force",
+                "centripetal_acceleration"
+              ],
+              "core_formulas": [
+                "F = \\\\dfrac{m v^2}{r} = m \\\\omega^2 r"
+              ],
+              "difficulty": "hard"
+            }
+          ]
+        },
+        {
+          "id": "ch7",
+          "title": "万有引力与宇宙航行",
+          "sections": [
+            {
+              "id": "ch7.2",
+              "title": "万有引力定律",
+              "knowledge_tags": [
+                "gravitation",
+                "kepler_law",
+                "orbital_motion"
+              ],
+              "core_formulas": [
+                "F = G \\\\dfrac{m_1 m_2}{r^2}"
+              ],
+              "difficulty": "medium"
+            },
+            {
+              "id": "ch7.3",
+              "title": "万有引力理论的成就",
+              "knowledge_tags": [
+                "orbital_motion",
+                "satellite",
+                "kepler_law"
+              ],
+              "learning_goals": [
+                "由 GMm/r² = mv²/r 推出第一宇宙速度"
+              ],
+              "core_formulas": [
+                "v = \\\\sqrt{\\\\dfrac{GM}{r}}",
+                "T = 2\\\\pi \\\\sqrt{\\\\dfrac{r^3}{GM}}"
+              ],
+              "difficulty": "hard"
+            }
+          ]
+        },
+        {
+          "id": "ch8",
+          "title": "机械能守恒定律",
+          "sections": [
+            {
+              "id": "ch8.1",
+              "title": "功与功率",
+              "knowledge_tags": [
+                "work",
+                "power"
+              ],
+              "core_formulas": [
+                "W = F s \\\\cos\\\\theta",
+                "P = \\\\dfrac{W}{t} = F v"
+              ],
+              "difficulty": "medium"
+            },
+            {
+              "id": "ch8.2",
+              "title": "重力势能",
+              "knowledge_tags": [
+                "gravitational_pe"
+              ],
+              "core_formulas": [
+                "E_p = m g h"
+              ],
+              "difficulty": "easy"
+            },
+            {
+              "id": "ch8.3",
+              "title": "动能和动能定理",
+              "knowledge_tags": [
+                "kinetic_energy",
+                "work_energy_theorem"
+              ],
+              "core_formulas": [
+                "E_k = \\\\tfrac{1}{2} m v^2",
+                "W_{\\\\text{合}} = \\\\Delta E_k"
+              ],
+              "difficulty": "hard"
+            },
+            {
+              "id": "ch8.4",
+              "title": "机械能守恒定律",
+              "knowledge_tags": [
+                "mechanical_energy_conservation",
+                "spring_oscillation",
+                "simple_harmonic"
+              ],
+              "learning_goals": [
+                "应用机械能守恒处理单摆、弹簧、斜面问题"
+              ],
+              "core_formulas": [
+                "E_k + E_p = \\\\text{const}"
+              ],
+              "difficulty": "hard"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "tag_index": {
+    "particle_model": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch1",
+        "chapter_title": "运动的描述",
+        "section_id": "ch1.1",
+        "section_title": "质点 参考系",
+        "learning_goals": [
+          "知道质点是理想化模型",
+          "知道运动的相对性，能选择合适的参考系"
+        ],
+        "core_formulas": [],
+        "difficulty": "easy"
+      }
+    ],
+    "reference_frame": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch1",
+        "chapter_title": "运动的描述",
+        "section_id": "ch1.1",
+        "section_title": "质点 参考系",
+        "learning_goals": [
+          "知道质点是理想化模型",
+          "知道运动的相对性，能选择合适的参考系"
+        ],
+        "core_formulas": [],
+        "difficulty": "easy"
+      }
+    ],
+    "1d_kinematics_simulation": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch1",
+        "chapter_title": "运动的描述",
+        "section_id": "ch1.1",
+        "section_title": "质点 参考系",
+        "learning_goals": [
+          "知道质点是理想化模型",
+          "知道运动的相对性，能选择合适的参考系"
+        ],
+        "core_formulas": [],
+        "difficulty": "easy"
+      },
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch1",
+        "chapter_title": "运动的描述",
+        "section_id": "ch1.3",
+        "section_title": "位置变化快慢的描述——速度",
+        "learning_goals": [
+          "理解速度的概念，区分平均速度与瞬时速度",
+          "会用 v = Δx/Δt 计算"
+        ],
+        "core_formulas": [
+          "v = \\\\dfrac{\\\\Delta x}{\\\\Delta t}"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "displacement_vs_distance": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch1",
+        "chapter_title": "运动的描述",
+        "section_id": "ch1.2",
+        "section_title": "时间 位移",
+        "learning_goals": [
+          "区分位移与路程",
+          "知道矢量与标量"
+        ],
+        "core_formulas": [
+          "\\\\vec{s} = \\\\vec{r_2} - \\\\vec{r_1}"
+        ],
+        "difficulty": "easy"
+      }
+    ],
+    "time_interval": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch1",
+        "chapter_title": "运动的描述",
+        "section_id": "ch1.2",
+        "section_title": "时间 位移",
+        "learning_goals": [
+          "区分位移与路程",
+          "知道矢量与标量"
+        ],
+        "core_formulas": [
+          "\\\\vec{s} = \\\\vec{r_2} - \\\\vec{r_1}"
+        ],
+        "difficulty": "easy"
+      }
+    ],
+    "velocity": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch1",
+        "chapter_title": "运动的描述",
+        "section_id": "ch1.3",
+        "section_title": "位置变化快慢的描述——速度",
+        "learning_goals": [
+          "理解速度的概念，区分平均速度与瞬时速度",
+          "会用 v = Δx/Δt 计算"
+        ],
+        "core_formulas": [
+          "v = \\\\dfrac{\\\\Delta x}{\\\\Delta t}"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "average_velocity": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch1",
+        "chapter_title": "运动的描述",
+        "section_id": "ch1.3",
+        "section_title": "位置变化快慢的描述——速度",
+        "learning_goals": [
+          "理解速度的概念，区分平均速度与瞬时速度",
+          "会用 v = Δx/Δt 计算"
+        ],
+        "core_formulas": [
+          "v = \\\\dfrac{\\\\Delta x}{\\\\Delta t}"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "instantaneous_velocity": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch1",
+        "chapter_title": "运动的描述",
+        "section_id": "ch1.3",
+        "section_title": "位置变化快慢的描述——速度",
+        "learning_goals": [
+          "理解速度的概念，区分平均速度与瞬时速度",
+          "会用 v = Δx/Δt 计算"
+        ],
+        "core_formulas": [
+          "v = \\\\dfrac{\\\\Delta x}{\\\\Delta t}"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "uniform_motion": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch1",
+        "chapter_title": "运动的描述",
+        "section_id": "ch1.3",
+        "section_title": "位置变化快慢的描述——速度",
+        "learning_goals": [
+          "理解速度的概念，区分平均速度与瞬时速度",
+          "会用 v = Δx/Δt 计算"
+        ],
+        "core_formulas": [
+          "v = \\\\dfrac{\\\\Delta x}{\\\\Delta t}"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "acceleration": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch1",
+        "chapter_title": "运动的描述",
+        "section_id": "ch1.4",
+        "section_title": "速度变化快慢的描述——加速度",
+        "learning_goals": [
+          "理解加速度的方向与速度方向的关系"
+        ],
+        "core_formulas": [
+          "a = \\\\dfrac{\\\\Delta v}{\\\\Delta t}"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "kinematics": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch1",
+        "chapter_title": "运动的描述",
+        "section_id": "ch1.4",
+        "section_title": "速度变化快慢的描述——加速度",
+        "learning_goals": [
+          "理解加速度的方向与速度方向的关系"
+        ],
+        "core_formulas": [
+          "a = \\\\dfrac{\\\\Delta v}{\\\\Delta t}"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch2",
+        "chapter_title": "匀变速直线运动的研究",
+        "section_id": "ch2.2",
+        "section_title": "匀变速直线运动的速度与时间的关系",
+        "learning_goals": [
+          "推导并应用 v = v₀ + at"
+        ],
+        "core_formulas": [
+          "v = v_0 + at"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch2",
+        "chapter_title": "匀变速直线运动的研究",
+        "section_id": "ch2.3",
+        "section_title": "位移与时间的关系",
+        "learning_goals": [
+          "推导并应用 x = v₀t + ½at²",
+          "理解 v-t 图像与位移的关系"
+        ],
+        "core_formulas": [
+          "x = v_0 t + \\\\tfrac{1}{2} a t^2",
+          "v^2 = v_0^2 + 2 a x"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "uniform_accelerated_motion": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch2",
+        "chapter_title": "匀变速直线运动的研究",
+        "section_id": "ch2.2",
+        "section_title": "匀变速直线运动的速度与时间的关系",
+        "learning_goals": [
+          "推导并应用 v = v₀ + at"
+        ],
+        "core_formulas": [
+          "v = v_0 + at"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch2",
+        "chapter_title": "匀变速直线运动的研究",
+        "section_id": "ch2.3",
+        "section_title": "位移与时间的关系",
+        "learning_goals": [
+          "推导并应用 x = v₀t + ½at²",
+          "理解 v-t 图像与位移的关系"
+        ],
+        "core_formulas": [
+          "x = v_0 t + \\\\tfrac{1}{2} a t^2",
+          "v^2 = v_0^2 + 2 a x"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "displacement_time": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch2",
+        "chapter_title": "匀变速直线运动的研究",
+        "section_id": "ch2.3",
+        "section_title": "位移与时间的关系",
+        "learning_goals": [
+          "推导并应用 x = v₀t + ½at²",
+          "理解 v-t 图像与位移的关系"
+        ],
+        "core_formulas": [
+          "x = v_0 t + \\\\tfrac{1}{2} a t^2",
+          "v^2 = v_0^2 + 2 a x"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "free_fall": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch2",
+        "chapter_title": "匀变速直线运动的研究",
+        "section_id": "ch2.4",
+        "section_title": "自由落体运动",
+        "learning_goals": [
+          "认识自由落体是初速度为 0 的匀加速运动"
+        ],
+        "core_formulas": [
+          "h = \\\\tfrac{1}{2} g t^2",
+          "v = g t"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "gravity": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch2",
+        "chapter_title": "匀变速直线运动的研究",
+        "section_id": "ch2.4",
+        "section_title": "自由落体运动",
+        "learning_goals": [
+          "认识自由落体是初速度为 0 的匀加速运动"
+        ],
+        "core_formulas": [
+          "h = \\\\tfrac{1}{2} g t^2",
+          "v = g t"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "vertical_freefall": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch2",
+        "chapter_title": "匀变速直线运动的研究",
+        "section_id": "ch2.4",
+        "section_title": "自由落体运动",
+        "learning_goals": [
+          "认识自由落体是初速度为 0 的匀加速运动"
+        ],
+        "core_formulas": [
+          "h = \\\\tfrac{1}{2} g t^2",
+          "v = g t"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch5",
+        "chapter_title": "抛体运动",
+        "section_id": "ch5.4",
+        "section_title": "抛体运动的规律",
+        "learning_goals": [
+          "理解平抛运动可分解为水平匀速 + 竖直自由落体",
+          "推导并应用 x = v₀t、y = ½gt²",
+          "计算落地速度大小与方向"
+        ],
+        "core_formulas": [
+          "x = v_0 t",
+          "y = \\\\tfrac{1}{2} g t^2",
+          "v_y = g t",
+          "v = \\\\sqrt{v_x^2 + v_y^2}"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "gravity_force": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch3",
+        "chapter_title": "相互作用——力",
+        "section_id": "ch3.1",
+        "section_title": "重力与弹力",
+        "learning_goals": [
+          "理解胡克定律"
+        ],
+        "core_formulas": [
+          "F = k x"
+        ],
+        "difficulty": "easy"
+      }
+    ],
+    "spring_force": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch3",
+        "chapter_title": "相互作用——力",
+        "section_id": "ch3.1",
+        "section_title": "重力与弹力",
+        "learning_goals": [
+          "理解胡克定律"
+        ],
+        "core_formulas": [
+          "F = k x"
+        ],
+        "difficulty": "easy"
+      }
+    ],
+    "hooke_law": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch3",
+        "chapter_title": "相互作用——力",
+        "section_id": "ch3.1",
+        "section_title": "重力与弹力",
+        "learning_goals": [
+          "理解胡克定律"
+        ],
+        "core_formulas": [
+          "F = k x"
+        ],
+        "difficulty": "easy"
+      }
+    ],
+    "friction": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch3",
+        "chapter_title": "相互作用——力",
+        "section_id": "ch3.2",
+        "section_title": "摩擦力",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "static_friction": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch3",
+        "chapter_title": "相互作用——力",
+        "section_id": "ch3.2",
+        "section_title": "摩擦力",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "kinetic_friction": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch3",
+        "chapter_title": "相互作用——力",
+        "section_id": "ch3.2",
+        "section_title": "摩擦力",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "force_decomposition": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch3",
+        "chapter_title": "相互作用——力",
+        "section_id": "ch3.4",
+        "section_title": "力的合成与分解",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "parallelogram_law": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch3",
+        "chapter_title": "相互作用——力",
+        "section_id": "ch3.4",
+        "section_title": "力的合成与分解",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "vector_addition": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch3",
+        "chapter_title": "相互作用——力",
+        "section_id": "ch3.4",
+        "section_title": "力的合成与分解",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "medium"
+      },
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch5",
+        "chapter_title": "抛体运动",
+        "section_id": "ch5.2",
+        "section_title": "运动的合成与分解",
+        "learning_goals": [
+          "理解小船渡河、绳模型分速度的处理方法"
+        ],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "newton_second_law_experiment": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch4",
+        "chapter_title": "运动和力的关系",
+        "section_id": "ch4.2",
+        "section_title": "实验：探究加速度与力、质量的关系",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "newton_second_law": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch4",
+        "chapter_title": "运动和力的关系",
+        "section_id": "ch4.3",
+        "section_title": "牛顿第二定律",
+        "learning_goals": [
+          "理解 F = ma 中三个量的方向关系",
+          "能用 F = ma 解决斜面、连接体等问题"
+        ],
+        "core_formulas": [
+          "F = m a"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "force_acceleration_mass": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·物理·必修第一册",
+        "chapter_id": "ch4",
+        "chapter_title": "运动和力的关系",
+        "section_id": "ch4.3",
+        "section_title": "牛顿第二定律",
+        "learning_goals": [
+          "理解 F = ma 中三个量的方向关系",
+          "能用 F = ma 解决斜面、连接体等问题"
+        ],
+        "core_formulas": [
+          "F = m a"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "curved_motion": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch5",
+        "chapter_title": "抛体运动",
+        "section_id": "ch5.1",
+        "section_title": "曲线运动",
+        "learning_goals": [
+          "知道曲线运动的速度方向沿轨迹的切线方向",
+          "知道曲线运动是变速运动"
+        ],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "velocity_direction": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch5",
+        "chapter_title": "抛体运动",
+        "section_id": "ch5.1",
+        "section_title": "曲线运动",
+        "learning_goals": [
+          "知道曲线运动的速度方向沿轨迹的切线方向",
+          "知道曲线运动是变速运动"
+        ],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "motion_decomposition": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch5",
+        "chapter_title": "抛体运动",
+        "section_id": "ch5.2",
+        "section_title": "运动的合成与分解",
+        "learning_goals": [
+          "理解小船渡河、绳模型分速度的处理方法"
+        ],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "projectile_motion": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch5",
+        "chapter_title": "抛体运动",
+        "section_id": "ch5.4",
+        "section_title": "抛体运动的规律",
+        "learning_goals": [
+          "理解平抛运动可分解为水平匀速 + 竖直自由落体",
+          "推导并应用 x = v₀t、y = ½gt²",
+          "计算落地速度大小与方向"
+        ],
+        "core_formulas": [
+          "x = v_0 t",
+          "y = \\\\tfrac{1}{2} g t^2",
+          "v_y = g t",
+          "v = \\\\sqrt{v_x^2 + v_y^2}"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "horizontal_uniform": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch5",
+        "chapter_title": "抛体运动",
+        "section_id": "ch5.4",
+        "section_title": "抛体运动的规律",
+        "learning_goals": [
+          "理解平抛运动可分解为水平匀速 + 竖直自由落体",
+          "推导并应用 x = v₀t、y = ½gt²",
+          "计算落地速度大小与方向"
+        ],
+        "core_formulas": [
+          "x = v_0 t",
+          "y = \\\\tfrac{1}{2} g t^2",
+          "v_y = g t",
+          "v = \\\\sqrt{v_x^2 + v_y^2}"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "circular_motion": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch6",
+        "chapter_title": "圆周运动",
+        "section_id": "ch6.1",
+        "section_title": "圆周运动",
+        "learning_goals": [],
+        "core_formulas": [
+          "v = \\\\omega r",
+          "T = \\\\dfrac{2\\\\pi}{\\\\omega}"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "angular_velocity": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch6",
+        "chapter_title": "圆周运动",
+        "section_id": "ch6.1",
+        "section_title": "圆周运动",
+        "learning_goals": [],
+        "core_formulas": [
+          "v = \\\\omega r",
+          "T = \\\\dfrac{2\\\\pi}{\\\\omega}"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "linear_velocity": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch6",
+        "chapter_title": "圆周运动",
+        "section_id": "ch6.1",
+        "section_title": "圆周运动",
+        "learning_goals": [],
+        "core_formulas": [
+          "v = \\\\omega r",
+          "T = \\\\dfrac{2\\\\pi}{\\\\omega}"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "centripetal_force": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch6",
+        "chapter_title": "圆周运动",
+        "section_id": "ch6.2",
+        "section_title": "向心力",
+        "learning_goals": [],
+        "core_formulas": [
+          "F = \\\\dfrac{m v^2}{r} = m \\\\omega^2 r"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "centripetal_acceleration": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch6",
+        "chapter_title": "圆周运动",
+        "section_id": "ch6.2",
+        "section_title": "向心力",
+        "learning_goals": [],
+        "core_formulas": [
+          "F = \\\\dfrac{m v^2}{r} = m \\\\omega^2 r"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "gravitation": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch7",
+        "chapter_title": "万有引力与宇宙航行",
+        "section_id": "ch7.2",
+        "section_title": "万有引力定律",
+        "learning_goals": [],
+        "core_formulas": [
+          "F = G \\\\dfrac{m_1 m_2}{r^2}"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "kepler_law": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch7",
+        "chapter_title": "万有引力与宇宙航行",
+        "section_id": "ch7.2",
+        "section_title": "万有引力定律",
+        "learning_goals": [],
+        "core_formulas": [
+          "F = G \\\\dfrac{m_1 m_2}{r^2}"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch7",
+        "chapter_title": "万有引力与宇宙航行",
+        "section_id": "ch7.3",
+        "section_title": "万有引力理论的成就",
+        "learning_goals": [
+          "由 GMm/r² = mv²/r 推出第一宇宙速度"
+        ],
+        "core_formulas": [
+          "v = \\\\sqrt{\\\\dfrac{GM}{r}}",
+          "T = 2\\\\pi \\\\sqrt{\\\\dfrac{r^3}{GM}}"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "orbital_motion": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch7",
+        "chapter_title": "万有引力与宇宙航行",
+        "section_id": "ch7.2",
+        "section_title": "万有引力定律",
+        "learning_goals": [],
+        "core_formulas": [
+          "F = G \\\\dfrac{m_1 m_2}{r^2}"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch7",
+        "chapter_title": "万有引力与宇宙航行",
+        "section_id": "ch7.3",
+        "section_title": "万有引力理论的成就",
+        "learning_goals": [
+          "由 GMm/r² = mv²/r 推出第一宇宙速度"
+        ],
+        "core_formulas": [
+          "v = \\\\sqrt{\\\\dfrac{GM}{r}}",
+          "T = 2\\\\pi \\\\sqrt{\\\\dfrac{r^3}{GM}}"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "satellite": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch7",
+        "chapter_title": "万有引力与宇宙航行",
+        "section_id": "ch7.3",
+        "section_title": "万有引力理论的成就",
+        "learning_goals": [
+          "由 GMm/r² = mv²/r 推出第一宇宙速度"
+        ],
+        "core_formulas": [
+          "v = \\\\sqrt{\\\\dfrac{GM}{r}}",
+          "T = 2\\\\pi \\\\sqrt{\\\\dfrac{r^3}{GM}}"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "work": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch8",
+        "chapter_title": "机械能守恒定律",
+        "section_id": "ch8.1",
+        "section_title": "功与功率",
+        "learning_goals": [],
+        "core_formulas": [
+          "W = F s \\\\cos\\\\theta",
+          "P = \\\\dfrac{W}{t} = F v"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "power": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch8",
+        "chapter_title": "机械能守恒定律",
+        "section_id": "ch8.1",
+        "section_title": "功与功率",
+        "learning_goals": [],
+        "core_formulas": [
+          "W = F s \\\\cos\\\\theta",
+          "P = \\\\dfrac{W}{t} = F v"
+        ],
+        "difficulty": "medium"
+      }
+    ],
+    "gravitational_pe": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch8",
+        "chapter_title": "机械能守恒定律",
+        "section_id": "ch8.2",
+        "section_title": "重力势能",
+        "learning_goals": [],
+        "core_formulas": [
+          "E_p = m g h"
+        ],
+        "difficulty": "easy"
+      }
+    ],
+    "kinetic_energy": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch8",
+        "chapter_title": "机械能守恒定律",
+        "section_id": "ch8.3",
+        "section_title": "动能和动能定理",
+        "learning_goals": [],
+        "core_formulas": [
+          "E_k = \\\\tfrac{1}{2} m v^2",
+          "W_{\\\\text{合}} = \\\\Delta E_k"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "work_energy_theorem": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch8",
+        "chapter_title": "机械能守恒定律",
+        "section_id": "ch8.3",
+        "section_title": "动能和动能定理",
+        "learning_goals": [],
+        "core_formulas": [
+          "E_k = \\\\tfrac{1}{2} m v^2",
+          "W_{\\\\text{合}} = \\\\Delta E_k"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "mechanical_energy_conservation": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch8",
+        "chapter_title": "机械能守恒定律",
+        "section_id": "ch8.4",
+        "section_title": "机械能守恒定律",
+        "learning_goals": [
+          "应用机械能守恒处理单摆、弹簧、斜面问题"
+        ],
+        "core_formulas": [
+          "E_k + E_p = \\\\text{const}"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "spring_oscillation": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch8",
+        "chapter_title": "机械能守恒定律",
+        "section_id": "ch8.4",
+        "section_title": "机械能守恒定律",
+        "learning_goals": [
+          "应用机械能守恒处理单摆、弹簧、斜面问题"
+        ],
+        "core_formulas": [
+          "E_k + E_p = \\\\text{const}"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "simple_harmonic": [
+      {
+        "subject": "physics",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·物理·必修第二册",
+        "chapter_id": "ch8",
+        "chapter_title": "机械能守恒定律",
+        "section_id": "ch8.4",
+        "section_title": "机械能守恒定律",
+        "learning_goals": [
+          "应用机械能守恒处理单摆、弹簧、斜面问题"
+        ],
+        "core_formulas": [
+          "E_k + E_p = \\\\text{const}"
+        ],
+        "difficulty": "hard"
+      }
+    ]
+  },
+  "pitfalls": [
+    {
+      "id": "phy.projectile.001",
+      "knowledge_tags": [
+        "projectile_motion",
+        "horizontal_uniform"
+      ],
+      "pitfall": "误以为平抛运动水平方向有加速度",
+      "correct": "水平方向只有惯性，加速度恒为 0；只有竖直方向受重力 g",
+      "common_mistake": "在 vx 方向写出 v_x = v_0 + at（错）",
+      "correction_hint": "vx 恒等于 v₀；at 只对 v_y 适用",
+      "severity": "high",
+      "evidence_section": "pep.physics.compulsory-2.ch5.4"
+    },
+    {
+      "id": "phy.projectile.002",
+      "knowledge_tags": [
+        "projectile_motion"
+      ],
+      "pitfall": "把\"水平射程\"算成\"轨迹长度\"",
+      "correct": "水平射程是水平位移 x = v₀t；轨迹长度是抛物线弧长（一般不要求）",
+      "common_mistake": "误用 √(x² + y²) 作为'落地总距离'",
+      "correction_hint": "题目问\"水平射程\"时，只算 x = v₀t",
+      "severity": "medium",
+      "evidence_section": "pep.physics.compulsory-2.ch5.4"
+    },
+    {
+      "id": "phy.projectile.003",
+      "knowledge_tags": [
+        "projectile_motion",
+        "vertical_freefall"
+      ],
+      "pitfall": "落地速度方向忽略 v_x，只算 v_y",
+      "correct": "落地速度是 v_x 与 v_y 的矢量和；方向与水平方向夹角 tan θ = v_y / v_x",
+      "common_mistake": "认为落地速度大小 = gt",
+      "correction_hint": "v = √(v_x² + v_y²)，且 v_x = v₀ 不变",
+      "severity": "high",
+      "evidence_section": "pep.physics.compulsory-2.ch5.4"
+    },
+    {
+      "id": "phy.newton.001",
+      "knowledge_tags": [
+        "newton_second_law",
+        "force_acceleration_mass"
+      ],
+      "pitfall": "F = ma 中的 F 是合外力，而不是某一个力",
+      "correct": "牛二定律中 F 必须是物体受到的合外力（矢量和），方向与加速度方向一致",
+      "common_mistake": "把单一推力直接代入 F",
+      "correction_hint": "先做受力分析画出所有力，求合力再代入 F = ma",
+      "severity": "high",
+      "evidence_section": "pep.physics.compulsory-1.ch4.3"
+    },
+    {
+      "id": "phy.newton.002",
+      "knowledge_tags": [
+        "newton_second_law",
+        "friction"
+      ],
+      "pitfall": "静摩擦力等于 μN（错）",
+      "correct": "静摩擦力大小 ∈ [0, μs N]，由\"使物体不动所需的力\"决定；只有最大静摩擦力 ≈ μs N",
+      "common_mistake": "题目没说\"将要滑动\"就直接用 μN",
+      "correction_hint": "判断是否达到滑动临界后再决定用 μs N 还是 μk N",
+      "severity": "high",
+      "evidence_section": "pep.physics.compulsory-1.ch3.2"
+    },
+    {
+      "id": "phy.kinematics.001",
+      "knowledge_tags": [
+        "uniform_accelerated_motion",
+        "displacement_time"
+      ],
+      "pitfall": "用 x = v t 处理变速运动",
+      "correct": "x = v t 只在匀速时成立；变速请用 x = v₀ t + ½ a t² 或 x = (v₀+v)t/2（平均速度法）",
+      "common_mistake": "把瞬时速度当成平均速度代入 x = v t",
+      "correction_hint": "匀变速可用平均速度 v̄ = (v₀+v)/2",
+      "severity": "medium",
+      "evidence_section": "pep.physics.compulsory-1.ch2.3"
+    },
+    {
+      "id": "phy.kinematics.002",
+      "knowledge_tags": [
+        "acceleration"
+      ],
+      "pitfall": "加速度方向跟着速度方向走",
+      "correct": "加速度方向 = 合外力方向；可与速度同向（加速）也可反向（减速）",
+      "common_mistake": "减速运动时把加速度写成正",
+      "correction_hint": "沿初速度方向选正方向后，减速时 a 为负",
+      "severity": "medium",
+      "evidence_section": "pep.physics.compulsory-1.ch1.4"
+    },
+    {
+      "id": "phy.spring.001",
+      "knowledge_tags": [
+        "hooke_law",
+        "spring_force",
+        "spring_oscillation",
+        "simple_harmonic"
+      ],
+      "pitfall": "胡克定律 F = kx 中的 x 是\"形变量\"而不是\"弹簧长度\"",
+      "correct": "x 是从自然长度的伸长 / 压缩量；弹簧自然长度时 F = 0",
+      "common_mistake": "用\"当前长度\"直接代入",
+      "correction_hint": "先求自然长度，x = |L - L₀|",
+      "severity": "medium",
+      "evidence_section": "pep.physics.compulsory-1.ch3.1"
+    },
+    {
+      "id": "phy.circular.001",
+      "knowledge_tags": [
+        "circular_motion",
+        "centripetal_force"
+      ],
+      "pitfall": "向心力是\"额外加的一个力\"",
+      "correct": "向心力是合外力沿半径指向圆心的分量，不是新力",
+      "common_mistake": "在受力分析中加一个\"向心力\"",
+      "correction_hint": "先做常规受力分析，再求合外力沿半径方向的分量",
+      "severity": "high",
+      "evidence_section": "pep.physics.compulsory-2.ch6.2"
+    },
+    {
+      "id": "phy.orbit.001",
+      "knowledge_tags": [
+        "orbital_motion",
+        "gravitation",
+        "satellite"
+      ],
+      "pitfall": "卫星轨道越高速度越大",
+      "correct": "由 v = √(GM/r) 可知，r 越大 v 越小；轨道越高，绕行越慢",
+      "common_mistake": "直觉认为\"高轨道能量大 → 速度大\"",
+      "correction_hint": "高轨道动能小但势能大；总能 = -GMm/(2r)，r 大时能量大但 v 小",
+      "severity": "high",
+      "evidence_section": "pep.physics.compulsory-2.ch7.3"
+    },
+    {
+      "id": "phy.energy.001",
+      "knowledge_tags": [
+        "work",
+        "kinetic_energy",
+        "work_energy_theorem"
+      ],
+      "pitfall": "摩擦力做的功用 f·s 算位移",
+      "correct": "摩擦生热 = f × Δs（相对位移）；摩擦做功用 -f × s（物体对地面位移）",
+      "common_mistake": "把\"摩擦生热\"等同\"摩擦做功\"",
+      "correction_hint": "摩擦生热 ≥ |摩擦做的功|（仅在地面不动时取等）",
+      "severity": "medium",
+      "evidence_section": "pep.physics.compulsory-2.ch8.3"
+    },
+    {
+      "id": "phy.energy.002",
+      "knowledge_tags": [
+        "mechanical_energy_conservation"
+      ],
+      "pitfall": "有摩擦时还用机械能守恒",
+      "correct": "机械能守恒要求\"只有重力 / 弹力做功\"（无摩擦、无其他外力做功）",
+      "common_mistake": "斜面有摩擦时仍写 mgh = ½mv²",
+      "correction_hint": "有摩擦改用能量守恒 mgh = ½mv² + f·s",
+      "severity": "high",
+      "evidence_section": "pep.physics.compulsory-2.ch8.4"
+    },
+    {
+      "id": "phy.collision.001",
+      "knowledge_tags": [
+        "momentum_conservation"
+      ],
+      "pitfall": "系统内有摩擦时不能用动量守恒",
+      "correct": "只要系统所受合外力为 0（或外力远小于内力），动量守恒就成立；内部摩擦属于内力",
+      "common_mistake": "因有摩擦放弃动量守恒",
+      "correction_hint": "看是否有\"水平方向外力\" / 碰撞时间极短可忽略外力冲量",
+      "severity": "medium",
+      "evidence_section": "pep.physics.compulsory-2.ch8.4"
+    },
+    {
+      "id": "phy.collision.002",
+      "knowledge_tags": [
+        "momentum_conservation",
+        "kinetic_energy"
+      ],
+      "pitfall": "完全弹性碰撞动量守恒不成立",
+      "correct": "任何碰撞动量都守恒；弹性碰撞动能也守恒，非弹性碰撞动能减少",
+      "common_mistake": "把\"动能守恒\"当作动量守恒的前提",
+      "correction_hint": "动量守恒：合外力冲量为 0 即可",
+      "severity": "medium",
+      "evidence_section": "pep.physics.compulsory-2.ch8"
+    },
+    {
+      "id": "phy.vector.001",
+      "knowledge_tags": [
+        "vector_addition",
+        "force_decomposition"
+      ],
+      "pitfall": "矢量相加直接代数加",
+      "correct": "矢量加要按平行四边形 / 三角形法则，考虑方向",
+      "common_mistake": "5 N + 3 N = 8 N（实际范围 2~8 N）",
+      "correction_hint": "同方向才取代数和；夹角 θ 时 F² = F₁² + F₂² + 2F₁F₂cosθ",
+      "severity": "high",
+      "evidence_section": "pep.physics.compulsory-1.ch3.4"
+    },
+    {
+      "id": "phy.relative.001",
+      "knowledge_tags": [
+        "reference_frame",
+        "motion_decomposition"
+      ],
+      "pitfall": "小船渡河\"过河时间\"与水流有关",
+      "correct": "过河时间 = 河宽 / 船相对水的速度的垂直分量；与水流速度无关",
+      "common_mistake": "用合速度的方向分时间",
+      "correction_hint": "时间问题分量化处理：垂直河岸方向看垂直分速度",
+      "severity": "medium",
+      "evidence_section": "pep.physics.compulsory-2.ch5.2"
+    }
+  ]
+}
