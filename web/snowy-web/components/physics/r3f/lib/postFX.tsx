@@ -1,12 +1,18 @@
 /**
- * Snowy v6 · R3F · 后处理 (Bloom + 可选 DoF)
- * 通过 props 控制画质档位与 prefers-reduced-motion 关闭。
+ * Snowy v8 · R3F · 后处理升级版
+ *
+ * 三档：
+ *  - eco      : 不挂 EffectComposer
+ *  - standard : Bloom + Vignette
+ *  - high     : Bloom + Vignette + DoF + SSAO
+ *
+ * Tone mapping 走 Canvas 的 gl.toneMapping (在 R3FPhysicsPreview.onCreated)。
  */
 
 'use client';
 
 import React from 'react';
-import { EffectComposer, Bloom, DepthOfField } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, Vignette, DepthOfField } from '@react-three/postprocessing';
 
 export type QualityLevel = 'eco' | 'standard' | 'high';
 
@@ -16,19 +22,28 @@ interface Props {
 
 export default function PostFX({ quality }: Props) {
   if (quality === 'eco') return null;
+  const high = quality === 'high';
   return (
-    <EffectComposer multisampling={quality === 'high' ? 4 : 0}>
+    <EffectComposer multisampling={high ? 4 : 0}>
       <Bloom
-        intensity={quality === 'high' ? 0.9 : 0.55}
-        luminanceThreshold={0.4}
-        luminanceSmoothing={0.4}
+        intensity={high ? 0.95 : 0.7}
+        luminanceThreshold={0.6}
+        luminanceSmoothing={0.22}
         mipmapBlur
       />
-      {quality === 'high' ? (
-        <DepthOfField focusDistance={0.02} focalLength={0.045} bokehScale={2.0} />
+      <Vignette
+        eskil={false}
+        offset={0.32}
+        darkness={0.55}
+      />
+      {high ? (
+        <DepthOfField focusDistance={0.02} focalLength={0.05} bokehScale={2.0} />
       ) : (
         <></>
       )}
     </EffectComposer>
   );
 }
+
+
+

@@ -1,0 +1,30 @@
+version: pep-2019
+subject: biology
+book: compulsory-2
+book_title: 普通高中教科书·生物学·必修第二册·遗传与进化
+chapters:
+  - id: ch1
+    title: 遗传因子的发现
+    sections:
+      - id: ch1.1
+        title: 孟德尔的豌豆杂交实验（一）
+        knowledge_tags: [mendel_law, segregation_law, monohybrid_cross, dominant_recessive]
+        learning_goals:
+          - 理解分离定律：F₁ 表现显性，F₂ 显隐 3:1
+          - 用基因型分析配子与子代
+        difficulty: hard
+      - id: ch1.2
+        title: 孟德尔的豌豆杂交实验（二）
+        knowledge_tags: [mendel_law, independent_assortment, dihybrid_cross]
+        learning_goals:
+          - 自由组合定律：双杂合 F₂ 9:3:3:1
+        difficulty: hard
+
+  - id: ch5
+    title: 基因突变及其他变异
+    sections:
+      - id: ch5.1
+        title: 基因突变和基因重组
+        knowledge_tags: [mutation, gene_recombination]
+        difficulty: medium
+

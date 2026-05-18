@@ -1,34 +1,35 @@
 /**
- * Snowy v6 · R3F · 场景注册表
- *
- * 由 SceneKind 路由到具体场景组件。
+ * Snowy v6/v8 · R3F · 场景注册表
+ * v8: 透传 quality 给各 scene；改同步 import 以保留 TS prop 类型推断。
+ *     R3FPhysicsPreview 已在外层 dynamic import，故内层无需再 dynamic。
  */
 
 'use client';
 
 import React from 'react';
-import dynamic from 'next/dynamic';
+import type { QualityLevel } from './postFX';
 import type { SceneKind, SimState } from './types';
-
-const OrbitScene = dynamic(() => import('../scenes/OrbitScene'), { ssr: false });
-const ProjectileScene = dynamic(() => import('../scenes/ProjectileScene'), { ssr: false });
-const SpringScene = dynamic(() => import('../scenes/SpringScene'), { ssr: false });
-const CollisionScene = dynamic(() => import('../scenes/CollisionScene'), { ssr: false });
-const ForceScene = dynamic(() => import('../scenes/ForceScene'), { ssr: false });
-const MotionScene = dynamic(() => import('../scenes/MotionScene'), { ssr: false });
+import OrbitScene from '../scenes/OrbitScene';
+import ProjectileScene from '../scenes/ProjectileScene';
+import SpringScene from '../scenes/SpringScene';
+import CollisionScene from '../scenes/CollisionScene';
+import ForceScene from '../scenes/ForceScene';
+import MotionScene from '../scenes/MotionScene';
 
 interface Props {
   kind: SceneKind;
   simRef: React.MutableRefObject<SimState | null>;
+  quality?: QualityLevel;
 }
 
-export default function SceneByKind({ kind, simRef }: Props) {
+export default function SceneByKind({ kind, simRef, quality = 'standard' }: Props) {
   switch (kind) {
-    case 'orbit': return <OrbitScene simRef={simRef} />;
-    case 'projectile': return <ProjectileScene simRef={simRef} />;
-    case 'spring': return <SpringScene simRef={simRef} />;
-    case 'collision': return <CollisionScene simRef={simRef} />;
-    case 'force': return <ForceScene simRef={simRef} />;
-    default: return <MotionScene simRef={simRef} />;
+    case 'orbit':      return <OrbitScene simRef={simRef} quality={quality} />;
+    case 'projectile': return <ProjectileScene simRef={simRef} quality={quality} />;
+    case 'spring':     return <SpringScene simRef={simRef} quality={quality} />;
+    case 'collision':  return <CollisionScene simRef={simRef} quality={quality} />;
+    case 'force':      return <ForceScene simRef={simRef} quality={quality} />;
+    default:           return <MotionScene simRef={simRef} quality={quality} />;
   }
 }
+

@@ -1,0 +1,83 @@
+subject: biology
+pitfalls:
+  - id: bio.photo.001
+    knowledge_tags: [photosynthesis, light_reaction]
+    pitfall: 光反应只发生在白天
+    correct: 光反应需要光照才能进行；但暗反应不"只在黑暗"——暗反应需要光反应提供的 ATP/NADPH，光照停止后会很快停止
+    common_mistake: 把"暗反应"理解为"必须在黑暗中"
+    correction_hint: "暗反应 = 不直接需要光，但依赖光反应的产物"
+    severity: high
+    evidence_section: pep.biology.compulsory-1.ch5.4
+
+  - id: bio.photo.002
+    knowledge_tags: [photosynthesis, calvin_cycle]
+    pitfall: 突然降低 CO₂，C₃ 和 C₅ 浓度都增加
+    correct: 突然降低 CO₂ → C₃ 减少（生成减少）、C₅ 增加（消耗减少）
+    common_mistake: 把 C₃/C₅ 变化方向搞反
+    correction_hint: "C₃ ← CO₂ + C₅；CO₂ 多则 C₃ 多 C₅ 少；反之亦然"
+    severity: high
+    evidence_section: pep.biology.compulsory-1.ch5.4
+
+  - id: bio.photo.003
+    knowledge_tags: [photosynthesis, limiting_factor]
+    pitfall: 光照强度增加，光合速率一直增加
+    correct: 光照强度增大到一定值后，受 CO₂ 浓度或温度限制，光合速率达到饱和（平台期）
+    common_mistake: 把光强 - 光合速率画成一条直线
+    correction_hint: 画图时先线性上升，然后转折趋于平台
+    severity: medium
+    evidence_section: pep.biology.compulsory-1.ch5.4
+
+  - id: bio.resp.001
+    knowledge_tags: [respiration, aerobic_respiration]
+    pitfall: 有氧呼吸第二阶段（三羧酸循环）会产生 CO₂ 与 ATP
+    correct: 三羧酸循环（第二阶段）产生 CO₂ 与少量 ATP（还有大量 NADH）；O₂ 只在第三阶段（电子传递链）参与
+    common_mistake: 认为前两阶段就要消耗 O₂
+    correction_hint: "O₂ 仅参与第三阶段，在线粒体内膜上与 [H] 结合生成 H₂O"
+    severity: high
+    evidence_section: pep.biology.compulsory-1.ch5.3
+
+  - id: bio.resp.002
+    knowledge_tags: [respiration, anaerobic_respiration]
+    pitfall: 无氧呼吸不释放能量
+    correct: 无氧呼吸释放少量能量（≈ 有氧呼吸的 5–6%），主要以热能形式散失，产生少量 ATP
+    common_mistake: "完全没能量 = 无氧呼吸"
+    correction_hint: 关键是能量"少"，不是"没有"
+    severity: medium
+    evidence_section: pep.biology.compulsory-1.ch5.3
+
+  - id: bio.enzyme.001
+    knowledge_tags: [enzyme, catalysis]
+    pitfall: 酶在最适温度时最稳定
+    correct: 最适温度 = 活性最高 ≠ 最稳定；低温酶活性低但结构稳定，高温会变性失活
+    common_mistake: 把"最适"等同"最稳定"
+    correction_hint: 保存酶应低温（活性低但可逆），加热会不可逆变性
+    severity: medium
+    evidence_section: pep.biology.compulsory-1.ch5.1
+
+  - id: bio.membrane.001
+    knowledge_tags: [active_transport, atp, membrane_transport]
+    pitfall: 主动运输不需要 ATP
+    correct: 主动运输需 ATP 与载体；逆浓度梯度运输是主动运输的关键特征
+    common_mistake: 认为只要有载体就是主动运输
+    correction_hint: "易化扩散：有载体但不耗 ATP，顺浓度；主动运输：有载体且耗 ATP，逆浓度"
+    severity: high
+    evidence_section: pep.biology.compulsory-1.ch4.3
+
+  - id: bio.genetics.001
+    knowledge_tags: [mendel_law, segregation_law]
+    pitfall: F₂ 中显性个体都是杂合子
+    correct: F₂ 显性个体 1/3 纯合（AA）、2/3 杂合（Aa）；表现型 3:1 = 1AA : 2Aa : 1aa
+    common_mistake: 把显性表现型直接当杂合
+    correction_hint: 自交后代分离的比例可帮助判定 AA 还是 Aa
+    severity: high
+    evidence_section: pep.biology.compulsory-2.ch1.1
+
+  - id: bio.genetics.002
+    knowledge_tags: [independent_assortment, dihybrid_cross]
+    pitfall: 9:3:3:1 中两对等位基因必须在不同染色体上
+    correct: 9:3:3:1 成立的关键是"两对等位基因独立遗传"——即位于非同源染色体（或距离足够远的同源染色体远端）
+    common_mistake: 不考虑连锁
+    correction_hint: 若两对基因连锁则比例偏离 9:3:3:1
+    severity: high
+    evidence_section: pep.biology.compulsory-2.ch1.2
+

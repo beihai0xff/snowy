@@ -1,0 +1,100 @@
+version: pep-2019
+subject: physics
+book: compulsory-1
+book_title: 普通高中教科书·物理·必修第一册
+chapters:
+  - id: ch1
+    title: 运动的描述
+    sections:
+      - id: ch1.1
+        title: 质点 参考系
+        knowledge_tags: [particle_model, reference_frame, 1d_kinematics_simulation]
+        learning_goals:
+          - 知道质点是理想化模型
+          - 知道运动的相对性，能选择合适的参考系
+        difficulty: easy
+      - id: ch1.2
+        title: 时间 位移
+        knowledge_tags: [displacement_vs_distance, time_interval]
+        learning_goals:
+          - 区分位移与路程
+          - 知道矢量与标量
+        core_formulas: ["\\vec{s} = \\vec{r_2} - \\vec{r_1}"]
+        difficulty: easy
+      - id: ch1.3
+        title: 位置变化快慢的描述——速度
+        knowledge_tags: [velocity, average_velocity, instantaneous_velocity, 1d_kinematics_simulation, uniform_motion]
+        learning_goals:
+          - 理解速度的概念，区分平均速度与瞬时速度
+          - 会用 v = Δx/Δt 计算
+        core_formulas: ["v = \\dfrac{\\Delta x}{\\Delta t}"]
+        difficulty: medium
+      - id: ch1.4
+        title: 速度变化快慢的描述——加速度
+        knowledge_tags: [acceleration, kinematics]
+        learning_goals:
+          - 理解加速度的方向与速度方向的关系
+        core_formulas: ["a = \\dfrac{\\Delta v}{\\Delta t}"]
+        difficulty: medium
+
+  - id: ch2
+    title: 匀变速直线运动的研究
+    sections:
+      - id: ch2.2
+        title: 匀变速直线运动的速度与时间的关系
+        knowledge_tags: [uniform_accelerated_motion, kinematics]
+        learning_goals:
+          - 推导并应用 v = v₀ + at
+        core_formulas: ["v = v_0 + at"]
+        difficulty: medium
+      - id: ch2.3
+        title: 位移与时间的关系
+        knowledge_tags: [uniform_accelerated_motion, displacement_time, kinematics]
+        learning_goals:
+          - 推导并应用 x = v₀t + ½at²
+          - 理解 v-t 图像与位移的关系
+        core_formulas: ["x = v_0 t + \\tfrac{1}{2} a t^2", "v^2 = v_0^2 + 2 a x"]
+        difficulty: medium
+      - id: ch2.4
+        title: 自由落体运动
+        knowledge_tags: [free_fall, gravity, vertical_freefall]
+        learning_goals:
+          - 认识自由落体是初速度为 0 的匀加速运动
+        core_formulas: ["h = \\tfrac{1}{2} g t^2", "v = g t"]
+        difficulty: medium
+
+  - id: ch3
+    title: 相互作用——力
+    sections:
+      - id: ch3.1
+        title: 重力与弹力
+        knowledge_tags: [gravity_force, spring_force, hooke_law]
+        learning_goals:
+          - 理解胡克定律
+        core_formulas: ["F = k x"]
+        difficulty: easy
+      - id: ch3.2
+        title: 摩擦力
+        knowledge_tags: [friction, static_friction, kinetic_friction]
+        difficulty: medium
+      - id: ch3.4
+        title: 力的合成与分解
+        knowledge_tags: [force_decomposition, parallelogram_law, vector_addition]
+        difficulty: medium
+
+  - id: ch4
+    title: 运动和力的关系
+    sections:
+      - id: ch4.2
+        title: 实验：探究加速度与力、质量的关系
+        knowledge_tags: [newton_second_law_experiment]
+        difficulty: medium
+      - id: ch4.3
+        title: 牛顿第二定律
+        knowledge_tags: [newton_second_law, force_acceleration_mass]
+        learning_goals:
+          - 理解 F = ma 中三个量的方向关系
+          - 能用 F = ma 解决斜面、连接体等问题
+        core_formulas: ["F = m a"]
+        difficulty: hard
+

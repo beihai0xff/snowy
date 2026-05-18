@@ -31,6 +31,7 @@ type ServerConfig struct {
 	Host            string        `mapstructure:"host"`
 	Port            int           `mapstructure:"port"`
 	RunMode         string        `mapstructure:"run_mode"`
+	StartupMigrate  bool          `mapstructure:"startup_migrate"`
 	Mode            string        `mapstructure:"mode"` // debug / release / test
 	ReadTimeout     time.Duration `mapstructure:"read_timeout"`
 	WriteTimeout    time.Duration `mapstructure:"write_timeout"`
@@ -279,6 +280,7 @@ func Load(configPath string) (*Config, error) {
 	v := viper.New()
 
 	v.SetConfigFile(configPath)
+	v.SetDefault("server.startup_migrate", true)
 	v.SetEnvPrefix("SNOWY")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
@@ -329,6 +331,7 @@ func isConfigMissing(err error) bool {
 func bindEnvironment(v *viper.Viper) error {
 	keys := []string{
 		"server.run_mode",
+		"server.startup_migrate",
 		"llm.models",
 		"embedding.provider",
 		"embedding.model",

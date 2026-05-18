@@ -1,0 +1,56 @@
+subject: chemistry
+pitfalls:
+  - id: chem.redox.001
+    knowledge_tags: [redox_reaction, electron_transfer]
+    pitfall: 失电子的是还原剂，但化合价"降低"
+    correct: 失去电子 → 化合价升高 → 被氧化 → 是还原剂；得到电子 → 化合价降低 → 被还原 → 是氧化剂
+    common_mistake: 把"升降"与"得失"对应反
+    correction_hint: 口诀"升失氧（升价、失电子、被氧化、还原剂）、降得还（降价、得电子、被还原、氧化剂）"
+    severity: high
+    evidence_section: pep.chemistry.compulsory-1.ch1.3
+
+  - id: chem.ion.001
+    knowledge_tags: [ionic_reaction, ion_equation]
+    pitfall: 离子方程式中所有物质都拆成离子
+    correct: 只有"易溶且易电离"的强电解质拆；弱电解质（弱酸、弱碱、水）、气体、沉淀都不拆
+    common_mistake: 把 CH₃COOH 写成 H⁺ + CH₃COO⁻（错，醋酸是弱酸不拆）
+    correction_hint: "记住口诀：四不拆——弱、气、沉、单质氧化物"
+    severity: high
+    evidence_section: pep.chemistry.compulsory-1.ch1.2
+
+  - id: chem.balance.001
+    knowledge_tags: [chemical_equation, conservation]
+    pitfall: 化学方程式配平只看原子守恒
+    correct: 化学方程式既要原子守恒（必）还要电荷守恒（离子方程式）和电子守恒（redox）
+    common_mistake: redox 方程只配原子数
+    correction_hint: redox 三守恒——原子、电荷（离子方程）、电子转移
+    severity: high
+    evidence_section: pep.chemistry.compulsory-1.ch1.3
+
+  - id: chem.naoh.001
+    knowledge_tags: [acid_base, neutralization]
+    pitfall: "2NaOH + H₂SO₄ → Na₂SO₄ + 2H₂O 中 NaOH 系数为 1"
+    correct: H₂SO₄ 是二元酸，需 2 mol NaOH 才能完全中和，系数为 2
+    common_mistake: 写成 NaOH + H₂SO₄ → Na₂SO₄ + H₂O（未配平）
+    correction_hint: 一元酸配一元碱 1:1；二元酸配一元碱需 1:2
+    severity: medium
+    evidence_section: pep.chemistry.compulsory-1.ch1.2
+
+  - id: chem.iron.001
+    knowledge_tags: [iron, ferric_ferrous, redox_reaction]
+    pitfall: Fe + CuSO₄ 生成 FeSO₄ 而不是 Fe₂(SO₄)₃
+    correct: 单质铁与 Cu²⁺ 反应中，Fe → Fe²⁺（失 2 电子），不是 Fe³⁺
+    common_mistake: 直接写出 Fe³⁺
+    correction_hint: 活泼金属置换 → 通常生成低价态盐；Fe³⁺ 通常由强氧化剂（Cl₂、HNO₃）氧化得到
+    severity: medium
+    evidence_section: pep.chemistry.compulsory-1.ch3.1
+
+  - id: chem.electrolysis.001
+    knowledge_tags: [electrolysis]
+    pitfall: 电解水时阴阳极气体体积相等
+    correct: 阴极产 H₂、阳极产 O₂；体积比 2:1（不相等）；质量比 1:8
+    common_mistake: 误认为电极产物等体积
+    correction_hint: 由 2H₂O → 2H₂ + O₂ 可知 H₂ 体积是 O₂ 的 2 倍
+    severity: medium
+    evidence_section: pep.chemistry.compulsory-1.ch1.3
+

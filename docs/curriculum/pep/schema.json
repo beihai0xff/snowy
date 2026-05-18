@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Snowy PEP Curriculum & Pitfalls",
+  "definitions": {
+    "Book": {
+      "type": "object",
+      "required": ["version", "subject", "book", "chapters"],
+      "properties": {
+        "version": { "type": "string", "description": "pep-2019" },
+        "subject": { "enum": ["physics", "biology", "chemistry"] },
+        "book": { "type": "string", "description": "compulsory-1 / compulsory-2 / elective-3-x" },
+        "book_title": { "type": "string" },
+        "chapters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "sections"],
+            "properties": {
+              "id": { "type": "string", "description": "ch1 / ch5" },
+              "title": { "type": "string" },
+              "sections": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["id", "title", "knowledge_tags"],
+                  "properties": {
+                    "id": { "type": "string", "description": "ch5.4" },
+                    "title": { "type": "string" },
+                    "knowledge_tags": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "learning_goals": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "core_formulas": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "difficulty": { "enum": ["easy", "medium", "hard"] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "PitfallBook": {
+      "type": "object",
+      "required": ["subject", "pitfalls"],
+      "properties": {
+        "subject": { "enum": ["physics", "biology", "chemistry"] },
+        "pitfalls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "knowledge_tags", "pitfall", "correct"],
+            "properties": {
+              "id": { "type": "string" },
+              "knowledge_tags": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "pitfall": { "type": "string", "description": "易错描述" },
+              "correct": { "type": "string", "description": "正确做法" },
+              "common_mistake": { "type": "string" },
+              "correction_hint": { "type": "string" },
+              "severity": { "enum": ["low", "medium", "high"] },
+              "evidence_section": { "type": "string", "description": "pep.physics.compulsory-2.ch5.4" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/definitions/Book" },
+    { "$ref": "#/definitions/PitfallBook" }
+  ]
+}
+

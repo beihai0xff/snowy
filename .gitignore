@@ -34,6 +34,7 @@ configs/config.yaml
 # Editor/IDE
 .idea/
 .vscode/
+/.codex/config.toml
 
 # Frontend
 web/snowy-web/node_modules/
@@ -42,4 +43,5 @@ web/snowy-web/out/
 
 # Playwright CLI local snapshots and logs
 .playwright-cli/
-/.codex/config.toml
+/.playwright-mcp/
+/output/

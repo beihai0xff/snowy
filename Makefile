@@ -17,7 +17,11 @@ DEPLOY_DIR     := $(ROOT_DIR)/deployments/docker
 CONFIG_DIR     := $(ROOT_DIR)/configs
 
 # ── Go 参数 ─────────────────────────────────────────────────
-GO             := go
+HOST_BIN_DIR   ?= /opt/homebrew/bin
+GOLANGCI_BIN_DIR ?= $(HOME)/go/bin
+TOOL_PATH      := $(GOLANGCI_BIN_DIR):$(HOST_BIN_DIR):$(PATH)
+GO_BIN         ?= go
+GO             := PATH="$(TOOL_PATH)" $(GO_BIN)
 GOFLAGS        :=
 LDFLAGS        := -s -w \
                   -X main.Version=$(VERSION) \
@@ -26,9 +30,12 @@ LDFLAGS        := -s -w \
 GOTEST_FLAGS   := -race -count=1 -timeout 120s
 TEST_DEPS_SERVICES := mysql redis
 INFRA_SERVICES := mysql redis
+APP_SERVICES   := snowy snowy-web
 
 # ── Docker 参数 ─────────────────────────────────────────────
 DOCKER_COMPOSE := docker compose -f $(DEPLOY_DIR)/docker-compose.yml -p $(PROJECT_NAME)
+API_BASE       ?= http://localhost:8080
+WEB_BASE       ?= http://localhost:3001
 
 # Load optional local env overrides for non-secret runtime switches.
 ifneq (,$(wildcard $(ROOT_DIR)/.env))
@@ -37,12 +44,13 @@ export
 endif
 DOCKER_REG     ?=
 IMAGE_SERVER   := $(if $(DOCKER_REG),$(DOCKER_REG)/)$(PROJECT_NAME):$(VERSION)
+DOCKER_GOPROXY ?= https://proxy.golang.org,direct
 
 # ── 工具 ────────────────────────────────────────────────────
-GOLANGCI_LINT  := $(shell command -v golangci-lint 2>/dev/null)
+GOLANGCI_VERSION ?= latest
 GOLANGCI_CONFIG := $(ROOT_DIR)/.golangci.yml
-GOLANGCI_FMT_CMD := golangci-lint fmt -c $(GOLANGCI_CONFIG)
-GOLANGCI_RUN_CMD := golangci-lint run -c $(GOLANGCI_CONFIG) ./...
+GOLANGCI_FMT_CMD := PATH="$(TOOL_PATH)" golangci-lint fmt -c $(GOLANGCI_CONFIG)
+GOLANGCI_RUN_CMD := PATH="$(TOOL_PATH)" golangci-lint run -c $(GOLANGCI_CONFIG) --timeout=5m ./cmd/... ./internal/...
 MYSQL_MIGRATE_CMD := $(GO) run ./cmd/migrate -config $(CONFIG_DIR)/config.yaml
 WAIT_FOR_CONTAINER := bash $(ROOT_DIR)/scripts/wait-for-container.sh
 
@@ -120,11 +128,10 @@ test-coverage:
 	$(GO) tool cover -html=$(BIN_DIR)/coverage.out -o $(BIN_DIR)/coverage.html
 	@echo "$(GREEN)✓ Coverage report: $(BIN_DIR)/coverage.html$(RESET)"
 
-## ensure-golangci-lint: 确保 golangci-lint 已安装
 ensure-golangci-lint:
-	@if ! command -v golangci-lint >/dev/null 2>&1; then \
+	@if ! PATH="$(TOOL_PATH)" command -v golangci-lint >/dev/null 2>&1; then \
 		echo "$(YELLOW)▸ Installing golangci-lint...$(RESET)"; \
-		go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; \
+		$(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION); \
 	fi
 
 ## lint: 运行 golangci-lint
@@ -209,32 +216,23 @@ bootstrap: deps docker-up
 #  Docker — 应用镜像构建 & 运行
 # ============================================================
 
-.PHONY: docker-build docker-build-server docker-build-web docker-run docker-smoke docker-push ensure-runtime-config
+.PHONY: docker-build docker-build-server docker-build-web docker-run docker-smoke docker-check ensure-runtime-config
 
 ## docker-build: 构建默认单体服务与前端镜像
 docker-build: docker-build-server docker-build-web
 
 ## docker-build-server: 构建统一服务镜像
 docker-build-server:
-	@echo "$(CYAN)▸ Building Docker image: $(IMAGE_SERVER)...$(RESET)"
-	docker build \
-		--build-arg TARGET=snowy \
-		-f $(DEPLOY_DIR)/Dockerfile \
-		-t $(IMAGE_SERVER) \
-		-t $(PROJECT_NAME):latest \
-		$(ROOT_DIR)
-	@echo "$(CYAN)✓ $(IMAGE_SERVER)$(RESET)"
+	@echo "$(CYAN)▸ Building Docker service image via compose: snowy...$(RESET)"
+	GOPROXY="$(DOCKER_GOPROXY)" $(DOCKER_COMPOSE) build snowy
+	@echo "$(CYAN)✓ snowy image built$(RESET)"
 
 ## docker-build-web: 构建前端 Nginx 服务镜像
 docker-build-web:
-	@echo "$(CYAN)▸ Building Docker image: $(PROJECT_NAME)-web:latest...$(RESET)"
-	docker build \
-		-f $(DEPLOY_DIR)/Dockerfile.web \
-		-t $(PROJECT_NAME)-web:latest \
-		$(ROOT_DIR)
-	@echo "$(CYAN)✓ $(PROJECT_NAME)-web:latest$(RESET)"
+	@echo "$(CYAN)▸ Building Docker service image via compose: snowy-web...$(RESET)"
+	$(DOCKER_COMPOSE) build snowy-web
+	@echo "$(CYAN)✓ snowy-web image built$(RESET)"
 
-## ensure-runtime-config: 确保本地运行时配置存在
 ensure-runtime-config:
 	@if [ ! -f $(CONFIG_DIR)/config.yaml ]; then \
 		echo "$(YELLOW)✗ Missing required runtime config: $(CONFIG_DIR)/config.yaml$(RESET)"; \
@@ -243,24 +241,36 @@ ensure-runtime-config:
 	fi
 
 ## docker-run: 通过 docker compose 一键启动统一服务与 Web（会先确保基础设施与迁移完成）
-docker-run: ensure-runtime-config docker-up
+docker-run: ensure-runtime-config
 	@echo "$(GREEN)▸ Starting Snowy and Web services...$(RESET)"
-	$(DOCKER_COMPOSE) up -d snowy snowy-web
+	@for svc in $(APP_SERVICES); do \
+		if docker ps -a --format '{{.Names}}' | grep -qx "$$svc"; then \
+			echo "$(YELLOW)▸ Removing stale container: $$svc$(RESET)"; \
+			docker rm -f "$$svc" >/dev/null 2>&1 || true; \
+		fi; \
+	done
+	@$(MAKE) docker-up
+	@$(MAKE) docker-build
+	$(DOCKER_COMPOSE) up -d $(APP_SERVICES)
 	@echo "$(GREEN)✓ Services are running$(RESET)"
 	@echo ""
-	@echo "  API    : http://localhost:8080"
-	@echo "  Web    : http://localhost:3001"
+	@echo "  API    : $(API_BASE)"
+	@echo "  Web    : $(WEB_BASE)"
+	@$(MAKE) docker-check
+
+## docker-check: 检查 compose 服务状态与 8080/3001 基础连通性
+docker-check:
+	@echo "$(CYAN)▸ Checking compose services and endpoints...$(RESET)"
+	@$(DOCKER_COMPOSE) ps
+	@$(WAIT_FOR_CONTAINER) snowy 90 2
+	@$(WAIT_FOR_CONTAINER) snowy-web 60 2
+	@curl -fsS $(API_BASE)/healthz >/dev/null
+	@curl -fsSI $(WEB_BASE) >/dev/null
+	@echo "$(CYAN)✓ API healthz and Web 3001 are reachable$(RESET)"
 
 ## docker-smoke: 纯 Docker 运行态冒烟检查
 docker-smoke:
 	@bash ./scripts/docker-smoke.sh
-
-## docker-push: 推送应用镜像到远端仓库 (需设置 DOCKER_REG)
-docker-push:
-ifndef DOCKER_REG
-	$(error DOCKER_REG is not set. Usage: make docker-push DOCKER_REG=your-registry.com)
-endif
-	docker push $(IMAGE_SERVER)
 
 # ============================================================
 #  Run — 本地开发运行
@@ -299,6 +309,8 @@ web-build:
 ## migrate-up: 使用 GORM 初始化 / 同步 MySQL Schema
 migrate-up:
 	@echo "$(GREEN)▸ Running GORM migrations...$(RESET)"
+	@pkill -f "cmd/migrate" >/dev/null 2>&1 || true
+	@sleep 1
 	SNOWY_DATABASE_HOST="$(DB_HOST)" \
 	SNOWY_DATABASE_PORT="$(DB_PORT)" \
 	SNOWY_DATABASE_USER="$(DB_USER)" \
@@ -308,17 +320,6 @@ migrate-up:
 
 ## migrate-reset: 重启基础设施并重新应用 GORM Schema
 migrate-reset: docker-down docker-up
-
-# ============================================================
-#  Code Generation
-# ============================================================
-
-.PHONY: generate
-
-## generate: 运行全部代码生成 (go generate)
-generate:
-	@echo "$(GREEN)▸ Running go generate...$(RESET)"
-	$(GO) generate ./...
 
 # ============================================================
 #  Dependencies
@@ -337,25 +338,13 @@ tidy:
 	$(GO) mod tidy
 
 # ============================================================
-#  Tools Installation
-# ============================================================
-
-.PHONY: tools
-
-## tools: 安装全部开发工具
-tools:
-	@echo "$(GREEN)▸ Installing dev tools...$(RESET)"
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	@echo "$(GREEN)✓ All tools installed$(RESET)"
-
-# ============================================================
 #  CI Pipeline (组合目标)
 # ============================================================
 
 .PHONY: ci check
 
-## ci: CI 全流程 — fmt → vet → lint → test → build
-ci: fmt vet lint test build
+## ci: CI 全流程 — lint → vet → test → build
+ci: lint vet test build
 	@echo "$(GREEN)✓ CI pipeline passed$(RESET)"
 
 ## check: 快速检查 — vet → test

@@ -102,8 +102,27 @@ Snowy 是面向高中生的 Web 端 AIGC 科学学习平台，核心能力包括
 - 默认服务入口是 `cmd/snowy`，默认运行模式为 `server.run_mode=all`。
 - `SNOWY_SERVER_RUN_MODE=api|worker` 只用于临时拆分 API / worker surface。
 - Docker Compose 项目文件：`deployments/docker/docker-compose.yml`。
+- 后续所有 Docker 构建、启动、重启、冒烟验证，必须优先使用仓库根目录 `Makefile` 中的目标；不要把手写 `docker build`、`docker run`、`docker compose ...` 作为标准执行路径，除非是在排查 Makefile 本身且最终要把结论收敛回 Makefile。
+- 标准 Docker 路径固定为：`make docker-build` → `make docker-run` → `make docker-check` / `make docker-smoke`。
+- 前端 Web 容器的对外访问端口固定为 `3001`；涉及 Web Docker 运行态验证时，统一使用 `http://localhost:3001`，不要改回 `3000`、`80` 或其他端口。
+- `make docker-run` 必须被视为“唯一标准启动入口”：它会确保基础设施、迁移、镜像构建、compose 网络和 `snowy` / `snowy-web` 服务同时就绪。
+- 若仅检查容器和端口可达性，优先执行 `make docker-check`；若验证完整 Docker 运行链路，优先执行 `make docker-smoke`。
 - Docker 与本地 binary 都读取 `configs/config.yaml`；应用容器通过 `snowy-host.internal` 访问宿主机暴露的 MySQL / Redis 端口。
 - 不要把临时调试用代理、私有镜像源、个人路径或本机绝对路径提交到 Dockerfile / Compose / 配置文件。
+
+### 6. Go Lint 强制门禁
+
+- 任何 Go 代码修改都必须通过 `golangci-lint`，不得交付未通过 lint 的代码。
+- 本地 `golangci-lint` 版本必须与 CI 当前使用版本保持一致；CI 使用 `golangci/golangci-lint-action@v9` 的 `version: latest` 时，本地应安装并优先使用对应最新版本。
+- 当前推荐本地 PATH 优先级：`/Users/beihai0xff/go/bin:/opt/homebrew/bin:$PATH`，确保命中手动安装的新版 `golangci-lint`，而不是 Homebrew 旧版本。
+- 修改 Go 代码后，至少执行并通过：
+
+```bash
+PATH=/Users/beihai0xff/go/bin:/opt/homebrew/bin:$PATH golangci-lint run --timeout=5m ./cmd/... ./internal/...
+```
+
+- 若变更可能被本地 gitignored `web/snowy-web/node_modules` 干扰，必须在排除 `node_modules` / `.next` 的临时干净副本中执行完整 `golangci-lint run --timeout=5m`，以模拟 GitHub Actions checkout。
+- 如果因环境问题无法运行 lint，最终回复必须明确说明原因、已尝试的命令和剩余风险；不得把 lint 未验证伪装成已通过。
 
 ## 代码风格与实现准则
 
@@ -119,6 +138,7 @@ Snowy 是面向高中生的 Web 端 AIGC 科学学习平台，核心能力包括
 根据变更范围选择验证，完成较大改动时优先跑完整链路：
 
 ```bash
+PATH=/Users/beihai0xff/go/bin:/opt/homebrew/bin:$PATH golangci-lint run --timeout=5m ./cmd/... ./internal/...
 go test ./...
 cd web/snowy-web && npm run lint
 cd web/snowy-web && npm run build
@@ -129,11 +149,10 @@ git diff --check
 Docker 运行态验证：
 
 ```bash
-docker compose -f deployments/docker/docker-compose.yml -p snowy build snowy snowy-web
-docker compose -f deployments/docker/docker-compose.yml -p snowy up -d snowy snowy-web
-docker compose -f deployments/docker/docker-compose.yml -p snowy ps
-curl -fsS http://localhost:8080/healthz
-curl -fsSI http://localhost:3001
+make docker-build
+make docker-run
+make docker-check
+make docker-smoke
 ```
 
 如涉及集成测试或数据库 / Redis 行为，按需执行：
@@ -151,4 +170,5 @@ make test-integration
 2. 已扫描并确认没有重新引入被禁止的 LLM 历史遗留关键词。
 3. 已按变更范围运行必要验证，并记录通过 / 失败 / 未运行的原因。
 4. 服务运行类任务必须确认容器状态与健康检查，而不是只确认命令已执行。
-5. 最终回复必须列出修改文件、关键行为变化、验证命令与运行态状态。
+5. 如涉及 Docker / Web 运行态，必须说明使用的是 `Makefile` 目标，并确认 Web 访问端口为 `3001`。
+6. 最终回复必须列出修改文件、关键行为变化、验证命令与运行态状态。

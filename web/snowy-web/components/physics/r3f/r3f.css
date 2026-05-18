@@ -83,17 +83,28 @@
   position: absolute;
   top: 14px;
   right: 14px;
-  min-width: 180px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(2, 6, 23, 0.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(34, 211, 238, 0.22);
-  color: rgba(226, 232, 240, 0.92);
+  min-width: 200px;
+  max-width: 320px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(2, 6, 23, 0.72) 0%, rgba(15, 23, 42, 0.62) 100%);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  box-shadow: 0 8px 28px -12px rgba(2, 6, 23, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  color: rgba(226, 232, 240, 0.95);
   font-size: 12px;
   pointer-events: none;
 }
+
+.snowy-r3f-hud--v8 {
+  /* v8: 学科色边框（由 data-scene 重写） */
+}
+.snowy-r3f-shell[data-scene='orbit'] .snowy-r3f-hud--v8 { border-color: rgba(251, 191, 36, 0.32); }
+.snowy-r3f-shell[data-scene='collision'] .snowy-r3f-hud--v8 { border-color: rgba(236, 72, 153, 0.32); }
+.snowy-r3f-shell[data-scene='spring'] .snowy-r3f-hud--v8 { border-color: rgba(34, 211, 238, 0.32); }
+.snowy-r3f-shell[data-scene='force'] .snowy-r3f-hud--v8 { border-color: rgba(250, 204, 21, 0.32); }
+.snowy-r3f-shell[data-scene='projectile'] .snowy-r3f-hud--v8 { border-color: rgba(103, 232, 249, 0.32); }
 
 .snowy-r3f-hud__title {
   font-weight: 600;
@@ -122,6 +133,37 @@
 
 .snowy-r3f-hud__val {
   color: #f1f5f9;
+}
+
+.snowy-r3f-hud__val.is-flash {
+  color: #facc15;
+  text-shadow: 0 0 6px rgba(250, 204, 21, 0.6);
+  transition: color 0.18s ease, text-shadow 0.18s ease;
+}
+
+.snowy-r3f-hud__formulas {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(148, 163, 184, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.snowy-r3f-hud__formula {
+  font-size: 12px;
+  color: #cbd5e1;
+  line-height: 1.4;
+  overflow-x: auto;
+}
+
+.snowy-r3f-hud__formula .katex {
+  font-size: 12px;
+  color: #e2e8f0;
+}
+.snowy-r3f-hud__formula .katex .mord.textbf,
+.snowy-r3f-hud__formula .katex .mathbf {
+  color: #facc15;
 }
 
 .snowy-r3f-hud__foot {

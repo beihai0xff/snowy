@@ -70,7 +70,7 @@ export interface AnswerRecord {
 }
 
 export interface FavoriteReq {
-  target_type: 'search' | 'answer' | 'evidence' | 'physics' | 'biology' | 'model_package' | 'render_code' | 'model_config';
+  target_type: 'search' | 'answer' | 'evidence' | 'physics' | 'biology' | 'chemistry' | 'model_package' | 'render_code' | 'model_config';
   target_id: string;
   title: string;
   metadata_json?: Record<string, unknown>;

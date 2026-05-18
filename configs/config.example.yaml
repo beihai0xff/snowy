@@ -6,6 +6,7 @@ server:
   host: "0.0.0.0"
   port: 8080
   run_mode: "all"                  # all / api / worker
+  startup_migrate: true             # Docker 标准路径已先执行 make migrate-up；容器内可改为 false 避免重复迁移
   mode: "release"                  # debug / release / test
   read_timeout: 30s
   write_timeout: 10m

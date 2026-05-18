@@ -4,10 +4,12 @@ import React from 'react';
 import { Alert, Button, Card, List, Slider, Space, Tag, Typography } from 'antd';
 import { ThunderboltOutlined } from '@ant-design/icons';
 import type { GenerativeModelPackage } from '@/lib/api';
+import PitfallList from '@/components/learning/PitfallList';
+import type { SubjectKey } from '@/lib/curriculum';
 
 const { Text } = Typography;
 
-type Subject = 'physics' | 'biology';
+type Subject = SubjectKey;
 
 interface Props {
   pkg: GenerativeModelPackage;
@@ -20,15 +22,18 @@ interface Props {
 const SUBJECT_TOKENS: Record<Subject, { color: string; soft: string }> = {
   physics: { color: 'var(--color-physics, #0891B2)', soft: 'var(--color-physics-soft, #CFFAFE)' },
   biology: { color: 'var(--color-biology, #16A34A)', soft: 'var(--color-biology-soft, #DCFCE7)' },
+  chemistry: { color: 'var(--color-chemistry, #7C3AED)', soft: 'var(--color-chemistry-soft, #EDE9FE)' },
 };
 
 export default function InteractionPlanPanel({ pkg, values, subject, onChange, onRegenerate }: Props) {
   const variables = pkg.simulation_logic?.variables || pkg.generative_model.variables || [];
   const local = new Set(pkg.interaction_plan?.regeneration_policy?.local_recompute || []);
   const tokens = SUBJECT_TOKENS[subject];
+  const tags = pkg.learning_model?.knowledge_tags || [];
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="middle">
+      <PitfallList subject={subject} tags={tags} />
       {pkg.interaction_plan?.challenge && (
         <Alert type="success" showIcon message="生成式挑战" description={pkg.interaction_plan.challenge.goal} />
       )}

@@ -1,0 +1,36 @@
+version: pep-2019
+subject: chemistry
+book: compulsory-1
+book_title: 普通高中教科书·化学·必修第一册
+chapters:
+  - id: ch1
+    title: 物质及其变化
+    sections:
+      - id: ch1.2
+        title: 离子反应
+        knowledge_tags: [ionic_reaction, electrolyte, ion_equation, acid_base, neutralization]
+        difficulty: medium
+      - id: ch1.3
+        title: 氧化还原反应
+        knowledge_tags: [redox_reaction, electron_transfer, oxidation_state]
+        learning_goals:
+          - 用化合价变化判断氧化剂 / 还原剂
+          - 用电子转移分析 redox 方程
+        difficulty: hard
+
+  - id: ch2
+    title: 海水中的重要元素——钠和氯
+    sections:
+      - id: ch2.2
+        title: 氯及其化合物
+        knowledge_tags: [chlorine, hcl, sodium_chloride]
+        difficulty: medium
+
+  - id: ch3
+    title: 铁 金属材料
+    sections:
+      - id: ch3.1
+        title: 铁及其化合物
+        knowledge_tags: [iron, ferric_ferrous]
+        difficulty: medium
+

@@ -1,0 +1,866 @@
+{
+  "version": "pep-2019",
+  "subject": "biology",
+  "books": [
+    {
+      "version": "pep-2019",
+      "subject": "biology",
+      "book": "compulsory-1",
+      "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+      "chapters": [
+        {
+          "id": "ch4",
+          "title": "细胞的物质输入和输出",
+          "sections": [
+            {
+              "id": "ch4.1",
+              "title": "物质跨膜运输的实例",
+              "knowledge_tags": [
+                "membrane_transport",
+                "osmosis",
+                "diffusion"
+              ],
+              "difficulty": "medium"
+            },
+            {
+              "id": "ch4.2",
+              "title": "生物膜的流动镶嵌模型",
+              "knowledge_tags": [
+                "phospholipid_bilayer",
+                "membrane_protein",
+                "membrane_fluidity"
+              ],
+              "difficulty": "medium"
+            },
+            {
+              "id": "ch4.3",
+              "title": "物质跨膜运输的方式",
+              "knowledge_tags": [
+                "passive_transport",
+                "active_transport",
+                "facilitated_diffusion"
+              ],
+              "difficulty": "hard"
+            }
+          ]
+        },
+        {
+          "id": "ch5",
+          "title": "细胞的能量供应和利用",
+          "sections": [
+            {
+              "id": "ch5.1",
+              "title": "降低反应活化能的酶",
+              "knowledge_tags": [
+                "enzyme",
+                "catalysis",
+                "activation_energy"
+              ],
+              "learning_goals": [
+                "理解酶的高效性、专一性、温和性",
+                "理解温度 / pH 对酶活性的影响曲线（钟形）"
+              ],
+              "difficulty": "medium"
+            },
+            {
+              "id": "ch5.2",
+              "title": "细胞的能量\"通货\"——ATP",
+              "knowledge_tags": [
+                "atp",
+                "energy_currency"
+              ],
+              "difficulty": "easy"
+            },
+            {
+              "id": "ch5.3",
+              "title": "细胞呼吸",
+              "knowledge_tags": [
+                "respiration",
+                "cellular_respiration",
+                "aerobic_respiration",
+                "anaerobic_respiration",
+                "mitochondria"
+              ],
+              "learning_goals": [
+                "区分有氧呼吸三阶段与场所",
+                "区分有氧呼吸与无氧呼吸的产物 / 能量"
+              ],
+              "core_formulas": [
+                "C_6H_{12}O_6 + 6O_2 \\\\to 6CO_2 + 6H_2O + \\\\text{能量}"
+              ],
+              "difficulty": "hard"
+            },
+            {
+              "id": "ch5.4",
+              "title": "光合作用与能量转化",
+              "knowledge_tags": [
+                "photosynthesis",
+                "light_reaction",
+                "dark_reaction",
+                "calvin_cycle",
+                "chloroplast"
+              ],
+              "learning_goals": [
+                "理解光反应（类囊体）与暗反应（基质）的物质 / 能量变化",
+                "理解光照强度、CO₂、温度对光合速率的影响曲线"
+              ],
+              "core_formulas": [
+                "6CO_2 + 12H_2O \\\\xrightarrow{\\\\text{光}} C_6H_{12}O_6 + 6O_2 + 6H_2O"
+              ],
+              "difficulty": "hard"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "version": "pep-2019",
+      "subject": "biology",
+      "book": "compulsory-2",
+      "book_title": "普通高中教科书·生物学·必修第二册·遗传与进化",
+      "chapters": [
+        {
+          "id": "ch1",
+          "title": "遗传因子的发现",
+          "sections": [
+            {
+              "id": "ch1.1",
+              "title": "孟德尔的豌豆杂交实验（一）",
+              "knowledge_tags": [
+                "mendel_law",
+                "segregation_law",
+                "monohybrid_cross",
+                "dominant_recessive"
+              ],
+              "learning_goals": [
+                "理解分离定律：F₁ 表现显性，F₂ 显隐 3:1",
+                "用基因型分析配子与子代"
+              ],
+              "difficulty": "hard"
+            },
+            {
+              "id": "ch1.2",
+              "title": "孟德尔的豌豆杂交实验（二）",
+              "knowledge_tags": [
+                "mendel_law",
+                "independent_assortment",
+                "dihybrid_cross"
+              ],
+              "learning_goals": [
+                "自由组合定律：双杂合 F₂ 9:3:3:1"
+              ],
+              "difficulty": "hard"
+            }
+          ]
+        },
+        {
+          "id": "ch5",
+          "title": "基因突变及其他变异",
+          "sections": [
+            {
+              "id": "ch5.1",
+              "title": "基因突变和基因重组",
+              "knowledge_tags": [
+                "mutation",
+                "gene_recombination"
+              ],
+              "difficulty": "medium"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "tag_index": {
+    "membrane_transport": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch4",
+        "chapter_title": "细胞的物质输入和输出",
+        "section_id": "ch4.1",
+        "section_title": "物质跨膜运输的实例",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "osmosis": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch4",
+        "chapter_title": "细胞的物质输入和输出",
+        "section_id": "ch4.1",
+        "section_title": "物质跨膜运输的实例",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "diffusion": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch4",
+        "chapter_title": "细胞的物质输入和输出",
+        "section_id": "ch4.1",
+        "section_title": "物质跨膜运输的实例",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "phospholipid_bilayer": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch4",
+        "chapter_title": "细胞的物质输入和输出",
+        "section_id": "ch4.2",
+        "section_title": "生物膜的流动镶嵌模型",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "membrane_protein": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch4",
+        "chapter_title": "细胞的物质输入和输出",
+        "section_id": "ch4.2",
+        "section_title": "生物膜的流动镶嵌模型",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "membrane_fluidity": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch4",
+        "chapter_title": "细胞的物质输入和输出",
+        "section_id": "ch4.2",
+        "section_title": "生物膜的流动镶嵌模型",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "passive_transport": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch4",
+        "chapter_title": "细胞的物质输入和输出",
+        "section_id": "ch4.3",
+        "section_title": "物质跨膜运输的方式",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "hard"
+      }
+    ],
+    "active_transport": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch4",
+        "chapter_title": "细胞的物质输入和输出",
+        "section_id": "ch4.3",
+        "section_title": "物质跨膜运输的方式",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "hard"
+      }
+    ],
+    "facilitated_diffusion": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch4",
+        "chapter_title": "细胞的物质输入和输出",
+        "section_id": "ch4.3",
+        "section_title": "物质跨膜运输的方式",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "hard"
+      }
+    ],
+    "enzyme": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch5",
+        "chapter_title": "细胞的能量供应和利用",
+        "section_id": "ch5.1",
+        "section_title": "降低反应活化能的酶",
+        "learning_goals": [
+          "理解酶的高效性、专一性、温和性",
+          "理解温度 / pH 对酶活性的影响曲线（钟形）"
+        ],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "catalysis": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch5",
+        "chapter_title": "细胞的能量供应和利用",
+        "section_id": "ch5.1",
+        "section_title": "降低反应活化能的酶",
+        "learning_goals": [
+          "理解酶的高效性、专一性、温和性",
+          "理解温度 / pH 对酶活性的影响曲线（钟形）"
+        ],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "activation_energy": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch5",
+        "chapter_title": "细胞的能量供应和利用",
+        "section_id": "ch5.1",
+        "section_title": "降低反应活化能的酶",
+        "learning_goals": [
+          "理解酶的高效性、专一性、温和性",
+          "理解温度 / pH 对酶活性的影响曲线（钟形）"
+        ],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "atp": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch5",
+        "chapter_title": "细胞的能量供应和利用",
+        "section_id": "ch5.2",
+        "section_title": "细胞的能量\"通货\"——ATP",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "easy"
+      }
+    ],
+    "energy_currency": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch5",
+        "chapter_title": "细胞的能量供应和利用",
+        "section_id": "ch5.2",
+        "section_title": "细胞的能量\"通货\"——ATP",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "easy"
+      }
+    ],
+    "respiration": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch5",
+        "chapter_title": "细胞的能量供应和利用",
+        "section_id": "ch5.3",
+        "section_title": "细胞呼吸",
+        "learning_goals": [
+          "区分有氧呼吸三阶段与场所",
+          "区分有氧呼吸与无氧呼吸的产物 / 能量"
+        ],
+        "core_formulas": [
+          "C_6H_{12}O_6 + 6O_2 \\\\to 6CO_2 + 6H_2O + \\\\text{能量}"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "cellular_respiration": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch5",
+        "chapter_title": "细胞的能量供应和利用",
+        "section_id": "ch5.3",
+        "section_title": "细胞呼吸",
+        "learning_goals": [
+          "区分有氧呼吸三阶段与场所",
+          "区分有氧呼吸与无氧呼吸的产物 / 能量"
+        ],
+        "core_formulas": [
+          "C_6H_{12}O_6 + 6O_2 \\\\to 6CO_2 + 6H_2O + \\\\text{能量}"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "aerobic_respiration": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch5",
+        "chapter_title": "细胞的能量供应和利用",
+        "section_id": "ch5.3",
+        "section_title": "细胞呼吸",
+        "learning_goals": [
+          "区分有氧呼吸三阶段与场所",
+          "区分有氧呼吸与无氧呼吸的产物 / 能量"
+        ],
+        "core_formulas": [
+          "C_6H_{12}O_6 + 6O_2 \\\\to 6CO_2 + 6H_2O + \\\\text{能量}"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "anaerobic_respiration": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch5",
+        "chapter_title": "细胞的能量供应和利用",
+        "section_id": "ch5.3",
+        "section_title": "细胞呼吸",
+        "learning_goals": [
+          "区分有氧呼吸三阶段与场所",
+          "区分有氧呼吸与无氧呼吸的产物 / 能量"
+        ],
+        "core_formulas": [
+          "C_6H_{12}O_6 + 6O_2 \\\\to 6CO_2 + 6H_2O + \\\\text{能量}"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "mitochondria": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch5",
+        "chapter_title": "细胞的能量供应和利用",
+        "section_id": "ch5.3",
+        "section_title": "细胞呼吸",
+        "learning_goals": [
+          "区分有氧呼吸三阶段与场所",
+          "区分有氧呼吸与无氧呼吸的产物 / 能量"
+        ],
+        "core_formulas": [
+          "C_6H_{12}O_6 + 6O_2 \\\\to 6CO_2 + 6H_2O + \\\\text{能量}"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "photosynthesis": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch5",
+        "chapter_title": "细胞的能量供应和利用",
+        "section_id": "ch5.4",
+        "section_title": "光合作用与能量转化",
+        "learning_goals": [
+          "理解光反应（类囊体）与暗反应（基质）的物质 / 能量变化",
+          "理解光照强度、CO₂、温度对光合速率的影响曲线"
+        ],
+        "core_formulas": [
+          "6CO_2 + 12H_2O \\\\xrightarrow{\\\\text{光}} C_6H_{12}O_6 + 6O_2 + 6H_2O"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "light_reaction": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch5",
+        "chapter_title": "细胞的能量供应和利用",
+        "section_id": "ch5.4",
+        "section_title": "光合作用与能量转化",
+        "learning_goals": [
+          "理解光反应（类囊体）与暗反应（基质）的物质 / 能量变化",
+          "理解光照强度、CO₂、温度对光合速率的影响曲线"
+        ],
+        "core_formulas": [
+          "6CO_2 + 12H_2O \\\\xrightarrow{\\\\text{光}} C_6H_{12}O_6 + 6O_2 + 6H_2O"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "dark_reaction": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch5",
+        "chapter_title": "细胞的能量供应和利用",
+        "section_id": "ch5.4",
+        "section_title": "光合作用与能量转化",
+        "learning_goals": [
+          "理解光反应（类囊体）与暗反应（基质）的物质 / 能量变化",
+          "理解光照强度、CO₂、温度对光合速率的影响曲线"
+        ],
+        "core_formulas": [
+          "6CO_2 + 12H_2O \\\\xrightarrow{\\\\text{光}} C_6H_{12}O_6 + 6O_2 + 6H_2O"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "calvin_cycle": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch5",
+        "chapter_title": "细胞的能量供应和利用",
+        "section_id": "ch5.4",
+        "section_title": "光合作用与能量转化",
+        "learning_goals": [
+          "理解光反应（类囊体）与暗反应（基质）的物质 / 能量变化",
+          "理解光照强度、CO₂、温度对光合速率的影响曲线"
+        ],
+        "core_formulas": [
+          "6CO_2 + 12H_2O \\\\xrightarrow{\\\\text{光}} C_6H_{12}O_6 + 6O_2 + 6H_2O"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "chloroplast": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-1",
+        "book_title": "普通高中教科书·生物学·必修第一册·分子与细胞",
+        "chapter_id": "ch5",
+        "chapter_title": "细胞的能量供应和利用",
+        "section_id": "ch5.4",
+        "section_title": "光合作用与能量转化",
+        "learning_goals": [
+          "理解光反应（类囊体）与暗反应（基质）的物质 / 能量变化",
+          "理解光照强度、CO₂、温度对光合速率的影响曲线"
+        ],
+        "core_formulas": [
+          "6CO_2 + 12H_2O \\\\xrightarrow{\\\\text{光}} C_6H_{12}O_6 + 6O_2 + 6H_2O"
+        ],
+        "difficulty": "hard"
+      }
+    ],
+    "mendel_law": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·生物学·必修第二册·遗传与进化",
+        "chapter_id": "ch1",
+        "chapter_title": "遗传因子的发现",
+        "section_id": "ch1.1",
+        "section_title": "孟德尔的豌豆杂交实验（一）",
+        "learning_goals": [
+          "理解分离定律：F₁ 表现显性，F₂ 显隐 3:1",
+          "用基因型分析配子与子代"
+        ],
+        "core_formulas": [],
+        "difficulty": "hard"
+      },
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·生物学·必修第二册·遗传与进化",
+        "chapter_id": "ch1",
+        "chapter_title": "遗传因子的发现",
+        "section_id": "ch1.2",
+        "section_title": "孟德尔的豌豆杂交实验（二）",
+        "learning_goals": [
+          "自由组合定律：双杂合 F₂ 9:3:3:1"
+        ],
+        "core_formulas": [],
+        "difficulty": "hard"
+      }
+    ],
+    "segregation_law": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·生物学·必修第二册·遗传与进化",
+        "chapter_id": "ch1",
+        "chapter_title": "遗传因子的发现",
+        "section_id": "ch1.1",
+        "section_title": "孟德尔的豌豆杂交实验（一）",
+        "learning_goals": [
+          "理解分离定律：F₁ 表现显性，F₂ 显隐 3:1",
+          "用基因型分析配子与子代"
+        ],
+        "core_formulas": [],
+        "difficulty": "hard"
+      }
+    ],
+    "monohybrid_cross": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·生物学·必修第二册·遗传与进化",
+        "chapter_id": "ch1",
+        "chapter_title": "遗传因子的发现",
+        "section_id": "ch1.1",
+        "section_title": "孟德尔的豌豆杂交实验（一）",
+        "learning_goals": [
+          "理解分离定律：F₁ 表现显性，F₂ 显隐 3:1",
+          "用基因型分析配子与子代"
+        ],
+        "core_formulas": [],
+        "difficulty": "hard"
+      }
+    ],
+    "dominant_recessive": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·生物学·必修第二册·遗传与进化",
+        "chapter_id": "ch1",
+        "chapter_title": "遗传因子的发现",
+        "section_id": "ch1.1",
+        "section_title": "孟德尔的豌豆杂交实验（一）",
+        "learning_goals": [
+          "理解分离定律：F₁ 表现显性，F₂ 显隐 3:1",
+          "用基因型分析配子与子代"
+        ],
+        "core_formulas": [],
+        "difficulty": "hard"
+      }
+    ],
+    "independent_assortment": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·生物学·必修第二册·遗传与进化",
+        "chapter_id": "ch1",
+        "chapter_title": "遗传因子的发现",
+        "section_id": "ch1.2",
+        "section_title": "孟德尔的豌豆杂交实验（二）",
+        "learning_goals": [
+          "自由组合定律：双杂合 F₂ 9:3:3:1"
+        ],
+        "core_formulas": [],
+        "difficulty": "hard"
+      }
+    ],
+    "dihybrid_cross": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·生物学·必修第二册·遗传与进化",
+        "chapter_id": "ch1",
+        "chapter_title": "遗传因子的发现",
+        "section_id": "ch1.2",
+        "section_title": "孟德尔的豌豆杂交实验（二）",
+        "learning_goals": [
+          "自由组合定律：双杂合 F₂ 9:3:3:1"
+        ],
+        "core_formulas": [],
+        "difficulty": "hard"
+      }
+    ],
+    "mutation": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·生物学·必修第二册·遗传与进化",
+        "chapter_id": "ch5",
+        "chapter_title": "基因突变及其他变异",
+        "section_id": "ch5.1",
+        "section_title": "基因突变和基因重组",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ],
+    "gene_recombination": [
+      {
+        "subject": "biology",
+        "version": "pep-2019",
+        "book": "compulsory-2",
+        "book_title": "普通高中教科书·生物学·必修第二册·遗传与进化",
+        "chapter_id": "ch5",
+        "chapter_title": "基因突变及其他变异",
+        "section_id": "ch5.1",
+        "section_title": "基因突变和基因重组",
+        "learning_goals": [],
+        "core_formulas": [],
+        "difficulty": "medium"
+      }
+    ]
+  },
+  "pitfalls": [
+    {
+      "id": "bio.photo.001",
+      "knowledge_tags": [
+        "photosynthesis",
+        "light_reaction"
+      ],
+      "pitfall": "光反应只发生在白天",
+      "correct": "光反应需要光照才能进行；但暗反应不\"只在黑暗\"——暗反应需要光反应提供的 ATP/NADPH，光照停止后会很快停止",
+      "common_mistake": "把\"暗反应\"理解为\"必须在黑暗中\"",
+      "correction_hint": "暗反应 = 不直接需要光，但依赖光反应的产物",
+      "severity": "high",
+      "evidence_section": "pep.biology.compulsory-1.ch5.4"
+    },
+    {
+      "id": "bio.photo.002",
+      "knowledge_tags": [
+        "photosynthesis",
+        "calvin_cycle"
+      ],
+      "pitfall": "突然降低 CO₂，C₃ 和 C₅ 浓度都增加",
+      "correct": "突然降低 CO₂ → C₃ 减少（生成减少）、C₅ 增加（消耗减少）",
+      "common_mistake": "把 C₃/C₅ 变化方向搞反",
+      "correction_hint": "C₃ ← CO₂ + C₅；CO₂ 多则 C₃ 多 C₅ 少；反之亦然",
+      "severity": "high",
+      "evidence_section": "pep.biology.compulsory-1.ch5.4"
+    },
+    {
+      "id": "bio.photo.003",
+      "knowledge_tags": [
+        "photosynthesis",
+        "limiting_factor"
+      ],
+      "pitfall": "光照强度增加，光合速率一直增加",
+      "correct": "光照强度增大到一定值后，受 CO₂ 浓度或温度限制，光合速率达到饱和（平台期）",
+      "common_mistake": "把光强 - 光合速率画成一条直线",
+      "correction_hint": "画图时先线性上升，然后转折趋于平台",
+      "severity": "medium",
+      "evidence_section": "pep.biology.compulsory-1.ch5.4"
+    },
+    {
+      "id": "bio.resp.001",
+      "knowledge_tags": [
+        "respiration",
+        "aerobic_respiration"
+      ],
+      "pitfall": "有氧呼吸第二阶段（三羧酸循环）会产生 CO₂ 与 ATP",
+      "correct": "三羧酸循环（第二阶段）产生 CO₂ 与少量 ATP（还有大量 NADH）；O₂ 只在第三阶段（电子传递链）参与",
+      "common_mistake": "认为前两阶段就要消耗 O₂",
+      "correction_hint": "O₂ 仅参与第三阶段，在线粒体内膜上与 [H] 结合生成 H₂O",
+      "severity": "high",
+      "evidence_section": "pep.biology.compulsory-1.ch5.3"
+    },
+    {
+      "id": "bio.resp.002",
+      "knowledge_tags": [
+        "respiration",
+        "anaerobic_respiration"
+      ],
+      "pitfall": "无氧呼吸不释放能量",
+      "correct": "无氧呼吸释放少量能量（≈ 有氧呼吸的 5–6%），主要以热能形式散失，产生少量 ATP",
+      "common_mistake": "完全没能量 = 无氧呼吸",
+      "correction_hint": "关键是能量\"少\"，不是\"没有\"",
+      "severity": "medium",
+      "evidence_section": "pep.biology.compulsory-1.ch5.3"
+    },
+    {
+      "id": "bio.enzyme.001",
+      "knowledge_tags": [
+        "enzyme",
+        "catalysis"
+      ],
+      "pitfall": "酶在最适温度时最稳定",
+      "correct": "最适温度 = 活性最高 ≠ 最稳定；低温酶活性低但结构稳定，高温会变性失活",
+      "common_mistake": "把\"最适\"等同\"最稳定\"",
+      "correction_hint": "保存酶应低温（活性低但可逆），加热会不可逆变性",
+      "severity": "medium",
+      "evidence_section": "pep.biology.compulsory-1.ch5.1"
+    },
+    {
+      "id": "bio.membrane.001",
+      "knowledge_tags": [
+        "active_transport",
+        "atp",
+        "membrane_transport"
+      ],
+      "pitfall": "主动运输不需要 ATP",
+      "correct": "主动运输需 ATP 与载体；逆浓度梯度运输是主动运输的关键特征",
+      "common_mistake": "认为只要有载体就是主动运输",
+      "correction_hint": "易化扩散：有载体但不耗 ATP，顺浓度；主动运输：有载体且耗 ATP，逆浓度",
+      "severity": "high",
+      "evidence_section": "pep.biology.compulsory-1.ch4.3"
+    },
+    {
+      "id": "bio.genetics.001",
+      "knowledge_tags": [
+        "mendel_law",
+        "segregation_law"
+      ],
+      "pitfall": "F₂ 中显性个体都是杂合子",
+      "correct": "F₂ 显性个体 1/3 纯合（AA）、2/3 杂合（Aa）；表现型 3:1 = 1AA : 2Aa : 1aa",
+      "common_mistake": "把显性表现型直接当杂合",
+      "correction_hint": "自交后代分离的比例可帮助判定 AA 还是 Aa",
+      "severity": "high",
+      "evidence_section": "pep.biology.compulsory-2.ch1.1"
+    },
+    {
+      "id": "bio.genetics.002",
+      "knowledge_tags": [
+        "independent_assortment",
+        "dihybrid_cross"
+      ],
+      "pitfall": "9:3:3:1 中两对等位基因必须在不同染色体上",
+      "correct": "9:3:3:1 成立的关键是\"两对等位基因独立遗传\"——即位于非同源染色体（或距离足够远的同源染色体远端）",
+      "common_mistake": "不考虑连锁",
+      "correction_hint": "若两对基因连锁则比例偏离 9:3:3:1",
+      "severity": "high",
+      "evidence_section": "pep.biology.compulsory-2.ch1.2"
+    }
+  ]
+}

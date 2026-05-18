@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { Alert, Card, Empty, List, Space, Steps, Tabs, Tag, Timeline, Typography } from 'antd';
-import { Background, Controls, ReactFlow, type Edge, type Node } from '@xyflow/react';
+import { Background, Controls, MiniMap, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { GenerativeVisualizationSpec } from '@/lib/api';
 import SemanticBiologyRenderer, { hasSemanticBiologyIllustration } from '@/components/biology/SemanticBiologyRenderer';
@@ -28,7 +28,14 @@ export default function GenerativeBiologyGraph({ spec, values }: Props) {
       id: node.id,
       data: { label: node.label },
       position: { x: 190 * (index % 3), y: 120 * Math.floor(index / 3) },
-      style: { background: colorMap[node.type] || '#1677ff', color: '#fff', borderRadius: 10, border: 0, padding: '8px 14px' },
+      style: {
+        background: `linear-gradient(135deg, ${colorMap[node.type] || '#1677ff'} 0%, #0f766e 100%)`,
+        color: '#fff',
+        borderRadius: 14,
+        border: '1px solid rgba(255,255,255,0.32)',
+        padding: '10px 16px',
+        boxShadow: '0 14px 28px -20px rgba(15, 118, 110, 0.7)',
+      },
     }));
     const edges: Edge[] = (spec?.edges || []).map((edge, index) => ({
       id: `e-${index}`,
@@ -36,6 +43,8 @@ export default function GenerativeBiologyGraph({ spec, values }: Props) {
       target: edge.target,
       label: edge.relation,
       animated: true,
+      style: { stroke: edge.relation?.includes('抑制') ? '#ef4444' : '#10b981', strokeWidth: 2 },
+      labelStyle: { fill: '#047857', fontWeight: 600, fontSize: 12 },
     }));
     return { nodes, edges };
   }, [spec]);
@@ -59,7 +68,8 @@ export default function GenerativeBiologyGraph({ spec, values }: Props) {
       ) : hasGraph ? (
         <div style={{ height: 420, border: '1px solid var(--color-border, #e5e7eb)', borderRadius: 12, overflow: 'hidden' }}>
           <ReactFlow nodes={flow.nodes} edges={flow.edges} fitView proOptions={{ hideAttribution: true }}>
-            <Background />
+            <Background color="#bbf7d0" gap={18} />
+            <MiniMap nodeColor="#10b981" pannable zoomable />
             <Controls />
           </ReactFlow>
         </div>
@@ -142,7 +152,8 @@ export default function GenerativeBiologyGraph({ spec, values }: Props) {
   const graphPane = hasGraph ? (
     <div style={{ height: 420, border: '1px solid var(--color-border, #e5e7eb)', borderRadius: 12, overflow: 'hidden' }}>
       <ReactFlow nodes={flow.nodes} edges={flow.edges} fitView proOptions={{ hideAttribution: true }}>
-        <Background />
+        <Background color="#bbf7d0" gap={18} />
+        <MiniMap nodeColor="#10b981" pannable zoomable />
         <Controls />
       </ReactFlow>
     </div>

@@ -11,7 +11,10 @@
 # ============================================================
 
 # ── Stage 1: Build ──────────────────────────────────────────
-FROM golang:1.25-alpine AS builder
+ARG GO_BUILDER_IMAGE=docker.m.daocloud.io/library/golang:1.25-alpine
+ARG ALPINE_RUNTIME_IMAGE=docker.m.daocloud.io/library/alpine:3.21
+
+FROM ${GO_BUILDER_IMAGE} AS builder
 
 ARG TARGET=snowy
 ARG GOPROXY=https://goproxy.cn,direct
@@ -39,7 +42,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     ./cmd/${TARGET}
 
 # ── Stage 2: Runtime ────────────────────────────────────────
-FROM alpine:3.21
+FROM ${ALPINE_RUNTIME_IMAGE}
 
 ARG TARGET=snowy
 
