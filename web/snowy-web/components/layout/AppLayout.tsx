@@ -224,34 +224,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     },
   } as const;
 
-  // 管理后台采用同主题但隐藏前台 header
-  if (isAdminRoute(pathname)) {
-    return (
-      <ConfigProvider theme={themeConfig}>
-        <Layout className="snowy-shell">
-          <Header className="snowy-header">
-            <div
-              className="snowy-brand"
-              onClick={() => router.push('/')}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter') router.push('/'); }}
-            >
-              <span className="snowy-brand-mark">❄</span>
-              <span className="snowy-brand-name">Snowy</span>
-            </div>
-            <span className="snowy-admin-badge">⚠ 管理后台</span>
-            <div style={{ marginLeft: 'auto' }}>
-              <Button size="small" onClick={() => router.push('/')}>← 返回前台</Button>
-            </div>
-          </Header>
-          <Content className="snowy-content snowy-content--wide">
-            {children}
-          </Content>
-        </Layout>
-      </ConfigProvider>
-    );
-  }
+  const contentClassName = isAdminRoute(pathname) ? 'snowy-content snowy-content--wide' : 'snowy-content';
 
   return (
     <ConfigProvider theme={themeConfig}>
@@ -285,7 +258,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Dropdown>
           </Space>
         </Header>
-        <Content className="snowy-content">
+        <Content className={contentClassName}>
           {children}
         </Content>
         <footer className="snowy-footer">

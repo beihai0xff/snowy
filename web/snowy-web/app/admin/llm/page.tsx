@@ -138,6 +138,7 @@ export default function AdminLLMPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<{ user_id?: string; provider?: string; model?: string; operation?: string; limit?: number }>({ limit: 200 });
+  const [activeTab, setActiveTab] = useState('calls');
 
   const load = useCallback(async (nextFilters = filters) => {
     setLoading(true);
@@ -209,6 +210,78 @@ export default function AdminLLMPage() {
   }));
 
   const summary = data?.summary;
+  const tabItems = [
+    {
+      key: 'calls',
+      label: '调用记录',
+      children: (
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>最近 LLM 调用</div>
+            {data?.recent_calls?.length ? (
+              <Table
+                rowKey="id"
+                columns={recentColumns}
+                dataSource={data.recent_calls}
+                size="middle"
+                scroll={{ x: 1100 }}
+                pagination={{ pageSize: 8, hideOnSinglePage: true }}
+              />
+            ) : (
+              <Empty description="暂无 LLM 调用记录" />
+            )}
+          </div>
+
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>PE 快照与 Prompt 明细</div>
+            {collapseItems.length ? <Collapse items={collapseItems} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无 Prompt 快照" />}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16 }}>
+            <GroupMetricsList title="按模型聚合" data={data?.by_provider || []} />
+            <GroupMetricsList title="按 PE/链路聚合" data={data?.by_operation || []} />
+          </div>
+        </Space>
+      ),
+    },
+    {
+      key: 'prompts',
+      label: 'Prompt 注册表',
+      children: data?.prompt_profiles?.length ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 16 }}>
+          {data.prompt_profiles.map((p) => <PromptProfileCard key={p.id} profile={p} />)}
+        </div>
+      ) : <Empty description="暂无 Prompt Profile" />,
+    },
+    {
+      key: 'providers',
+      label: '模型配置',
+      children: data?.providers?.length ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: 16 }}>
+          {data.providers.map((provider) => (
+            <div key={provider.role} style={{ padding: 16, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12 }}>
+              <Space style={{ justifyContent: 'space-between', width: '100%', marginBottom: 12 }}>
+                <Space>
+                  <Badge status={provider.configured ? 'success' : 'warning'} />
+                  <Text strong>{provider.role.toUpperCase()} · {provider.provider || '未配置'}</Text>
+                </Space>
+                <Tag color={provider.api_key_configured ? 'green' : 'red'} bordered={false}>
+                  {provider.api_key_configured ? 'API Key 已注入' : 'API Key 缺失'}
+                </Tag>
+              </Space>
+              <Descriptions size="small" column={1}>
+                <Descriptions.Item label="模型">{provider.model || '-'}</Descriptions.Item>
+                <Descriptions.Item label="model_provider">{provider.model_provider || '-'}</Descriptions.Item>
+                <Descriptions.Item label="base_url">{provider.base_url || '-'}</Descriptions.Item>
+                <Descriptions.Item label="超时 / 重试">{provider.timeout || '-'} / {provider.max_retries}</Descriptions.Item>
+              </Descriptions>
+            </div>
+          ))}
+        </div>
+      ) : <Empty description="暂无模型配置" />,
+    },
+  ];
+  const activeContent = tabItems.find((item) => item.key === activeTab)?.children;
 
   return (
     <div className="snowy-page">
@@ -220,6 +293,15 @@ export default function AdminLLMPage() {
           </Paragraph>
         </div>
         <Button icon={<ReloadOutlined />} onClick={() => load()} loading={loading}>刷新</Button>
+      </div>
+
+      <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '4px 16px', marginBottom: 16 }}>
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={tabItems.map(({ key, label }) => ({ key, label }))}
+          tabBarGutter={24}
+        />
       </div>
 
       {error && (
@@ -273,78 +355,8 @@ export default function AdminLLMPage() {
       </div>
 
       {/* Tabs：调用记录 / Prompt / 模型配置 */}
-      <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '4px 16px 16px' }}>
-        <Tabs
-          defaultActiveKey="calls"
-          items={[
-            {
-              key: 'calls', label: '调用记录',
-              children: (
-                <Space direction="vertical" size={16} style={{ width: '100%' }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>最近 LLM 调用</div>
-                    {data?.recent_calls?.length ? (
-                      <Table
-                        rowKey="id"
-                        columns={recentColumns}
-                        dataSource={data.recent_calls}
-                        size="middle"
-                        scroll={{ x: 1100 }}
-                        pagination={{ pageSize: 8, hideOnSinglePage: true }}
-                      />
-                    ) : (
-                      <Empty description="暂无 LLM 调用记录" />
-                    )}
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>PE 快照与 Prompt 明细</div>
-                    {collapseItems.length ? <Collapse items={collapseItems} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无 Prompt 快照" />}
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16 }}>
-                    <GroupMetricsList title="按模型聚合"      data={data?.by_provider || []} />
-                    <GroupMetricsList title="按 PE/链路聚合"  data={data?.by_operation || []} />
-                  </div>
-                </Space>
-              ),
-            },
-            {
-              key: 'prompts', label: 'Prompt 注册表',
-              children: data?.prompt_profiles?.length ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 16 }}>
-                  {data.prompt_profiles.map((p) => <PromptProfileCard key={p.id} profile={p} />)}
-                </div>
-              ) : <Empty description="暂无 Prompt Profile" />,
-            },
-            {
-              key: 'providers', label: '模型配置',
-              children: data?.providers?.length ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: 16 }}>
-                  {data.providers.map((provider) => (
-                    <div key={provider.role} style={{ padding: 16, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12 }}>
-                      <Space style={{ justifyContent: 'space-between', width: '100%', marginBottom: 12 }}>
-                        <Space>
-                          <Badge status={provider.configured ? 'success' : 'warning'} />
-                          <Text strong>{provider.role.toUpperCase()} · {provider.provider || '未配置'}</Text>
-                        </Space>
-                        <Tag color={provider.api_key_configured ? 'green' : 'red'} bordered={false}>
-                          {provider.api_key_configured ? 'API Key 已注入' : 'API Key 缺失'}
-                        </Tag>
-                      </Space>
-                      <Descriptions size="small" column={1}>
-                        <Descriptions.Item label="模型">{provider.model || '-'}</Descriptions.Item>
-                        <Descriptions.Item label="model_provider">{provider.model_provider || '-'}</Descriptions.Item>
-                        <Descriptions.Item label="base_url">{provider.base_url || '-'}</Descriptions.Item>
-                        <Descriptions.Item label="超时 / 重试">{provider.timeout || '-'} / {provider.max_retries}</Descriptions.Item>
-                      </Descriptions>
-                    </div>
-                  ))}
-                </div>
-              ) : <Empty description="暂无模型配置" />,
-            },
-          ]}
-        />
+      <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: 16 }}>
+        {activeContent}
       </div>
     </div>
   );

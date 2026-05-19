@@ -1098,19 +1098,6 @@ a:hover { color: var(--color-primary-hover); text-decoration: underline; text-un
   margin-top: var(--space-2);
 }
 
-.snowy-admin-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 4px 10px;
-  border: 1px solid var(--color-warning);
-  background: var(--color-warning-soft);
-  color: var(--color-warning);
-  border-radius: var(--radius-full);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-}
-
 /* ============================================================
  * AntD 主题对齐（必要时覆盖）
  * 大部分通过 ConfigProvider token 已生效；以下只补足 token 触及不到的地方
