@@ -8,39 +8,18 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
 	goredis "github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
-	"github.com/beihai0xff/snowy/internal/agent"
-	agentassembler "github.com/beihai0xff/snowy/internal/agent/assembler"
-	agentcallback "github.com/beihai0xff/snowy/internal/agent/callback"
-	agentgraph "github.com/beihai0xff/snowy/internal/agent/graph"
-	agentpolicy "github.com/beihai0xff/snowy/internal/agent/policy"
-	agentrouter "github.com/beihai0xff/snowy/internal/agent/router"
-	agenttool "github.com/beihai0xff/snowy/internal/agent/tool"
-	handler "github.com/beihai0xff/snowy/internal/handler/http"
-	"github.com/beihai0xff/snowy/internal/handler/ws"
-	biologyexperiment "github.com/beihai0xff/snowy/internal/modeling/biology/experiment"
-	biologygraph "github.com/beihai0xff/snowy/internal/modeling/biology/graph"
-	biologyservice "github.com/beihai0xff/snowy/internal/modeling/biology/service"
-	chemistryservice "github.com/beihai0xff/snowy/internal/modeling/chemistry/service"
-	generativeservice "github.com/beihai0xff/snowy/internal/modeling/generative"
-	physicscalculator "github.com/beihai0xff/snowy/internal/modeling/physics/calculator"
-	physicsservice "github.com/beihai0xff/snowy/internal/modeling/physics/service"
 	"github.com/beihai0xff/snowy/internal/monitoring"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
 	"github.com/beihai0xff/snowy/internal/pkg/llmroute"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 	mysqlrepo "github.com/beihai0xff/snowy/internal/repo/mysql"
 	redisrepo "github.com/beihai0xff/snowy/internal/repo/redis"
-	searchservice "github.com/beihai0xff/snowy/internal/repo/search"
-	searchquery "github.com/beihai0xff/snowy/internal/repo/search/query"
-	searchranking "github.com/beihai0xff/snowy/internal/repo/search/ranking"
-	"github.com/beihai0xff/snowy/internal/user"
 )
 
 // App 应用实例，持有共享依赖与可选运行面。
@@ -130,121 +109,6 @@ func New(cfg *config.Config) (*App, error) {
 	)
 
 	return app, nil
-}
-
-func newAPISurface(shared *sharedDeps) *apiSurface {
-	userRepo := mysqlrepo.NewUserRepository(shared.db)
-	favoriteRepo := mysqlrepo.NewFavoriteRepository(shared.db)
-	historyRepo := mysqlrepo.NewHistoryRepository(shared.db)
-	sessionRepo := mysqlrepo.NewAgentSessionRepository(shared.db)
-	messageRepo := mysqlrepo.NewAgentMessageRepository(shared.db)
-	messageEventRepo := mysqlrepo.NewAgentMessageEventRepository(shared.db)
-	runRepo := mysqlrepo.NewAgentRunRepository(shared.db)
-	toolCallRepo := mysqlrepo.NewAgentToolCallRepository(shared.db)
-	generativeRepo := mysqlrepo.NewGenerativeModelPackageRepository(shared.db)
-	shareRepo := mysqlrepo.NewShareRepository(shared.db)
-	answerRecordRepo := mysqlrepo.NewAnswerRecordRepository(shared.db)
-	transactor := mysqlrepo.NewTransactor(shared.db)
-
-	rateLimiter := redisrepo.NewRateLimiter(shared.rdb)
-	_ = redisrepo.NewCacheStore(shared.rdb)
-	_ = redisrepo.NewSessionStore(shared.rdb)
-
-	modelConfigs := shared.cfg.LLM.EffectiveModels()
-
-	providerConfigs := make([]monitoring.LLMProviderConfig, 0, len(modelConfigs))
-	for i, modelCfg := range modelConfigs {
-		role := modelRole(i)
-		providerConfigs = append(providerConfigs, monitoring.ProviderConfigFromConfig(role, modelCfg))
-	}
-
-	llmRecorder := monitoring.NewLLMRecorder(
-		monitoring.WithStore(mysqlrepo.NewLLMCallRecordRepository(shared.db)),
-		monitoring.WithProviderConfigs(providerConfigs...),
-		monitoring.WithPromptProfiles(monitoring.DefaultPromptProfiles(time.Now())...),
-	)
-	llmChain := buildOrderedLLMChain(modelConfigs, llmRecorder)
-
-	reactionRepo := mysqlrepo.NewReactionRepository(shared.db)
-	userSvc := user.NewService(userRepo, favoriteRepo, historyRepo, transactor, shared.cfg.Auth, reactionRepo)
-	agentWriteSvc := agent.NewWriteService(
-		transactor,
-		sessionRepo,
-		messageRepo,
-		runRepo,
-		toolCallRepo,
-		messageEventRepo,
-	)
-	searchSvc := searchservice.NewService(
-		nil,
-		searchquery.NewSimpleParser(),
-		searchranking.NewScoreRanker(),
-		nil,
-		nil,
-		searchservice.WithLLMProvider(llmChain),
-		searchservice.WithAnswerRecordRepository(answerRecordRepo),
-		searchservice.WithFeedbackRepository(reactionRepo),
-	)
-	physicsSvc := physicsservice.NewService(
-		physicscalculator.NewSimpleCalculator(),
-		physicsservice.WithLLMProvider(llmChain),
-	)
-	biologySvc := biologyservice.NewService(
-		biologyexperiment.NewSimpleAnalyzer(),
-		biologygraph.NewSimpleDiagramBuilder(),
-	)
-	chemistrySvc := chemistryservice.NewService()
-	generativeSvc := generativeservice.NewCompilerService(
-		searchSvc,
-		physicsSvc,
-		biologySvc,
-		generativeRepo,
-		generativeservice.WithLLMProvider(llmChain),
-		generativeservice.WithChemistryService(chemistrySvc),
-	)
-
-	modelRouter := agentrouter.NewStaticRouter(shared.cfg.LLM)
-	policyEngine := agentpolicy.NewDefaultEngine()
-	responseAssembler := agentassembler.NewDefaultAssembler()
-	callbacks := []agentcallback.NodeCallback{
-		agentcallback.NewAuditLogger(),
-		agentcallback.NewMetricsCollector(),
-		agentcallback.NewOTelTracer(),
-	}
-
-	graphBuilder := agentgraph.NewBuilder(
-		agentgraph.WithRouter(modelRouter),
-		agentgraph.WithPolicyEngine(policyEngine),
-		agentgraph.WithAssembler(responseAssembler),
-		agentgraph.WithMessageRepository(messageRepo),
-		agentgraph.WithSearchTool(agenttool.NewSearchTool(searchSvc)),
-		agentgraph.WithPhysicsAnalyzeTool(agenttool.NewPhysicsAnalyzeTool(physicsSvc)),
-		agentgraph.WithRenderCodeTool(agenttool.NewRenderCodeTool(physicsSvc)),
-		agentgraph.WithBiologyAnalyzeTool(agenttool.NewBiologyAnalyzeTool(biologySvc)),
-		agentgraph.WithCitationTool(agenttool.NewCitationTool()),
-		agentgraph.WithGenerativeService(generativeSvc),
-		agentgraph.WithRegenerateClassifierLLM(llmChain),
-		agentgraph.WithCallbacks(callbacks...),
-	)
-
-	var agentSvc agent.Service = graphBuilder
-
-	handlers := &handler.Handlers{
-		Agent: handler.NewAgentHandler(agentSvc, agentWriteSvc, sessionRepo, messageRepo, userSvc).
-			WithEventRepository(messageEventRepo),
-		Search:     handler.NewSearchHandler(searchSvc, userSvc),
-		Physics:    handler.NewPhysicsHandler(physicsSvc, userSvc),
-		Render:     handler.NewRenderHandler(physicsSvc),
-		Biology:    handler.NewBiologyHandler(biologySvc, userSvc),
-		Chemistry:  handler.NewChemistryHandler(chemistrySvc, userSvc),
-		Generative: handler.NewGenerativeHandler(generativeSvc, userSvc),
-		Share:      handler.NewShareHandler(shareRepo, generativeSvc),
-		WSManager:  ws.NewManager(shared.rdb),
-		User:       handler.NewUserHandler(userSvc, answerRecordRepo),
-		Monitoring: handler.NewMonitoringHandler(llmRecorder),
-	}
-
-	return &apiSurface{router: handler.NewRouter(shared.cfg, handlers, rateLimiter)}
 }
 
 func newWorkerSurface(shared *sharedDeps) *workerSurface {

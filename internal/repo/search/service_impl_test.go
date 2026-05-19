@@ -67,7 +67,7 @@ func (f fakeFeedbackRepo) TargetFeedback(_ context.Context, targetType string, t
 type fakeParser struct{}
 
 func (fakeParser) Parse(raw string) (*ParsedQuery, error) {
-	return &ParsedQuery{Original: raw, Keywords: []string{raw}, Intent: "explain"}, nil
+	return &ParsedQuery{Original: raw, Keywords: []string{raw}, Intent: IntentExplain}, nil
 }
 
 type fakeLLMProvider struct {

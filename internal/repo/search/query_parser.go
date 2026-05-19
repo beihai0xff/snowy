@@ -1,21 +1,18 @@
-package query
+package search
 
 import (
 	"strings"
 	"unicode"
-
-	internalsearch "github.com/beihai0xff/snowy/internal/repo/search"
 )
 
-// simpleParser 提供轻量查询理解实现。
-type simpleParser struct{}
-
-// NewSimpleParser 创建默认查询解析器。
-func NewSimpleParser() Parser {
+// NewSimpleParser creates the default lightweight query parser.
+func NewSimpleParser() QueryParser {
 	return &simpleParser{}
 }
 
-func (p *simpleParser) Parse(raw string) (*internalsearch.ParsedQuery, error) {
+type simpleParser struct{}
+
+func (p *simpleParser) Parse(raw string) (*ParsedQuery, error) {
 	cleaned := strings.TrimSpace(raw)
 	keywords := dedupeTokens(strings.FieldsFunc(cleaned, func(r rune) bool {
 		return unicode.IsSpace(r) || strings.ContainsRune(",，。！？!?;；:：()（）[]【】'\"", r)
@@ -28,7 +25,7 @@ func (p *simpleParser) Parse(raw string) (*internalsearch.ParsedQuery, error) {
 		}
 	}
 
-	return &internalsearch.ParsedQuery{
+	return &ParsedQuery{
 		Original: cleaned,
 		Keywords: keywords,
 		Entities: entities,
@@ -63,12 +60,12 @@ func resolveIntent(text string) string {
 	lower := strings.ToLower(text)
 	switch {
 	case strings.Contains(lower, "为什么") || strings.Contains(lower, "why"):
-		return "reason"
+		return IntentReason
 	case strings.Contains(lower, "如何") || strings.Contains(lower, "how"):
-		return "method"
+		return IntentMethod
 	case strings.Contains(lower, "定义") || strings.Contains(lower, "是什么") || strings.Contains(lower, "what"):
-		return "definition"
+		return IntentDefinition
 	default:
-		return "explain"
+		return IntentExplain
 	}
 }

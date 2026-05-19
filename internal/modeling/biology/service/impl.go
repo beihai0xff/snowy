@@ -8,24 +8,22 @@ import (
 	"strings"
 
 	"github.com/beihai0xff/snowy/internal/modeling/biology/domain"
-	experimentanalyzer "github.com/beihai0xff/snowy/internal/modeling/biology/experiment"
-	diagrambuilder "github.com/beihai0xff/snowy/internal/modeling/biology/graph"
 	physicsdomain "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 )
 
 type serviceImpl struct {
-	analyzer experimentanalyzer.Analyzer
-	builder  diagrambuilder.DiagramBuilder
+	analyzer ExperimentAnalyzer
+	builder  DiagramBuilder
 }
 
 // NewService 创建生物建模服务。
-func NewService(analyzer experimentanalyzer.Analyzer, builder diagrambuilder.DiagramBuilder) BiologyService {
+func NewService(analyzer ExperimentAnalyzer, builder DiagramBuilder) BiologyService {
 	if analyzer == nil {
-		analyzer = experimentanalyzer.NewSimpleAnalyzer()
+		analyzer = NewSimpleAnalyzer()
 	}
 
 	if builder == nil {
-		builder = diagrambuilder.NewSimpleDiagramBuilder()
+		builder = NewSimpleDiagramBuilder()
 	}
 
 	return &serviceImpl{analyzer: analyzer, builder: builder}

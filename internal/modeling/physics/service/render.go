@@ -1,4 +1,4 @@
-//nolint:cyclop,lll // Render prompting keeps long model contracts and JSON extraction logic explicit.
+//nolint:cyclop // Render prompting keeps long model contracts and JSON extraction logic explicit.
 package service
 
 import (
@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/beihai0xff/snowy/internal/modeling/physics/domain"
+	"github.com/beihai0xff/snowy/internal/prompt"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 )
 
@@ -73,7 +74,7 @@ func (s *serviceImpl) tryGenerateWithProvider(
 	request := &llm.Request{
 		Model: providerModel(provider),
 		Messages: []llm.Message{
-			{Role: "system", Content: renderSystemPrompt()},
+			{Role: "system", Content: prompt.RenderSystem()},
 			{Role: "user", Content: buildRenderUserPrompt(sceneSpec, mode)},
 		},
 		Temperature: temperature,
@@ -143,64 +144,12 @@ func (s *serviceImpl) validateArtifact(artifact *domain.RenderArtifact) error {
 	return nil
 }
 
-func renderSystemPrompt() string {
-	return strings.TrimSpace(
-		`你是一名专业的交互式科学可视化前端工程师。任务是根据 scene_spec 生成一个可在浏览器 iframe srcDoc 中独立运行的原生 HTML/CSS/JavaScript 教学演示页面。不要展开推理，不要输出 markdown，不要输出解释文字；最终只输出符合约定的 JSON。
-
-总体目标：
-- 生成离线可运行、无需网络、无需外部依赖、适合 iframe sandbox 的单文件交互式演示。
-- 优先保证 JSON 合法、code_bundle 完整、代码可执行和教学信息准确；不限制 index.html/code_bundle 字符数，不要为了压缩而省略必要实现或使用占位符。
-- 页面应具备专业的科普/课堂演示质感：清晰结构、动态视觉、关键标签、参数反馈、状态提示和可理解的过程呈现。
-
-必须严格输出这个 JSON schema：
-{
-  "scene_type": "biology_concept_flow",
-  "render_mode": "html_iframe",
-  "render_manifest": {
-    "entry": "index.html",
-    "framework": "vanilla",
-    "sandbox": "iframe",
-    "render_mode": "html_iframe",
-    "mount_selector": "#snowy-preview-root",
-    "dependencies": ["native-html", "canvas"],
-    "allowed_apis": ["requestAnimationFrame", "setTimeout", "postMessage", "CanvasRenderingContext2D"],
-    "blocked_apis": ["fetch", "XMLHttpRequest", "localStorage", "sessionStorage", "document.cookie", "WebSocket", "navigator.sendBeacon"],
-    "initial_props": {"concept_count":4,"relation_count":3,"animation_speed":1}
-  },
-  "code_bundle": {"index.html":"<!doctype html>..."},
-  "result_summary": "..."
-}
-
-硬性要求：
-1. code_bundle 必须是 JSON object，至少包含 index.html；不要把 code_bundle 输出成字符串；不要输出 markdown、解释文字、省略号或“待实现”占位符。
-2. index.html 必须是完整 HTML，包含 id="snowy-preview-root" 的根节点；所有 CSS/JS 内联；禁止外链脚本、CDN、动态依赖和任何网络访问。
-3. 禁止在 index.html 的代码、注释、字符串、HTML 属性中出现这些危险片段：fetch(、XMLHttpRequest、localStorage、sessionStorage、indexedDB、document.cookie、WebSocket、navigator.sendBeacon、<script src=、import(。
-4. JS 必须监听 window message：event.data.type === 'snowy:update-props' 时合并 props 并重绘；支持数值 prop view_dimension=3 或 2 切换视图；支持 animation_speed 调整动画倍率。
-5. 渲染 ready 后必须调用 parent.postMessage({source:'snowy-preview',type:'preview',status:'ready'}, '*')；异常时发送 parent.postMessage({source:'snowy-preview',type:'preview',status:'error',message:String(error)}, '*')。
-6. 视觉要求：暗色或高对比舞台、渐变/霓虹高光、动态图例、参数 HUD、阶段说明面板、发光箭头或粒子流、平滑动画；避免静态黑白示意图或信息密度过低的画面。
-7. physics_* 场景由宿主应用的本地物理引擎承载；不要为 physics_* 生成可执行前端代码。本生成链路主要服务 biology_* 等非物理可视化场景。
-8. biology_* 场景可以使用 Canvas 2D 或 WebGL；必须包含粒子/流动路径、阶段切换、概念标签、过程箭头、解释面板、播放/暂停或自动动画。biology_photosynthesis_3d 要表现叶绿体、光子、CO₂/H₂O 输入、O₂/糖输出；biology_cell_process_3d 要表现细胞膜/细胞器/物质运输；biology_concept_flow 要表现动态概念关系网络。
-9. 输出前自检：JSON 必须包含 code_bundle.index.html；biology_* 的 index.html 中必须能找到 snowy:update-props、snowy-preview ready、CanvasRenderingContext2D 或 getContext('2d')、particle/flow/stage/label 等可视化语义。
-10. JSON 字符串中的换行和引号必须合法转义；代码包长度不设上限，如果代码较长，继续完整输出，不要截断 code_bundle。`,
-	)
-}
-
 func buildRenderUserPrompt(sceneSpec *domain.SceneSpec, mode domain.RenderMode) string {
-	payload, err := json.Marshal(sceneSpec)
-	if err != nil {
-		payload = []byte("{}")
-	}
-
-	prompt := fmt.Sprintf(
-		"scene_spec=%s\nrender_mode=%s\n只输出 JSON，不要 markdown；不要省略 code_bundle，不要用占位符；代码包长度不设上限，必须完整输出。",
-		string(payload),
-		mode,
-	)
-	if sceneSpec != nil && strings.HasPrefix(sceneSpec.SceneType, "biology_") {
-		prompt += "\n\nbiology_* 成功标准：code_bundle.index.html 必须是完整单文件 HTML；必须监听 snowy:update-props；必须发送 snowy-preview ready；必须包含 CanvasRenderingContext2D 或 getContext('2d')；必须包含 particle/flow/stage/label 等可视化语义；代码包长度不设上限，代码较长也要完整输出。"
-	}
-
-	return prompt
+	return prompt.RenderUser(prompt.RenderInput{
+		SceneSpec: sceneSpec,
+		Mode:      string(mode),
+		Biology:   sceneSpec != nil && strings.HasPrefix(sceneSpec.SceneType, "biology_"),
+	})
 }
 
 func renderGenerationTemperature(sceneSpec *domain.SceneSpec) float64 {

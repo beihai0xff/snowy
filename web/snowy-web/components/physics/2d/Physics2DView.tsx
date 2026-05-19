@@ -702,6 +702,7 @@ const Physics2DView: React.FC<Physics2DViewProps> = ({
   // 重置：props 变化、resetSignal、sceneType 变化
   const propsKey = JSON.stringify(props);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setT(0);
     lastRef.current = null;
   }, [propsKey, sceneType, resetSignal]);
@@ -712,6 +713,7 @@ const Physics2DView: React.FC<Physics2DViewProps> = ({
     if (!stepCommand) return;
     if (lastStepIdRef.current === stepCommand.id) return;
     lastStepIdRef.current = stepCommand.id;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setT((prev) => Math.max(0, prev + stepCommand.deltaSeconds));
   }, [stepCommand]);
 
@@ -786,7 +788,6 @@ const Physics2DView: React.FC<Physics2DViewProps> = ({
 };
 
 export default Physics2DView;
-
 
 
 

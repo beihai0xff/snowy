@@ -121,6 +121,9 @@ export default function R3FPhysicsPreview({ artifact, propsData, onStatusChange 
   // ───── P1：教学预设 / 历史轨迹 / 步进 ─────
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [presetOverride, setPresetOverride] = useState<Record<string, number> | null>(null);
+  const [ghostTrails, setGhostTrails] = useState<Array<{ id: string; points: { x: number; y: number }[]; label?: string }>>([]);
+  const [kinematicsOverlays, setKinematicsOverlays] = useState<OverlaySeries[]>([]);
+  const [stepCommand, setStepCommand] = useState<{ id: number; deltaSeconds: number }>({ id: 0, deltaSeconds: 0 });
   const effectiveProps = useMemo(
     () => (presetOverride ? { ...mergedProps, ...presetOverride } : mergedProps),
     [mergedProps, presetOverride],
@@ -132,10 +135,6 @@ export default function R3FPhysicsPreview({ artifact, propsData, onStatusChange 
     setGhostTrails([]);
     setKinematicsOverlays([]);
   }, [sceneKind]);
-
-  const [ghostTrails, setGhostTrails] = useState<Array<{ id: string; points: { x: number; y: number }[]; label?: string }>>([]);
-  const [kinematicsOverlays, setKinematicsOverlays] = useState<OverlaySeries[]>([]);
-  const [stepCommand, setStepCommand] = useState<{ id: number; deltaSeconds: number }>({ id: 0, deltaSeconds: 0 });
 
   const handleApplyPreset = useCallback((preset: { id: string; props: Record<string, number> }) => {
     setActivePresetId(preset.id);

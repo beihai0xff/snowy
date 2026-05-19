@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/beihai0xff/snowy/internal/prompt"
 	"github.com/beihai0xff/snowy/internal/repo/embedding"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 )
@@ -264,7 +265,7 @@ func (s *serviceImpl) parseQuery(raw string) (*ParsedQuery, error) {
 			Original: cleaned,
 			Keywords: []string{cleaned},
 			Entities: []string{cleaned},
-			Intent:   "explain",
+			Intent:   IntentExplain,
 		}, nil
 	}
 
@@ -286,7 +287,7 @@ func (s *serviceImpl) queryWithLLM(ctx context.Context, q *Query, parsed *Parsed
 	response, err := s.llmChain.Generate(requestCtx, &llm.Request{
 		Model: providerConfiguredModel(s.llmChain),
 		Messages: []llm.Message{
-			{Role: "system", Content: knowledgeAnswerSystemPrompt()},
+			{Role: "system", Content: prompt.KnowledgeAnswerSystem()},
 			{Role: "user", Content: buildKnowledgeAnswerUserPrompt(q, parsed)},
 		},
 		MaxTokens:   llm.MaxTokens128K,
@@ -312,65 +313,19 @@ func providerConfiguredModel(provider llm.Provider) string {
 	return ""
 }
 
-func knowledgeAnswerSystemPrompt() string {
-	return strings.TrimSpace(`你是一名专业、严谨、通用的高中阶段学科辅导专家，负责直接回答学生提出的知识点、概念辨析、题目理解与学习方法问题。不依赖外部检索结果，也不要声称答案来自某个内部系统、数据库或资料库。
-
-核心原则：
-1. 直接回应用户问题；默认使用中文，用户明确指定其他语言时跟随用户。
-2. 面向高中生，表达准确、清晰、循序渐进；先给结论，再解释关键概念、适用条件、公式/机制和典型例子。
-3. 不编造教材页码、论文、链接、实验数据或“检索到的资料”；不确定的内容要明确标注不确定性，并给出可验证或继续追问的方向。
-4. 题目信息不足时，先指出缺失条件，再给出通用分析框架、可能情形和下一步需要补充的信息。
-5. 数学、物理、化学问题要保留必要公式、符号含义、单位和适用条件；生物问题要突出结构、过程、变量、因果链和实验设计逻辑。
-6. 不展示隐藏推理或冗长思维链；可以展示面向学习者的简洁推导步骤、解题流程或判断依据。
-7. 语气专业、耐心、中立；避免品牌名、平台名、内部链路、供应商或实现细节等无关信息。
-
-回答结构应紧凑：
-- 结论：1-2 句话直接回答。
-- 关键点：3-4 条解释核心知识。
-- 必要步骤：按学科需要给出简洁公式、过程或分析路径。
-- 易错点/继续追问：指出 1-2 个边界条件或追问方向。
-总长度通常控制在 600-900 中文字以内，除非用户明确要求详细展开。`)
-}
-
 func buildKnowledgeAnswerUserPrompt(q *Query, parsed *ParsedQuery) string {
-	var builder strings.Builder
-	builder.WriteString("请直接回答这个知识点问题，不要进行数据库检索，不要输出 JSON。\n")
-	builder.WriteString("当前日期：")
-	builder.WriteString(time.Now().Format("2006-01-02"))
-	builder.WriteString("\n")
-	builder.WriteString("问题：")
-	builder.WriteString(strings.TrimSpace(q.Text))
-	builder.WriteString("\n")
-
-	if strings.TrimSpace(q.Filters.Subject) != "" {
-		builder.WriteString("学科：")
-		builder.WriteString(q.Filters.Subject)
-		builder.WriteString("\n")
+	input := prompt.KnowledgeAnswerInput{
+		Date:     time.Now(),
+		Question: q.Text,
+		Subject:  q.Filters.Subject,
+		Grade:    q.Filters.Grade,
 	}
-
-	if strings.TrimSpace(q.Filters.Grade) != "" {
-		builder.WriteString("年级：")
-		builder.WriteString(q.Filters.Grade)
-		builder.WriteString("\n")
-	}
-
 	if parsed != nil {
-		if parsed.Intent != "" {
-			builder.WriteString("问题意图：")
-			builder.WriteString(parsed.Intent)
-			builder.WriteString("\n")
-		}
-
-		if len(parsed.Entities) > 0 {
-			builder.WriteString("识别到的关键词：")
-			builder.WriteString(strings.Join(parsed.Entities, "、"))
-			builder.WriteString("\n")
-		}
+		input.Intent = parsed.Intent
+		input.Entities = append([]string(nil), parsed.Entities...)
 	}
 
-	builder.WriteString("回答要具体但保持紧凑，不要只给定义；如果涉及公式，请说明符号含义和适用条件；总长度通常控制在 600-900 中文字以内。")
-
-	return builder.String()
+	return prompt.KnowledgeAnswerUser(input)
 }
 
 func assembleLLMResponse(q *Query, parsed *ParsedQuery, answer, providerName string) *Response {
@@ -734,13 +689,13 @@ func buildKnowledgeTags(q *Query, parsed *ParsedQuery, providerName string) []st
 
 func intentLabel(intent string) string {
 	switch intent {
-	case "definition":
+	case IntentDefinition:
 		return "概念定义"
-	case "reason":
+	case IntentReason:
 		return "原因解释"
-	case "method":
+	case IntentMethod:
 		return "方法步骤"
-	case "explain":
+	case IntentExplain:
 		return "知识点讲解"
 	default:
 		return intent
@@ -768,7 +723,7 @@ func buildDirectRelatedQuestions(q *Query, parsed *ParsedQuery) []RelatedQuestio
 		}
 	}
 
-	if parsed != nil && parsed.Intent == "definition" {
+	if parsed != nil && parsed.Intent == IntentDefinition {
 		questions = append(questions, RelatedQuestion{ID: "llm-direct-compare", Title: "把这个概念和相近概念做对比"})
 	}
 

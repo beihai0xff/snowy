@@ -250,7 +250,11 @@ const KinematicsChartView: React.FC<Props> = ({ sceneType, props, running, playb
   const lastRef = useRef<number | null>(null);
   const propsKey = JSON.stringify(props);
 
-  useEffect(() => { setT(0); lastRef.current = null; }, [propsKey, sceneType, resetSignal]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setT(0);
+    lastRef.current = null;
+  }, [propsKey, sceneType, resetSignal]);
 
   useEffect(() => {
     let raf: number;
@@ -299,7 +303,6 @@ const KinematicsChartView: React.FC<Props> = ({ sceneType, props, running, playb
 };
 
 export default KinematicsChartView;
-
 
 
 

@@ -156,14 +156,8 @@ func buildRegenerateContext(state *State) generative.CompileContext {
 }
 
 func resolveDomain(state *State) string {
-	switch state.ResolvedMode {
-	case agent.ModePhysics:
-		return "physics"
-	case agent.ModeBiology:
-		return "biology"
-	case agent.ModeChemistry:
-		return "chemistry"
-	case agent.ModeSearch, agent.ModeAuto:
+	if domain := agent.DemoDomainForMode(state.ResolvedMode); domain != "" {
+		return domain
 	}
 
 	if state.Request != nil && state.Request.InteractiveDemo != nil && state.Request.InteractiveDemo.Domain != "" {

@@ -1,6 +1,4 @@
 // Package monitoring provides lightweight in-process observability for LLM calls.
-//
-//nolint:lll // Dashboard prompt profiles preserve complete prompt contracts for operators.
 package monitoring
 
 import (
@@ -17,6 +15,7 @@ import (
 
 	"github.com/beihai0xff/snowy/internal/pkg/common"
 	"github.com/beihai0xff/snowy/internal/pkg/config"
+	"github.com/beihai0xff/snowy/internal/prompt"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 )
 
@@ -628,71 +627,25 @@ func ProviderConfigFromConfig(role string, cfg config.ModelProviderConfig) LLMPr
 
 // DefaultPromptProfiles returns safe prompt engineering profiles for the dashboard.
 func DefaultPromptProfiles(now time.Time) []LLMPromptProfile {
-	if now.IsZero() {
-		now = time.Now()
+	profiles := prompt.DefaultProfiles(now)
+
+	out := make([]LLMPromptProfile, 0, len(profiles))
+	for _, profile := range profiles {
+		out = append(out, LLMPromptProfile{
+			ID:                 profile.ID,
+			Scene:              profile.Scene,
+			Version:            profile.Version,
+			Mode:               profile.Mode,
+			Title:              profile.Title,
+			SystemPE:           strings.TrimSpace(profile.System),
+			UserPromptContract: profile.UserPromptContract,
+			SuccessChecklist:   append([]string(nil), profile.SuccessChecklist...),
+			GenerationParams:   profile.GenerationParams,
+			UpdatedAt:          profile.UpdatedAt,
+		})
 	}
 
-	return []LLMPromptProfile{
-		{
-			ID:      "knowledge-answer-direct-v2",
-			Scene:   "search",
-			Version: "v2-direct-llm",
-			Mode:    "knowledge_answer_pe",
-			Title:   "知识点直答 PE",
-			SystemPE: strings.TrimSpace(
-				`你是一名专业、严谨、通用的高中阶段学科辅导专家，负责直接回答学生提出的知识点、概念辨析、题目理解与学习方法问题。不依赖外部检索结果，也不要声称答案来自某个内部系统、数据库或资料库。
-回答原则：先给结论，再解释关键概念、适用条件、公式/机制和典型例子；不编造教材页码、论文、链接、实验数据或“检索到的资料”；信息不足时说明缺失条件并给通用分析框架；不展示隐藏推理；语气专业、耐心、中立，避免品牌名、平台名、内部链路、供应商或实现细节等无关信息。`,
-			),
-			UserPromptContract: "注入当前日期、用户问题、学科/年级筛选、解析到的意图与关键词；要求直接回答，不输出 JSON，涉及公式需说明符号含义、单位和适用条件。",
-			SuccessChecklist: []string{
-				"结论明确且适合高中生",
-				"公式、单位、适用条件清楚",
-				"不伪造引用或内部来源声明",
-				"包含易错点和下一步追问",
-			},
-			GenerationParams: map[string]any{"temperature": 0.35, "max_tokens": llm.MaxTokens128K},
-			UpdatedAt:        now,
-		},
-		{
-			ID:      "biology-render-visual-v3",
-			Scene:   "biology_render",
-			Version: "v3-visual-demo",
-			Mode:    "render_generation_pe",
-			Title:   "生物可视化演示 PE",
-			SystemPE: strings.TrimSpace(
-				`你是一名专业的交互式科学可视化前端工程师。目标是根据 biology_* scene_spec 生成可在无网络 iframe sandbox 中运行的原生 HTML/CSS/JavaScript 教学演示页。
-输出必须是合法 JSON，code_bundle.index.html 必须完整；禁止 fetch、XMLHttpRequest、localStorage、WebSocket、外链脚本和动态 import；必须遵循指定的预览通信协议并发送 ready/error 状态。视觉要求：高对比舞台、渐变/霓虹高光、粒子/流动路径、阶段切换、概念标签、过程箭头、解释面板、播放/暂停或自动动画。`,
-			),
-			UserPromptContract: "传入 scene_spec 和 render_mode；强调只输出 JSON、不使用 markdown、不省略 code_bundle、不输出占位符，代码包长度不设上限。",
-			SuccessChecklist: []string{
-				"code_bundle.index.html 完整可运行",
-				"遵循预览通信协议并发送 ready 状态",
-				"Canvas 2D/WebGL 离线渲染，无外链依赖",
-				"体现 particle/flow/stage/label 等动态可视化语义",
-			},
-			GenerationParams: map[string]any{"temperature": 0.15, "max_tokens": llm.MaxTokens128K},
-			UpdatedAt:        now,
-		},
-		{
-			ID:      "physics-native-rapier-v1",
-			Scene:   "physics",
-			Version: "v1-native-engine",
-			Mode:    "native_physics_engine",
-			Title:   "物理原生引擎解析 PE",
-			SystemPE: strings.TrimSpace(
-				`你是一名专业、严谨的高中物理建模辅导专家。物理题目由本地 Rapier 3D 引擎确定性完成仿真与渲染；大模型只负责题意解析、参数抽取、步骤讲解和 scene_spec 组织，不生成可执行前端代码。回答应突出物理规律、变量关系、单位、适用条件和可视化参数含义。`,
-			),
-			UserPromptContract: "输入题干和会话上下文；输出模型类型、条件、参数、推导步骤、讲解与 scene_spec；禁止生成前端代码。",
-			SuccessChecklist: []string{
-				"scene_spec 可驱动 force_3d / projectile / motion 等预览",
-				"参数包含质量、力、速度、角度、时间、重力等可调项",
-				"解释中明确 F=ma、运动分解或对应物理规律",
-				"解析失败时向调用方返回明确失败原因，不伪造可视化结果",
-			},
-			GenerationParams: map[string]any{"runtime": "rapier3d", "llm_code_generation": false},
-			UpdatedAt:        now,
-		},
-	}
+	return out
 }
 
 func userIDFromContext(ctx context.Context) string {

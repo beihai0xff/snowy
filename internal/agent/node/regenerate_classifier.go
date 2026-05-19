@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/beihai0xff/snowy/internal/prompt"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 )
 
@@ -60,12 +61,6 @@ func (n *RegenerateClassifierNode) Run(ctx context.Context, input any) (any, err
 	return state, nil
 }
 
-const classifierSystemPrompt = `你是教育对话改写分类器。用户已经看到一个交互式演示，正在追问。请判断意图：
-- recompute：仅希望修改演示的变量值（数值、初速度、角度等），返回 target_vars 映射。
-- regenerate：希望换一个例子、换一种解法、换场景等结构性变化。
-- new：与当前演示无关的新主题。
-只输出 JSON，形如 {"action":"recompute","target_vars":{"v0":30},"reason":"..."}。`
-
 func (n *RegenerateClassifierNode) classifyWithLLM(
 	ctx context.Context,
 	message string,
@@ -76,7 +71,7 @@ func (n *RegenerateClassifierNode) classifyWithLLM(
 
 	req := &llm.Request{
 		Messages: []llm.Message{
-			{Role: "system", Content: classifierSystemPrompt},
+			{Role: "system", Content: prompt.RegenerateClassifierSystem()},
 			{Role: "user", Content: message},
 		},
 		Temperature: 0,

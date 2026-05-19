@@ -45,6 +45,7 @@ type Builder struct {
 	physicsAnalyzeTool *tool.PhysicsAnalyzeTool
 	renderCodeTool     *tool.RenderCodeTool
 	biologyAnalyzeTool *tool.BiologyAnalyzeTool
+	chemistryTool      *tool.ChemistryAnalyzeTool
 	citationTool       *tool.CitationTool
 	generativeSvc      generative.Service
 	classifierLLM      llm.Provider
@@ -81,6 +82,10 @@ func WithRenderCodeTool(renderTool *tool.RenderCodeTool) Option {
 
 func WithBiologyAnalyzeTool(biologyTool *tool.BiologyAnalyzeTool) Option {
 	return func(b *Builder) { b.biologyAnalyzeTool = biologyTool }
+}
+
+func WithChemistryAnalyzeTool(chemistryTool *tool.ChemistryAnalyzeTool) Option {
+	return func(b *Builder) { b.chemistryTool = chemistryTool }
 }
 
 func WithCitationTool(citationTool *tool.CitationTool) Option {
@@ -246,16 +251,23 @@ func (b *Builder) runNode(ctx context.Context, node nodepkg.Node, input any) (ou
 }
 
 func (b *Builder) executeTool(ctx context.Context, state *nodepkg.State) error {
-	switch state.ResolvedMode {
-	case agent.ModePhysics:
+	handler, ok := agent.HandlerForMode(state.ResolvedMode)
+	if !ok {
+		return fmt.Errorf("unsupported mode %s", state.ResolvedMode)
+	}
+
+	switch handler.Tool {
+	case agent.ToolKindPhysics:
 		return b.runPhysicsTool(ctx, state)
-	case agent.ModeBiology:
+	case agent.ToolKindBiology:
 		return b.runBiologyTool(ctx, state)
-	case agent.ModeSearch, agent.ModeAuto, agent.ModeChemistry:
+	case agent.ToolKindChemistry:
+		return b.runChemistryTool(ctx, state)
+	case agent.ToolKindSearch:
 		return b.runSearchTool(ctx, state)
 	}
 
-	return fmt.Errorf("unsupported mode %s", state.ResolvedMode)
+	return fmt.Errorf("unsupported tool kind %s for mode %s", handler.Tool, state.ResolvedMode)
 }
 
 func (b *Builder) runFallback(ctx context.Context, state *nodepkg.State) (*nodepkg.State, error) {
@@ -592,6 +604,28 @@ func (b *Builder) runSearchTool(ctx context.Context, state *nodepkg.State) error
 			state.ToolOutputs["citations"] = citations
 		}
 	}
+
+	return nil
+}
+
+func (b *Builder) runChemistryTool(ctx context.Context, state *nodepkg.State) error {
+	if b.chemistryTool == nil {
+		return errors.New("chemistry tool is nil")
+	}
+
+	output, err := b.runToolCall(
+		ctx,
+		state,
+		b.chemistryTool.Name(),
+		func(runCtx context.Context) (any, error) {
+			return b.chemistryTool.Run(runCtx, tool.ChemistryAnalyzeInput{Equation: state.Request.Message})
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	state.ToolOutputs["chemistry"] = output
 
 	return nil
 }

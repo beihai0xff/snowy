@@ -1,4 +1,4 @@
-//nolint:cyclop,goconst,exhaustive,funcorder,nestif,unused // The compiler normalizes intentionally broad LLM package shapes.
+//nolint:cyclop,goconst,exhaustive,nestif,unused // The compiler normalizes intentionally broad LLM package shapes.
 package generative
 
 import (
@@ -15,6 +15,7 @@ import (
 
 	chemsvc "github.com/beihai0xff/snowy/internal/modeling/chemistry/service"
 	physicsdomain "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
+	"github.com/beihai0xff/snowy/internal/prompt"
 	"github.com/beihai0xff/snowy/internal/repo/llm"
 	searchdomain "github.com/beihai0xff/snowy/internal/repo/search"
 )
@@ -137,43 +138,6 @@ func (s *compilerService) Compile(ctx context.Context, req *CompileRequest) (*Ge
 	}
 
 	return nil, errors.New("llm model package generation failed: empty model response")
-}
-
-func (s *compilerService) applyChemistryAnalysis(
-	ctx context.Context,
-	req *CompileRequest,
-	pkg *GenerativeModelPackage,
-	domain string,
-) {
-	if pkg == nil || domain != DomainChemistry || s.chemSvc == nil {
-		return
-	}
-
-	result, err := s.chemSvc.AnalyzeReaction(ctx, req.Message)
-	if err != nil || result == nil {
-		if err != nil {
-			pkg.Warnings = append(pkg.Warnings, fmt.Sprintf("chemistry analysis failed: %v", err))
-		}
-
-		return
-	}
-
-	if pkg.SimulationLogic == nil {
-		pkg.SimulationLogic = &DynamicSimulationSpec{}
-	}
-
-	if pkg.SimulationLogic.SimulationType == "" {
-		pkg.SimulationLogic.SimulationType = "chemistry_reaction"
-	}
-
-	if pkg.SimulationLogic.Runtime == "" {
-		pkg.SimulationLogic.Runtime = "chemistry"
-	}
-
-	pkg.SimulationLogic.ChemistryReaction = result
-	if !pkg.SimulationLogic.LocalRecomputeAllowed {
-		pkg.SimulationLogic.LocalRecomputeAllowed = false
-	}
 }
 
 func validationFailureError(report ModelValidationReport) error {
@@ -368,7 +332,7 @@ func (s *compilerService) compileWithLLM(
 	resp, err := s.llmChain.Generate(requestCtx, &llm.Request{
 		Model: providerConfiguredModel(s.llmChain),
 		Messages: []llm.Message{
-			{Role: "system", Content: compileSystemPrompt()},
+			{Role: "system", Content: prompt.ModelingCompileSystem()},
 			{Role: "user", Content: buildCompileUserPrompt(req, domain, evidence)},
 		},
 		MaxTokens:   llm.MaxTokens128K,
@@ -516,51 +480,15 @@ func normalizeEvidence(evidence []EvidenceRef, tags []string) []EvidenceRef {
 	return evidence
 }
 
-func compileSystemPrompt() string {
-	return strings.TrimSpace(`你是 Snowy v4 的生成式科学建模编译器。请根据用户问题和证据，输出一个面向高中生的 GenerativeModelPackage JSON。
-硬性要求：
-1. 只输出 JSON，不要 Markdown，不要代码块。
-2. 不展示隐藏思维链；reasoning_trace 只写给学生看的简洁推理摘要和关键步骤。
-3. domain 只能是 physics 或 biology。
-4. 物理必须输出 simulation_logic，包含变量、单位、公式、渲染说明、交互计划和再推理条件。
-5. 生物必须输出 visualization_graph，包含概念节点、关系边、过程阶段、实验变量、曲线解释或限制因素。
-6. 所有知识性结论尽量绑定 evidence_refs；证据不足时在 warnings 和 validation_report 中标记低可信。
-7. 输出字段使用 snake_case，结构必须匹配用户提供的契约。`)
-}
-
 func buildCompileUserPrompt(req *CompileRequest, domain string, evidence []EvidenceRef) string {
-	payload := map[string]any{
-		"contract": map[string]any{
-			"package_id":          "uuid string optional",
-			"domain":              "physics|biology",
-			"question":            "string",
-			"learning_model":      "object",
-			"evidence_refs":       "array",
-			"reasoning_trace":     "object",
-			"generative_model":    "object",
-			"simulation_logic":    "object|null for biology",
-			"visualization_graph": "object|null for physics",
-			"interaction_plan":    "object",
-			"assessment_tasks":    "array",
-			"validation_report":   "object",
-			"regeneration_hints":  "array",
-			"warnings":            "array",
-			"confidence":          "number 0..1",
-		},
-		"domain":      domain,
-		"grade_band":  req.GradeBand,
-		"target_mode": req.TargetMode,
-		"message":     req.Message,
-		"context":     req.Context,
-		"evidence":    evidence,
-	}
-
-	b, err := json.Marshal(payload)
-	if err != nil {
-		return "{}"
-	}
-
-	return string(b)
+	return prompt.ModelingCompileUser(prompt.ModelingCompileInput{
+		Domain:     domain,
+		GradeBand:  req.GradeBand,
+		TargetMode: req.TargetMode,
+		Message:    req.Message,
+		Context:    req.Context,
+		Evidence:   evidence,
+	})
 }
 
 func decodePackageJSON(content string) (*GenerativeModelPackage, error) {

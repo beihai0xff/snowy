@@ -96,6 +96,9 @@ Snowy 是面向高中生的 Web 端 AIGC 科学学习平台，核心能力包括
 - 配置字段必须先进入 `internal/pkg/config` 的结构体，再由组合根装配使用。
 - 数据库 schema / repository 修改要同时考虑 migration、测试、JSON 字段序列化与历史数据兼容。
 - 生成式模型包必须保留 schema/domain/safety/evidence 校验与 fallback 信息，不要为了“看起来成功”跳过校验。
+- 组合根装配必须分层维护：repository wiring、LLM wiring、domain service wiring、handler wiring 不要重新堆回单个长函数。
+- Agent 新增模式必须先登记到 `internal/agent` 的 mode registry，再接入 graph/tool/assembler/demo 逻辑；不要在多个文件散落重复 switch。
+- 所有 LLM system prompt 和 operator-facing prompt profile 必须集中在 `internal/prompt` 做代码版本化，不要在业务包内新增硬编码 system prompt。
 
 ### 5. Docker 与运行面
 

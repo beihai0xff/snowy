@@ -363,15 +363,20 @@ func inferMode(message, subject string) agent.Mode {
 }
 
 func resolveTaskType(mode agent.Mode) agentrouter.TaskType {
-	switch mode {
-	case agent.ModeSearch, agent.ModeAuto:
+	handler, ok := agent.HandlerForMode(mode)
+	if !ok {
 		return agentrouter.TaskSearchAnswer
-	case agent.ModePhysics:
+	}
+
+	switch handler.Tool {
+	case agent.ToolKindPhysics:
 		return agentrouter.TaskPhysicsDerivation
-	case agent.ModeBiology:
+	case agent.ToolKindBiology:
 		return agentrouter.TaskBiologyModeling
-	case agent.ModeChemistry:
+	case agent.ToolKindChemistry:
 		return agentrouter.TaskBiologyModeling
+	case agent.ToolKindSearch:
+		return agentrouter.TaskSearchAnswer
 	}
 
 	return agentrouter.TaskSearchAnswer

@@ -1,27 +1,20 @@
-package ranking
+package search
 
 import (
 	"context"
 	"sort"
 	"strings"
-
-	internalsearch "github.com/beihai0xff/snowy/internal/repo/search"
 )
 
-// scoreRanker 基于分数和关键字命中做稳定重排。
-type scoreRanker struct{}
-
-// NewScoreRanker 创建默认重排器。
-func NewScoreRanker() Ranker {
+// NewScoreRanker creates the default score-and-keyword based ranker.
+func NewScoreRanker() ResultRanker {
 	return &scoreRanker{}
 }
 
-func (r *scoreRanker) Rank(
-	_ context.Context,
-	results []internalsearch.Result,
-	query *internalsearch.ParsedQuery,
-) []internalsearch.Result {
-	ranked := append([]internalsearch.Result(nil), results...)
+type scoreRanker struct{}
+
+func (r *scoreRanker) Rank(_ context.Context, results []Result, query *ParsedQuery) []Result {
+	ranked := append([]Result(nil), results...)
 	keywords := map[string]struct{}{}
 
 	if query != nil {
@@ -46,7 +39,7 @@ func (r *scoreRanker) Rank(
 	return ranked
 }
 
-func keywordBoost(result internalsearch.Result, keywords map[string]struct{}) float64 {
+func keywordBoost(result Result, keywords map[string]struct{}) float64 {
 	if len(keywords) == 0 {
 		return 0
 	}

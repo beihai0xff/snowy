@@ -10,6 +10,7 @@ import (
 
 	"github.com/beihai0xff/snowy/internal/agent"
 	biologysvc "github.com/beihai0xff/snowy/internal/modeling/biology/service"
+	chemistrysvc "github.com/beihai0xff/snowy/internal/modeling/chemistry/service"
 	physicsdomain "github.com/beihai0xff/snowy/internal/modeling/physics/domain"
 	physicssvc "github.com/beihai0xff/snowy/internal/modeling/physics/service"
 	searchdomain "github.com/beihai0xff/snowy/internal/repo/search"
@@ -42,6 +43,10 @@ type RenderCodeInput struct {
 type BiologyAnalyzeInput struct {
 	Question       string
 	SessionContext string
+}
+
+type ChemistryAnalyzeInput struct {
+	Equation string
 }
 
 type HistoryInput struct {
@@ -164,6 +169,38 @@ func (t *BiologyAnalyzeTool) Run(ctx context.Context, input any) (any, error) {
 	}
 
 	return t.biologyService.Analyze(ctx, request.Question, request.SessionContext)
+}
+
+// ChemistryAnalyzeTool parses and balances chemistry reactions.
+type ChemistryAnalyzeTool struct {
+	chemistryService chemistrysvc.Service
+}
+
+func NewChemistryAnalyzeTool(chemistryService chemistrysvc.Service) *ChemistryAnalyzeTool {
+	return &ChemistryAnalyzeTool{chemistryService: chemistryService}
+}
+
+func (t *ChemistryAnalyzeTool) Name() string { return "ChemistryAnalyzeTool" }
+func (t *ChemistryAnalyzeTool) Description() string {
+	return "解析化学方程式、配平并生成反应建模包"
+}
+
+func (t *ChemistryAnalyzeTool) Run(ctx context.Context, input any) (any, error) {
+	request, ok := input.(ChemistryAnalyzeInput)
+	if !ok {
+		return nil, fmt.Errorf("%s: invalid input type %T", t.Name(), input)
+	}
+
+	if t.chemistryService == nil {
+		return nil, fmt.Errorf("%s: chemistry service is nil", t.Name())
+	}
+
+	pkg, err := t.chemistryService.AnalyzeReaction(ctx, request.Equation)
+	if err != nil {
+		return nil, err
+	}
+
+	return pkg, nil
 }
 
 // CitationTool 引用拼装工具。
