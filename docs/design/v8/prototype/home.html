@@ -6,7 +6,7 @@
   <title>Snowy · 首页</title>
   <link rel="stylesheet" href="../tokens.css" />
   <link rel="stylesheet" href="../components.css" />
-  <script defer src="./shell.js"></script>
+  <script defer src="shell.js"></script>
   <style>
     /* —— 首页专属样式 —— */
     .hero {
@@ -182,14 +182,14 @@
     <!-- ─── Header ─────────────────────────────────────── -->
     <header class="app-header">
       <a href="./home.html" class="brand">
-        <span class="brand__mark">❄</span>
+        <span class="brand__mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28" role="img" aria-label="Snowy"><title>Snowy</title><g stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"><line x1="12" y1="12" x2="12" y2="2"/><line x1="12" y1="12" x2="20.66" y2="7"/><line x1="12" y1="12" x2="20.66" y2="17"/><line x1="12" y1="12" x2="12" y2="22"/><line x1="12" y1="12" x2="3.34" y2="17"/><line x1="12" y1="12" x2="3.34" y2="7"/></g><g fill="currentColor"><circle cx="12" cy="6" r="1.4"/><circle cx="17.196" cy="9" r="1.4"/><circle cx="17.196" cy="15" r="1.4"/><circle cx="12" cy="18" r="1.4"/><circle cx="6.804" cy="15" r="1.4"/><circle cx="6.804" cy="9" r="1.4"/><circle cx="12" cy="2" r="0.9"/><circle cx="20.66" cy="7" r="0.9"/><circle cx="20.66" cy="17" r="0.9"/><circle cx="12" cy="22" r="0.9"/><circle cx="3.34" cy="17" r="0.9"/><circle cx="3.34" cy="7" r="0.9"/><circle cx="12" cy="12" r="2.5"/></g></svg></span>
         <span>Snowy</span>
       </a>
       <nav class="nav">
         <a class="nav__link" data-page="home"     href="./home.html">首页</a>
-        <a class="nav__link" data-page="ask"      href="./ask.html">提问</a>
-        <a class="nav__link" data-page="modeling" href="./modeling.html">推演</a>
-        <a class="nav__link" data-page="learning" href="./learning.html">我的学习</a>
+        <a class="nav__link" data-page="ask"      href="ask.html">提问</a>
+        <a class="nav__link" data-page="modeling" href="modeling.html">推演</a>
+        <a class="nav__link" data-page="learning" href="learning.html">我的学习</a>
       </nav>
       <div class="row row--sm middle">
         <button class="btn btn--ghost btn--icon" aria-label="搜索">🔍</button>
@@ -225,7 +225,7 @@
 
       <!-- ─── 能力卡 ──────────────────────────────────── -->
       <div class="capability">
-        <a href="./ask.html" class="capability__card">
+        <a href="ask.html" class="capability__card">
           <div class="capability__icon capability__icon--ask">🔍</div>
           <div class="capability__title">提问 · 找证据</div>
           <p class="capability__desc">输入问题，先检索课本 / 考纲 / 题库 / 讲义，再给答案。每条结论可点引用回到原文。</p>
@@ -235,7 +235,7 @@
             <span class="tag">易错点</span>
           </div>
         </a>
-        <a href="./modeling.html" class="capability__card">
+        <a href="modeling.html" class="capability__card">
           <div class="capability__icon capability__icon--lab">⚗︎</div>
           <div class="capability__title">推演 · 跑仿真</div>
           <p class="capability__desc">把题干变量变成可调参数。物理走轨迹 / 受力 / 曲线，生物走过程图 / 关系图 / 变量分析。</p>
@@ -245,7 +245,7 @@
             <span class="tag">参数可调</span>
           </div>
         </a>
-        <a href="./learning.html" class="capability__card">
+        <a href="learning.html" class="capability__card">
           <div class="capability__icon capability__icon--my">📂</div>
           <div class="capability__title">我的学习</div>
           <p class="capability__desc">所有提问、收藏、推演的模型包都沉淀在这里。登录后可在不同设备同步。</p>
@@ -260,7 +260,7 @@
       <!-- ─── 继续上次的学习 ───────────────────────── -->
       <div class="section-title">
         <h2>继续上次的学习</h2>
-        <a href="./learning.html">查看全部 →</a>
+        <a href="learning.html">查看全部 →</a>
       </div>
       <div class="scroller mb-8">
         <div class="recent-card">
@@ -342,8 +342,8 @@
           <div class="recommend-card__title">牛顿第二定律：F、m、a 谁是因谁是果？</div>
           <p class="recommend-card__desc">用一个斜面题做证据约束，看清三个变量关系，然后做迁移题。</p>
           <div class="row row--sm middle">
-            <a href="./ask.html" class="btn btn--ghost btn--sm">先看证据</a>
-            <a href="./modeling.html" class="btn btn--ghost btn--sm">直接推演 →</a>
+            <a href="ask.html" class="btn btn--ghost btn--sm">先看证据</a>
+            <a href="modeling.html" class="btn btn--ghost btn--sm">直接推演 →</a>
           </div>
         </div>
         <div class="recommend-card">
@@ -354,8 +354,8 @@
           <div class="recommend-card__title">光合作用的平台期是谁卡住了？</div>
           <p class="recommend-card__desc">调节光照、CO₂、温度三个变量，看曲线如何从线性变成平台，识别限制因素。</p>
           <div class="row row--sm middle">
-            <a href="./ask.html" class="btn btn--ghost btn--sm">先看证据</a>
-            <a href="./modeling.html" class="btn btn--ghost btn--sm">直接推演 →</a>
+            <a href="ask.html" class="btn btn--ghost btn--sm">先看证据</a>
+            <a href="modeling.html" class="btn btn--ghost btn--sm">直接推演 →</a>
           </div>
         </div>
         <div class="recommend-card">
@@ -366,8 +366,8 @@
           <div class="recommend-card__title">平抛运动如何命中目标窗口？</div>
           <p class="recommend-card__desc">改高度与初速度，让轨迹穿过目标。观察水平 / 竖直分速度的独立性。</p>
           <div class="row row--sm middle">
-            <a href="./ask.html" class="btn btn--ghost btn--sm">先看证据</a>
-            <a href="./modeling.html" class="btn btn--ghost btn--sm">直接推演 →</a>
+            <a href="ask.html" class="btn btn--ghost btn--sm">先看证据</a>
+            <a href="modeling.html" class="btn btn--ghost btn--sm">直接推演 →</a>
           </div>
         </div>
       </div>
