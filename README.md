@@ -78,7 +78,55 @@ snowy/
 - Docker & Docker Compose
 - Make
 
-### 1. 初始化本地开发环境（推荐）
+### 1. Docker 快速体验（推荐）
+
+首次本地体验推荐直接走 Docker 路径：它会自动拉起 MySQL / Redis，执行数据库迁移，构建并启动后端 API 与前端 Web。
+
+```bash
+# 1. 生成本地私密运行配置
+cp configs/config.example.yaml configs/config.yaml
+
+# 2. 编辑 configs/config.yaml，只填写本地私密模型配置
+#    至少替换 llm.models[].model / base_url / api_key。
+#    该文件已被 .gitignore 忽略，不要提交到 Git。
+
+# 3. 一键构建并启动 MySQL / Redis / snowy / snowy-web
+make docker-run
+```
+
+启动完成后访问：
+
+| 服务 | 地址 | 说明 |
+|---|---|---|
+| Web | `http://localhost:3001` | Snowy 前端体验入口 |
+| API Health | `http://localhost:8080/healthz` | 返回 `{"status":"ok"}` 表示后端可用 |
+| MySQL | `localhost:3306` | Docker Compose 自动启动 |
+| Redis | `localhost:6379` | Docker Compose 自动启动 |
+
+常用排查与停止命令：
+
+```bash
+# 查看容器状态，并检查 8080 / 3001 是否可达
+make docker-check
+
+# 查看指定服务日志，例如 snowy / snowy-web / mysql / redis
+make docker-logs SVC=snowy
+
+# 停止 Docker Compose 服务，保留数据卷
+make docker-down
+
+# 停止服务并删除数据卷；会清空本地 MySQL / Redis 数据
+make docker-clean
+```
+
+说明：
+
+- `make docker-run` 会自动执行 `make docker-up`、`make docker-build`，再启动 `snowy` / `snowy-web`。
+- Docker 与本地 binary 共用 `configs/config.yaml`；容器内通过 `snowy-host.internal` 访问宿主机暴露的 MySQL / Redis 端口。
+- 没有有效 `llm.models[].api_key` 时，页面仍可打开，但提问、建模和 AI 监控等依赖大模型的功能会失败。
+- 详细模型配置说明见 [模型接入与本地配置](./docs/model-provider-config.md)。
+
+### 2. 初始化本地开发环境
 
 ```bash
 make bootstrap
@@ -93,7 +141,7 @@ make bootstrap
 
 其中 `make bootstrap` 本质上等价于依次执行：`make deps` → `make docker-up`。
 
-### 2. 仅启动基础设施
+### 3. 仅启动基础设施
 
 ```bash
 make docker-up
@@ -126,7 +174,7 @@ make docker-observability-up
 | Prometheus | `localhost:9090` |
 | Grafana | `localhost:3000` |
 
-### 3. 编译 & 运行
+### 4. 编译 & 运行
 
 ```bash
 # 生成本地私密配置；填写 llm.models[].base_url/model/api_key
@@ -147,7 +195,7 @@ make dev
 - `make dev` 会先执行 `make bootstrap`（下载依赖 + 启动基础设施 + 迁移），再本地运行 `snowy` 服务
 - 如需仅运行单个 surface，可使用 `SNOWY_SERVER_RUN_MODE=api go run ./cmd/snowy` 或 `SNOWY_SERVER_RUN_MODE=worker go run ./cmd/snowy`
 
-### 4. 构建 Docker 镜像
+### 5. 构建 Docker 镜像
 
 ```bash
 # 构建 snowy + web 镜像
@@ -167,13 +215,13 @@ make docker-run
 - 默认运行模式为 `server.run_mode=all`，同一进程内同时启动 HTTP API 与 embedded Asynq worker；如需临时拆分，可通过配置或环境变量 `SNOWY_SERVER_RUN_MODE=api|worker` 切换
 - 模型接入详细说明见 `docs/model-provider-config.md`
 
-### 5. 查看全部 Make 目标
+### 6. 查看全部 Make 目标
 
 ```bash
 make help
 ```
 
-### 6. 测试
+### 7. 测试
 
 推荐按分层执行测试：
 
@@ -225,13 +273,35 @@ SNOWY_REDIS_DB=0
 
 ## 📖 文档
 
+### 核心文档
+
 | 文档 | 说明 |
 |---|---|
 | [项目介绍](./docs/snowy-project-introduction.md) | 面向外部读者的 Snowy 产品定位、核心能力、showcase、技术亮点与能力边界说明 |
 | [产品需求文档 (PRD)](./docs/prd.md) | 产品目标、MVP 范围、核心功能、页面流程、接口边界、指标体系与里程碑 |
 | [技术方案](./docs/tech-solution.md) | 系统架构、Agent 编排、知识点直答、可选资料索引适配、多模型路由、物理 / 3D 代码生成渲染、生物建模、数据库设计、可观测性 |
-| [Snowy v4 重构蓝图](./docs/snowy-v4-redesign-blueprint.md) | 面向高中生的 AI 科学任务舱产品定位、游戏化学习链路、生成式模型包与前端科技感重构方案 |
+| [模型接入与本地配置](./docs/model-provider-config.md) | `configs/config.yaml`、`llm.models[]`、OpenAI-compatible Provider、Docker / binary 共用配置说明 |
+
+### 版本方案
+
+| 文档 | 说明 |
+|---|---|
+| [Snowy v2 重构建议](./docs/snowy-v2-redesign-proposal.md) | AI 科学建模与交互仿真实验室的早期产品与技术设想 |
+| [Snowy v4 重构蓝图](./docs/snowy-v4-redesign-blueprint.md) | AI 科学任务舱定位、游戏化学习链路、生成式模型包与前端科技感重构方案 |
 | [Snowy v5 重构蓝图](./docs/snowy-v5-redesign-blueprint.md) | 多模型接入、邮箱登录、学习档案、社区反馈、AI 监控持久化与可靠性设计 |
+| [Snowy v6 建模视觉升级方案](./docs/snowy-v6-modeling-visual-upgrade.md) | 建模功能视觉、交互、移动端和 reduced-motion 体验升级方案 |
+| [Snowy v7 会话化建模平台方案](./docs/snowy-v7-conversational-modeling-platform.md) | `/ask` 会话化建模、SSE replay、化学模式、协同演示与里程碑设计 |
+| [Snowy v8 建模体验升级方案](./docs/snowy-v8-modeling-experience-upgrade.md) | v8 建模体验质感升级、人教版教学层、知识标签与视觉验收方案 |
+| [Snowy v8 执行报告](./docs/snowy-v8-implementation-report.md) | v8 建模体验升级的落地范围、实现结果、验证结果与后续建议 |
+
+### 设计与数据
+
+| 文档 | 说明 |
+|---|---|
+| [v8 设计稿入口](./docs/design/v8/README.md) | v8 设计原型、路由说明、页面走查与视觉规范入口 |
+| [品牌使用指南](./docs/design/v8/brand.md) | Snowy 标识、颜色、字体、使用禁忌与前端组件引用方式 |
+| [v5 vs v6 对比与迁移](./docs/design/v8/compare.md) | 旧版与新版信息架构、页面命名、视觉与组件迁移对比 |
+| [人教版课纲映射数据](./docs/curriculum/pep/README.md) | 课纲 YAML、易错点、知识标签与前端运行时加载方式 |
 
 ---
 
