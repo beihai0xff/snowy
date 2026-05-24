@@ -8,7 +8,7 @@
 
 Snowy 是面向高中生的 Web 端 AIGC 科学学习平台，核心能力包括：
 
-- RAG / 知识检索问答；
+- LLM 直答 + 结构化学习辅助 + runtime grounding；OpenSearch / Embedding / 资料索引为后续可接入能力；
 - 物理 / 3D 场景建模、推导、代码生成与浏览器渲染；
 - 生物概念建模、关系抽取、过程拆解与实验变量分析；
 - 基于 Eino Graph 的 Agent 编排、多模型路由、结构化输出与可观测监控。

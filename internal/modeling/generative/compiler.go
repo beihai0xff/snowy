@@ -891,7 +891,7 @@ func normalizeEvidenceList(value any) any {
 				if title, ok := evidence["title"]; ok {
 					evidence["snippet"] = title
 				} else {
-					evidence["snippet"] = "大模型基于输入证据生成的引用片段"
+					evidence["snippet"] = "大模型基于输入上下文生成的参考信息"
 				}
 			}
 

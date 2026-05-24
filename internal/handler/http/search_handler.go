@@ -14,7 +14,7 @@ import (
 	"github.com/beihai0xff/snowy/internal/user"
 )
 
-// SearchHandler 知识检索 HTTP Handler。
+// SearchHandler 知识点直答 HTTP Handler。
 // 参考技术方案 §17.2。
 type SearchHandler struct {
 	searchSvc search.Service
@@ -31,7 +31,7 @@ func NewSearchHandler(searchSvc search.Service, userSvc ...user.Service) *Search
 	return &SearchHandler{searchSvc: searchSvc, userSvc: svc}
 }
 
-// Query POST /api/v1/search/query — 执行知识检索。
+// Query POST /api/v1/search/query — 执行知识点直答。
 func (h *SearchHandler) Query(c *gin.Context) {
 	var req dto.SearchQueryReq
 	if err := c.ShouldBindJSON(&req); err != nil {

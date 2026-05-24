@@ -47,7 +47,7 @@ type Stage = 'idle' | 'grounding' | 'reasoning' | 'validating' | 'rendering' | '
 
 const stageText: Record<Stage, string> = {
   idle:        '等待输入',
-  grounding:   '检索证据',
+  grounding:   '组织参考信息',
   reasoning:   'AI 推理',
   validating:  '校验',
   rendering:   '渲染',
@@ -387,7 +387,7 @@ function ModelingPageInner() {
         <Alert type="warning" showIcon message="生成提示" description={pkg.warnings.join('；')} style={{ marginBottom: 16, borderRadius: 12 }} />
       )}
 
-      {/* 证据折叠条 */}
+      {/* 参考信息折叠条 */}
       {pkg && (
         <>
           <div
@@ -400,7 +400,7 @@ function ModelingPageInner() {
             <span className="snowy-evidence-bar__icon"><BookOutlined /></span>
             <div className="snowy-evidence-bar__main">
               <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text)' }}>
-                基于 {pkg.evidence_refs?.length || 0} 条课本/考纲证据 · 置信度 {Math.round(confidence * 100)}%
+                基于 {pkg.evidence_refs?.length || 0} 条参考信息 · 置信度 {Math.round(confidence * 100)}%
                 {pkg.learning_model.knowledge_tags && pkg.learning_model.knowledge_tags.length > 0 && (
                   <span style={{ color: 'var(--color-text-muted)', fontWeight: 400, marginLeft: 8 }}>
                     · {pkg.learning_model.knowledge_tags.slice(0, 3).join('、')}
@@ -409,7 +409,7 @@ function ModelingPageInner() {
               </div>
               <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
                 <Space size={8} wrap>
-                  <span>{evidenceOpen ? '点击收起' : '点击展开查看完整证据列表'}</span>
+                  <span>{evidenceOpen ? '点击收起' : '点击展开查看完整参考信息'}</span>
                   <CurriculumBadge subject={normalizedSubject(pkg.domain)} tags={evidenceTags} compact />
                 </Space>
               </div>
@@ -438,7 +438,7 @@ function ModelingPageInner() {
                     </Space>
                   </List.Item>
                 )}
-                locale={{ emptyText: '暂无证据片段' }}
+                locale={{ emptyText: '暂无参考信息' }}
               />
             </div>
           )}

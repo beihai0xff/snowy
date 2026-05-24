@@ -60,7 +60,7 @@ func WithFeedbackRepository(repo FeedbackRepository) Option {
 	}
 }
 
-// NewService 创建知识检索服务实现。
+// NewService 创建知识点直答服务实现。
 func NewService(
 	repo Repository,
 	parser QueryParser,

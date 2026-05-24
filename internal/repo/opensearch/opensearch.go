@@ -45,7 +45,8 @@ const (
 	openSearchFieldType               = "type"
 )
 
-// OpenSearchAdapter OpenSearch 搜索适配器。
+// OpenSearchAdapter OpenSearch 可选搜索适配器。
+// 当前默认运行链路未注入该适配器；它用于后续资料索引/检索增强能力。
 // 实现 search.Repository 和 content/indexer.Indexer 接口。
 //
 //nolint:revive // Adapter suffix is intentional to distinguish this infrastructure implementation from domain ports.

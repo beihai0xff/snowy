@@ -49,19 +49,19 @@ const fallbackRecommendations: RecommendationsResp = {
 const capabilityCards = [
   {
     title: '问问题',
-    desc: '用大白话提问，得到带引用、带公式卡的答案。',
+    desc: '用大白话提问，得到带公式卡、易错点和参考信息的答案。',
     icon: <SearchOutlined />,
     iconClass: 'snowy-capability__icon--ask',
     path: '/ask',
-    meta: ['课本引用', '公式卡', '易错点'],
+    meta: ['参考信息', '公式卡', '易错点'],
   },
   {
     title: '推演与图谱',
-    desc: '物理仿真 + 生物图谱，看动画、调参数、对照证据。',
+    desc: '物理仿真 + 生物图谱，看动画、调参数、对照推理。',
     icon: <ExperimentOutlined />,
     iconClass: 'snowy-capability__icon--lab',
     path: '/modeling',
-    meta: ['可调参数', '动画演示', '证据可追溯'],
+    meta: ['可调参数', '动画演示', '边界清晰'],
   },
   {
     title: '我的学习',

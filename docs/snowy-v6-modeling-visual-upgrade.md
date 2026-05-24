@@ -3,6 +3,7 @@
 > 状态：草案（待评审）
 > 范围：`web/snowy-web`（前端） · 不改动后端 API 契约
 > 配套：见 `docs/snowy-v4-redesign-blueprint.md` 游戏化学习链路、`docs/snowy-v5-redesign-blueprint.md` 多模型与可靠性、`docs/design/v6` 设计 tokens
+> 说明：本文是历史视觉升级方案，若涉及检索增强或证据召回链路，均按规划能力理解；当前默认问答链路为 LLM 直答 + runtime grounding。
 
 ---
 
@@ -167,7 +168,7 @@ Snowy 当前已上线**知识问答 + 物理 / 3D 建模 + 生物建模**三大�
 
 ## 11. 不在本方案范围内
 
-- 后端 prompt / Eino Graph / RAG 召回链路改动；
+- 后端 prompt / Eino Graph / 资料召回链路改动；
 - 新增建模主题（例如波动光学）；
 - 国际化与暗色模式系统级切换（globals.css 已预留，但本次不实施）；
 - 游戏化任务舱（见 `docs/snowy-v4-redesign-blueprint.md`，另行排期）。

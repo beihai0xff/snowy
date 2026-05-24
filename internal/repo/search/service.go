@@ -12,8 +12,8 @@ type ResultRanker interface {
 	Rank(ctx context.Context, results []Result, query *ParsedQuery) []Result
 }
 
-// Service 知识检索域应用服务接口。
+// Service 知识点直答域应用服务接口。
 type Service interface {
-	// Query 执行知识检索，返回结构化响应。
+	// Query 执行知识点直答，返回结构化学习响应。
 	Query(ctx context.Context, q *Query) (*Response, error)
 }
