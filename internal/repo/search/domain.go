@@ -1,6 +1,6 @@
-// Package search 定义知识检索域的领域模型与接口。
-// 有界上下文：Knowledge Search — 查询理解、多路召回、结果重排、引用拼装。
-// 参考技术方案 §9.3 & §11.1。
+// Package search 定义知识点直答域的领域模型与预留检索接口。
+// 有界上下文：Knowledge Answer — 查询理解、LLM 直答、结构化学习辅助、参考信息拼装。
+// 当前默认运行链路不接入外部检索仓库；OpenSearch/Embedding 作为后续可选扩展。
 package search
 
 import (
@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Query 检索请求领域模型。
+// Query 知识点回答请求领域模型。
 type Query struct {
 	SessionID uuid.UUID `json:"session_id,omitempty"`
 	UserID    uuid.UUID `json:"user_id,omitempty"`
@@ -34,7 +34,7 @@ type ParsedQuery struct {
 	Embedding []float64 `json:"-"`
 }
 
-// Result 单条检索结果。
+// Result 单条可选检索结果；默认 LLM 直答链路不会生成该类型。
 type Result struct {
 	DocID      string   `json:"doc_id"`
 	SourceType string   `json:"source_type"`
@@ -45,7 +45,7 @@ type Result struct {
 	Tags       []string `json:"tags,omitempty"`
 }
 
-// Citation 引用片段，参考技术方案 §13.3。
+// Citation 表示回答参考信息；当前默认值通常为 runtime grounding。
 type Citation struct {
 	DocID      string  `json:"doc_id"`
 	SourceType string  `json:"source_type"`
@@ -92,7 +92,7 @@ type LearningAction struct {
 	Tags        []string `json:"tags,omitempty"`
 }
 
-// Response 检索响应，参考技术方案 §13.3。
+// Response 知识点直答响应。
 type Response struct {
 	AnswerID         string             `json:"answer_id,omitempty"`
 	Answer           string             `json:"answer"`

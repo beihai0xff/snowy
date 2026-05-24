@@ -55,12 +55,12 @@ type HistoryInput struct {
 	Limit  int
 }
 
-// SearchTool 知识检索工具。
+// SearchTool 知识点直答工具；当前默认链路不访问外部检索仓库。
 type SearchTool struct {
 	searchService searchdomain.Service
 }
 
-// NewSearchTool 创建知识检索工具。
+// NewSearchTool 创建知识点直答工具。
 func NewSearchTool(searchService searchdomain.Service) *SearchTool {
 	return &SearchTool{searchService: searchService}
 }
@@ -203,14 +203,17 @@ func (t *ChemistryAnalyzeTool) Run(ctx context.Context, input any) (any, error) 
 	return pkg, nil
 }
 
-// CitationTool 引用拼装工具。
+// CitationTool 参考信息拼装工具。
 type CitationTool struct{}
 
-// NewCitationTool 创建引用工具。
+// NewCitationTool 创建参考信息工具。
 func NewCitationTool() *CitationTool { return &CitationTool{} }
 
-func (t *CitationTool) Name() string        { return "CitationTool" }
-func (t *CitationTool) Description() string { return "拼装引用片段和来源信息" }
+func (t *CitationTool) Name() string { return "CitationTool" }
+func (t *CitationTool) Description() string {
+	return "拼装 runtime grounding 或已接入资料索引后的参考信息"
+}
+
 func (t *CitationTool) Run(_ context.Context, input any) (any, error) {
 	switch value := input.(type) {
 	case *searchdomain.Response:

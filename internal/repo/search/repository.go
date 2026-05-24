@@ -2,18 +2,18 @@ package search
 
 import "context"
 
-// Repository 检索持久化/索引端口（DDD Port）。
-// 由基础设施层（OpenSearch adapter）实现。
+// Repository 可选检索持久化/索引端口（DDD Port）。
+// 由基础设施层（OpenSearch adapter）实现；当前默认运行链路未注入该端口。
 type Repository interface {
-	// Search 执行检索（全文+向量+标签混合）。
+	// Search 执行可选检索（全文+向量+标签混合）。
 	Search(ctx context.Context, query *ParsedQuery, filters Filters, offset, limit int) ([]Result, int64, error)
 	// GetByDocID 根据文档 ID 获取详情。
 	GetByDocID(ctx context.Context, docID string) (*Result, error)
 }
 
-// LogRepository 检索日志持久化端口。
+// LogRepository 查询日志持久化端口。
 type LogRepository interface {
-	// SaveLog 保存检索日志。
+	// SaveLog 保存查询日志。
 	SaveLog(ctx context.Context, log *Log) error
 }
 

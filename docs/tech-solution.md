@@ -13,14 +13,14 @@
 
 ### 2.1 项目目标
 Snowy 面向高中生打造一款 Web 端 AIGC 学习平台，首发能力覆盖：
-- 高中知识检索
+- 高中知识点直答
 - 高中物理 / 3D 场景建模（推导说明 + 前端代码生成 + 浏览器渲染 + 参数调节）
 - 高中生物建模（概念识别 + 关系抽取 + 过程拆解 + 实验变量分析）
 
 ### 2.2 技术目标
-围绕首发范围“知识检索 + 物理 / 3D 场景建模 + 生物建模”，构建一套以 Go 为核心后端的前后端分离系统，实现：
-- 统一索引课本与考纲、题库与讲义；
-- 基于 RAG 的高可信知识检索；
+围绕首发范围“知识点直答 + 物理 / 3D 场景建模 + 生物建模”，构建一套以 Go 为核心后端的前后端分离系统，实现：
+- 基于 LLM 直答的结构化学习回答；
+- 基于 OpenSearch / Embedding 的资料索引预留能力（当前默认运行链路未接入）；
 - 基于 Agent 编排的大模型推理与工具调用；
 - 基于大模型生成受限前端代码，用于物理 / 3D 场景演示；
 - 基于代码白名单、AST 校验与浏览器沙箱的安全渲染；
@@ -41,8 +41,8 @@ Snowy 面向高中生打造一款 Web 端 AIGC 学习平台，首发能力覆盖
 
 ## 3. 技术原则
 
-1. **引用优先**：所有回答优先基于检索结果，不允许无依据生成。
-2. **协议优先**：检索结果、推导步骤、Render Manifest、关系图协议统一结构化输出。
+1. **边界优先**：当前默认问答链路不声称已接入资料检索；回答必须明确区分 runtime grounding 与真实资料引用。
+2. **协议优先**：知识点回答、推导步骤、Render Manifest、关系图协议统一结构化输出。
 3. **Agent 可控优先**：工具调用、模型路由、上下文管理、回退逻辑必须可观测、可审计。
 4. **模型生成 + 规则约束协同**：大模型负责理解与生成前端代码，规则引擎负责 AST、依赖白名单、危险 API 与结构合法性校验。
 5. **前后端分离**：前后端独立开发、独立部署，但放在同一 git repo。
@@ -55,7 +55,7 @@ Snowy 面向高中生打造一款 Web 端 AIGC 学习平台，首发能力覆盖
 ## 4.1 Go 实现 Agent 服务的可行性结论
 Snowy 的 Agent 服务需要解决的问题不是“通用聊天”，而是：
 - 识别用户意图；
-- 编排知识检索、物理 / 3D 场景生成、生物建模等工具；
+- 编排知识点直答、物理 / 3D 场景生成、生物建模等工具；
 - 管理多轮会话上下文；
 - 对接多模型供应商；
 - 执行结构化输出校验与回退；
@@ -137,7 +137,7 @@ Snowy 的 Agent 服务需要解决的问题不是“通用聊天”，而是：
 | **ChatModel 抽象** | 统一封装 OpenAI-compatible Chat Completions 协议，天然支持 Structured Output、Tool Calling、流式 |
 | **Tool / Function Calling** | 内置 Tool 注册与调用协议，支持 schema 自动生成 |
 | **Graph 编排** | 有向图编排（类 LangGraph），节点可为 ChatModel / Tool / Retriever / Lambda，支持条件分支、并行、循环 |
-| **Chain 编排** | 线性链路编排，适合简单 RAG pipeline |
+| **Chain 编排** | 线性链路编排，可用于后续简单检索增强 pipeline |
 | **Retriever 抽象** | 统一检索接口，可对接 OpenSearch / Elasticsearch / 向量库 |
 | **Memory / ChatHistory** | 内置会话记忆管理，支持窗口、摘要、token 裁剪 |
 | **Callbacks** | 全链路回调钩子，天然适配 OpenTelemetry / Prometheus / 审计日志 |
@@ -436,7 +436,7 @@ graph TB
 选择原因：
 - 减少双引擎复杂度；
 - 统一全文与向量能力；
-- 更适合知识检索主场景。
+- 更适合后续资料索引与检索增强主场景。
 
 ## 6.3 LLM 与 AI 侧选型
 
@@ -532,7 +532,7 @@ snowy/
       callback/                # 审计、OTel、日志等回调
       assembler/               # 结果组装
 
-    search/                    # 知识检索域
+    search/                    # 知识点直答域；可选检索端口保留
       service/
       repository/
       ranking/
@@ -771,11 +771,11 @@ flowchart TD
     Classify -->|biology| BiologyBranch
     Classify -->|auto| AutoDetect["自动检测意图"] --> Classify
 
-    subgraph SearchBranch ["知识检索链路"]
-        S1["SearchTool<br/>多路召回"] --> S2["构造 RAG Prompt"]
+    subgraph SearchBranch ["知识点直答链路"]
+        S1["SearchTool<br/>LLM 直答"] --> S2["构造知识点直答 Prompt"]
         S2 --> S3["调用 models[] 顺序链路"]
         S3 --> S4{"结构化输出校验"}
-        S4 -->|通过| S5["CitationTool<br/>引用拼装"]
+        S4 -->|通过| S5["CitationTool<br/>runtime grounding 拼装"]
         S4 -->|失败| S6["顺序链路重试"] --> S5
     end
 
@@ -839,7 +839,7 @@ flowchart TD
 ## 10.6 同步与异步模式
 ### 同步模式
 用于：
-- 普通知识检索
+- 普通知识点直答
 - 单次物理分析
 - 单次生物分析
 
@@ -871,12 +871,12 @@ graph LR
         Intent -->|"physics"| PT["PhysicsToolNode<br/>(eino/tool)"]
         Intent -->|"biology"| BT["BioToolNode<br/>(eino/tool)"]
 
-        ST --> RAG["RAGNode<br/>(ChatModel + Retriever)"]
+        ST --> DirectAnswer["DirectAnswerNode<br/>(ChatModel)"]
         PT --> RenderCode["RenderCodeNode<br/>(ChatModel + 代码/安全校验)"]
         BT --> BioSearch["BioSearchNode<br/>(Retriever)"]
         BioSearch --> BioModel["BioModelNode<br/>(ChatModel + 关系校验)"]
 
-        RAG --> Validate["ValidateNode<br/>(Schema 校验)"]
+        DirectAnswer --> Validate["ValidateNode<br/>(Schema 校验)"]
         RenderCode --> Validate
         BioModel --> Validate
 
@@ -908,7 +908,8 @@ graph LR
 | `PrePolicyNode` / `PostPolicyNode` | Eino Callback + 自定义中间件 | 业务自研 |
 | `IntentNode` | `eino/model` ChatModel + Structured Output | 半自研（Prompt 自写） |
 | `SearchToolNode` / `PhysicsToolNode` / `BioToolNode` | `eino/tool` | 直接使用，工具实现自研 |
-| `RAGNode` | `eino/model` + `eino/retriever` | 直接使用 |
+| `DirectAnswerNode` | `eino/model` | 当前默认使用 |
+| `RetrieverNode` | `eino/retriever` | 后续资料索引接入时使用 |
 | `RenderCodeNode` | `eino/model` + 自定义代码校验器 | 半自研 |
 | `ValidateNode` | 自定义 Lambda | 业务自研 |
 | `FallbackNode` | 自定义降级节点 | 业务自研 |
@@ -919,13 +920,13 @@ graph LR
 
 ## 11. 核心业务链路
 
-## 11.1 知识检索链路
+## 11.1 知识点直答链路
 1. 前端提交 query、filters、session_id；
 2. API Gateway 鉴权并路由到 Agent Service；
 3. Agent 判断为 `search` 或 `auto -> search`；
-4. Search Service 执行全文、向量、标签、题库多路召回；
-5. Search Service 返回候选结果与引用片段；
-6. Agent 构造 RAG prompt；
+4. Search Service 在当前默认配置下调用 LLM 直答，不访问 OpenSearch 或 embedding provider；
+5. Search Service 生成结构化回答、知识标签、公式卡、易错点、相关问题和 runtime grounding；
+6. Agent 构造知识点直答 prompt；
 7. 调用 `llm.models[]` 声明顺序链路生成结构化答案；
 8. 若模型链路失败或质量不足，进入低可信降级；
 9. 返回 `answer + citations + knowledge_tags + related_questions + confidence`。
@@ -951,11 +952,11 @@ graph LR
 8. 输出结构图/流程图协议；
 9. 若关系冲突或结构异常，则按模型链路重试；仍失败时回退到模板化结果。
 
-## 11.4 检索跳转建模链路
-1. 用户在知识检索结果页点击“进入物理建模”或“进入生物建模”；
+## 11.4 提问跳转建模链路
+1. 用户在提问结果页点击“进入物理建模”或“进入生物建模”；
 2. 前端携带 query、citations、knowledge_tags 跳转；
 3. Agent 读取上下文并进入对应建模模式；
-4. 降低重复检索成本并提高回答连贯性。
+4. 降低重复分析成本并提高回答连贯性。
 
 ---
 
@@ -1010,19 +1011,19 @@ graph LR
 
 ---
 
-## 13. RAG 与 Prompt 编排设计
+## 13. 知识点直答与可选检索编排设计
 
-## 13.1 RAG 目标
-确保所有回答尽量“基于证据生成”，而不是“凭空生成”。
+## 13.1 当前目标
+当前默认运行链路确保回答结构清晰、边界明确，并通过 runtime grounding 标注其来自用户题干与高中阶段通用知识；OpenSearch / Embedding / 资料索引属于预留能力，接入后才能升级为真正的资料召回增强。
 
 ## 13.2 Prompt 设计原则
-- 优先使用检索结果内容；
+- 不声称使用未接入的外部检索结果；
 - 必须输出固定结构；
 - 回答语言适配高中生；
-- 必须区分“引用事实”和“模型总结”；
+- 必须区分“runtime grounding”和“真实资料引用”；
 - 生物场景必须明确概念、关系、阶段、变量。
 
-## 13.3 知识检索输出协议
+## 13.3 知识点直答输出协议
 ```json
 {
   "answer": "string",

@@ -51,6 +51,7 @@ const sourceLabel: Record<string, string> = {
   exercise: '题库',
   lecture:  '讲义',
   paper:    '文献',
+  runtime_grounding: '参考信息',
 };
 
 function confidenceLevel(value: number): { tone: 'ok' | 'warn' | 'err'; label: string } {
@@ -67,7 +68,7 @@ function inferModelingSubject(text: string, selectedSubject?: string): 'physics'
 
 function CitationsList({ citations, onJump }: { citations: Citation[]; onJump?: (index: number) => void }) {
   if (!citations.length) {
-    return <Text type="secondary" style={{ fontSize: 13 }}>暂无引用</Text>;
+    return <Text type="secondary" style={{ fontSize: 13 }}>暂无参考信息</Text>;
   }
   return (
     <div>
@@ -278,7 +279,7 @@ function AskPageInner() {
       const res = await api.searchQuery({ query: trimmed, filters: { subject, grade } });
       setResult(res.data ?? null);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : '检索失败，请稍后重试';
+      const msg = error instanceof Error ? error.message : '回答生成失败，请稍后重试';
       setErrorText(msg);
       setResult(null);
       message.error(msg);
@@ -348,7 +349,7 @@ function AskPageInner() {
             onChange={(v) => setViewMode(v as 'search' | 'chat')}
             options={[
               { label: '对话 · 推演演示', value: 'chat' },
-              { label: '检索 · 一次性答案', value: 'search' },
+              { label: '直答 · 一次性答案', value: 'search' },
             ]}
           />
           <Popover
@@ -446,7 +447,7 @@ function AskPageInner() {
         <Alert
           type="error"
           showIcon
-          message="检索失败"
+          message="回答生成失败"
           description={errorText}
           action={<Button size="small" icon={<ReloadOutlined />} onClick={() => void runSearch(query)}>重试</Button>}
           style={{ marginBottom: 16, borderRadius: 12 }}
@@ -457,7 +458,7 @@ function AskPageInner() {
       {viewMode === 'search' && loading && (
         <div className="snowy-loading-card">
           <span className="snowy-spinner" />
-          <span>正在检索证据并组织答案…</span>
+          <span>正在组织答案和学习辅助信息…</span>
         </div>
       )}
 
@@ -468,7 +469,7 @@ function AskPageInner() {
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={(
               <Space direction="vertical" size={12} align="center">
-                <Text>输入一个问题，Snowy 会先查证据，再给答案。</Text>
+                <Text>输入一个问题，Snowy 会直接组织答案、公式卡和易错点。</Text>
                 <Space wrap size={8}>
                   {askExamples.map((q) => (
                     <button key={q} className="snowy-chip" type="button" onClick={() => { setQuery(q); void runSearch(q); }}>
@@ -493,7 +494,7 @@ function AskPageInner() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: 14 }}>
                   {confidence?.label}（{Math.round(result.confidence * 100)}%）
-                  {result.citations?.length ? `，基于 ${result.citations.length} 条引用` : ''}
+                  {result.citations?.length ? `，包含 ${result.citations.length} 条参考信息` : ''}
                 </div>
                 {result.confidence < 0.5 && (
                   <Text type="secondary" style={{ fontSize: 12 }}>建议补充题干、限定学科年级，或进入推演舱让 AI 重新分析。</Text>
@@ -621,12 +622,12 @@ function AskPageInner() {
             />
           </article>
 
-          {/* 右列：证据 + 相关问题 */}
+          {/* 右列：参考信息 + 相关问题 */}
           <aside className="snowy-ask-aside">
             <Space direction="vertical" size={20} style={{ width: '100%' }}>
               <section>
                 <div className="snowy-section-title">
-                  <h2>证据 · {result.citations?.length || 0} 条</h2>
+                  <h2>参考信息 · {result.citations?.length || 0} 条</h2>
                   <Text type="secondary" style={{ fontSize: 13 }}>平均 {evidenceScore}%</Text>
                 </div>
                 <div id="snowy-citations-anchor">
