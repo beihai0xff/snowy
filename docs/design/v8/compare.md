@@ -198,7 +198,7 @@ v5                    →   v6
 
 ### Phase 0 · 视觉令牌迁移（0.5 天）
 
-- [ ] 把 [`docs/design/v6/tokens.css`](./tokens.css) 的变量定义合并到 [`web/snowy-web/app/globals.css`](../../../web/snowy-web/app/globals.css) 顶部
+- [ ] 把 [`docs/design/v6/tokens.css`](tokens.css) 的变量定义合并到 [`web/snowy-web/app/globals.css`](../../../web/snowy-web/app/globals.css) 顶部
 - [ ] 删除 v5 的 `--snowy-*` 变量与所有 `body::before / body::after` 装饰 CSS
 - [ ] AntD `ConfigProvider` 主题（[`AppLayout.tsx`](../../../web/snowy-web/components/layout/AppLayout.tsx)）从 `darkAlgorithm` 改为默认；`colorPrimary` 改 `#2563EB`，`colorBgContainer` 改 `#FFFFFF`，`borderRadius: 12`
 

@@ -16,6 +16,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { api, clearAuthTokens, setAuthTokens, type User } from '@/lib/api';
+import BrandMark from '@/components/common/BrandMark';
 
 const { Header, Content } = Layout;
 const { Text } = Typography;
@@ -237,7 +238,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter') router.push('/'); }}
           >
-            <span className="snowy-brand-mark">❄</span>
+            <span className="snowy-brand-mark"><BrandMark size={28} /></span>
             <span className="snowy-brand-name">Snowy</span>
           </div>
           <Menu

@@ -71,13 +71,13 @@ graph LR
 | 监控页 | 与全站脱节的 `#fafafa` 浅灰 | 同色板浅色，与全站统一 |
 | 移动端 | 1180px 以下退化 | 双视图同等设计 |
 
-详见 [`compare.md`](./compare.md)。
+详见 [`compare.md`](compare.md)。
 
 ---
 
 ## 4. 设计令牌（速览）
 
-完整定义见 [`tokens.css`](./tokens.css)。
+完整定义见 [`tokens.css`](tokens.css)。
 
 ### 色板
 
@@ -142,23 +142,23 @@ graph LR
 
 | 路由 | 原型 | 重点变化 |
 |---|---|---|
-| `/` | [`home.html`](./prototype/home.html) | 砍掉轨道图 / 能力雷达 / 学习链路 / Mission Cockpit kicker；首屏 = 搜索框 + 三能力卡 + 最近学习 + 今日推荐 |
-| `/ask`（原 `/search`） | [`ask.html`](./prototype/ask.html) | 论文式答案排版；引用脚注 [1][2] 内联；公式卡 / 易错点用手风琴折叠 |
-| `/modeling` | [`modeling.html`](./prototype/modeling.html) | 画布占 70%；证据从左栏移到顶部折叠条；AI 教练右栏；物理 / 生物两态 |
-| `/learning` | [`learning.html`](./prototype/learning.html) | 顶部统计卡 + 4 Tab（最近·收藏·答案·模型包）+ 表格化列表；含未登录态 |
-| `/admin/llm` | [`admin-llm.html`](./prototype/admin-llm.html) | 从主导航移除；与全站同色板；4 统计卡 + 3 Tab |
-| 组件参考 | [`components.html`](./prototype/components.html) | 按钮 / 输入 / 标签 / 卡片 / 空状态 / 加载态全集 |
+| `/` | [`home.html`](prototype/home.html) | 砍掉轨道图 / 能力雷达 / 学习链路 / Mission Cockpit kicker；首屏 = 搜索框 + 三能力卡 + 最近学习 + 今日推荐 |
+| `/ask`（原 `/search`） | [`ask.html`](prototype/ask.html) | 论文式答案排版；引用脚注 [1][2] 内联；公式卡 / 易错点用手风琴折叠 |
+| `/modeling` | [`modeling.html`](prototype/modeling.html) | 画布占 70%；证据从左栏移到顶部折叠条；AI 教练右栏；物理 / 生物两态 |
+| `/learning` | [`learning.html`](prototype/learning.html) | 顶部统计卡 + 4 Tab（最近·收藏·答案·模型包）+ 表格化列表；含未登录态 |
+| `/admin/llm` | [`admin-llm.html`](prototype/admin-llm.html) | 从主导航移除；与全站同色板；4 统计卡 + 3 Tab |
+| 组件参考 | [`components.html`](prototype/components.html) | 按钮 / 输入 / 标签 / 卡片 / 空状态 / 加载态全集 |
 
 ---
 
 ## 6. 工程做法（HTML 原型）
 
 - **纯 HTML / CSS / 极少 vanilla JS**，不引入框架
-- 所有页面共用 [`tokens.css`](./tokens.css) + [`components.css`](./components.css) + [`prototype/shell.js`](./prototype/shell.js)
+- 所有页面共用 [`tokens.css`](tokens.css) + [`components.css`](components.css) + [`prototype/shell.js`](prototype/shell.js)
 - 真实文本（PRD 案例：平抛运动 / 光合作用 / 牛顿第二定律），不写 lorem ipsum
 - 数据用静态 mock，每个 HTML 末尾的 `<!-- -->` 注释贴对应 API 示例 JSON
 - 桌面基线 1440 宽，移动基线 375 宽
-- 主题切换 / 移动预览 / 导航高亮通过 [`prototype/shell.js`](./prototype/shell.js) 实现，localStorage 持久化
+- 主题切换 / 移动预览 / 导航高亮通过 [`prototype/shell.js`](prototype/shell.js) 实现，localStorage 持久化
 
 ---
 
@@ -178,7 +178,7 @@ graph LR
 
 设计稿 review 通过后，**实现阶段**可以这样落地（不在本稿范围，仅做衔接预案）：
 
-1. 把 [`tokens.css`](./tokens.css) 的 CSS 变量迁移到 `web/snowy-web/app/globals.css`，替换现有 `--snowy-*` 变量
+1. 把 [`tokens.css`](tokens.css) 的 CSS 变量迁移到 `web/snowy-web/app/globals.css`，替换现有 `--snowy-*` 变量
 2. AntD 主题适配：在 [`AppLayout.tsx`](../../../web/snowy-web/components/layout/AppLayout.tsx) 的 `ConfigProvider` 把 `algorithm` 从 `darkAlgorithm` 改为默认（亮色），`token` 颜色对齐新色板
 3. 重写 5 个页面（按本稿原型一一对应）
 4. 路由迁移：`/search` → `/ask`（保留 redirect），`/monitoring` → `/admin/llm`

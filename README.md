@@ -1,4 +1,13 @@
-# ❄️ Snowy
+<p align="center">
+  <img src="docs/assets/brand/logo-wordmark.svg" alt="Snowy" height="48" />
+</p>
+
+<p align="center">
+  <strong>面向高中生的 AI 学习工具</strong><br/>
+  <em>用大白话提问 · 用动画看公式 · 用图谱理流程</em>
+</p>
+
+---
 
 **Snowy** 是一款面向高中生的 Web 端 AIGC 学习平台。基于 RAG 检索增强生成与 Agent 智能编排，为学生提供高可信度的知识问答、物理 / 3D 场景代码生成渲染与生物概念建模能力。
 

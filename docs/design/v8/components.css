@@ -83,14 +83,15 @@
 }
 
 .brand__mark {
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: var(--radius-md);
-  background: var(--color-primary);
-  color: var(--color-primary-text);
-  font-size: 16px;
+  color: var(--color-primary);
+}
+.brand:hover .brand__mark {
+  color: var(--color-primary-hover);
 }
 
 /* ============================================================
